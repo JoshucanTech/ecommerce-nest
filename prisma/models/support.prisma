@@ -1,0 +1,59 @@
+model SupportTicket {
+  id          String              @id @default(uuid())
+  subject     String
+  description String
+  status      SupportTicketStatus @default(OPEN)
+  priority    TicketPriority      @default(MEDIUM)
+  userId      String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responses   TicketResponse[]
+
+  @@map("support_tickets")
+}
+
+model TicketResponse {
+  id              String         @id @default(uuid())
+  content         String
+  supportTicketId String
+  respondentId    String
+  respondentType  RespondentType
+  createdAt       DateTime       @default(now())
+  supportTicket   SupportTicket  @relation(fields: [supportTicketId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_responses")
+}
+
+model Faq {
+  id          String   @id @default(uuid())
+  question    String
+  answer      String
+  category    String
+  isPublished Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("faqs")
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RespondentType {
+  USER
+  ADMIN
+  SYSTEM
+}

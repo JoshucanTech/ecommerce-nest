@@ -1,0 +1,55 @@
+model Product {
+  id             String          @id @default(uuid())
+  name           String
+  description    String
+  price          Float
+  discountPrice  Float?
+  quantity       Int             @default(0)
+  sku            String          @unique
+  images         String[]
+  isPublished    Boolean         @default(false)
+  vendorId       String
+  categoryId     String
+  slug           String          @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  cartItems      CartItem[]
+  comments       Comment[]
+  flashSaleItems FlashSaleItem[]
+  inventory      Inventory?
+  orderItems     OrderItem[]
+  category       Category        @relation(fields: [categoryId], references: [id])
+  vendor         Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  reviews        Review[]
+  wishlistItems  WishlistItem[]
+
+  @@map("products")
+}
+
+model Inventory {
+  id                String   @id @default(uuid())
+  productId         String   @unique
+  vendorId          String
+  quantity          Int      @default(0)
+  lowStockThreshold Int      @default(10)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  vendor            Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("inventory")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int
+  comment   String?
+  productId String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}

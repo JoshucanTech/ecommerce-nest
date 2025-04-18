@@ -1,0 +1,61 @@
+model Rider {
+  id               String            @id @default(uuid())
+  userId           String            @unique
+  vehicleType      VehicleType
+  vehiclePlate     String?
+  licenseNumber    String?
+  identityDocument String?
+  isVerified       Boolean           @default(false)
+  isAvailable      Boolean           @default(false)
+  currentLatitude  Float?
+  currentLongitude Float?
+  rating           Float             @default(0)
+  totalRatings     Int               @default(0)
+  status           ApplicationStatus @default(PENDING)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deliveries       Delivery[]
+  Payment          Payment[]
+  earnings         RiderEarning[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("riders")
+}
+
+model RiderEarning {
+  id          String        @id @default(uuid())
+  riderId     String
+  amount      Float
+  status      PaymentStatus @default(PENDING)
+  description String?
+  deliveryId  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  delivery    Delivery?     @relation(fields: [deliveryId], references: [id])
+  rider       Rider         @relation(fields: [riderId], references: [id], onDelete: Cascade)
+
+  @@map("rider_earnings")
+}
+
+model RiderApplication {
+  id               String            @id @default(uuid())
+  userId           String            @unique
+  vehicleType      VehicleType
+  vehiclePlate     String?
+  licenseNumber    String
+  identityDocument String
+  status           ApplicationStatus @default(PENDING)
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@map("rider_applications")
+}
+
+enum VehicleType {
+  BICYCLE
+  MOTORCYCLE
+  CAR
+  VAN
+  TRUCK
+}

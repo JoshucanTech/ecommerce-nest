@@ -1,0 +1,41 @@
+model Payment {
+  id                   String        @id @default(uuid())
+  orderId              String?
+  riderId              String?
+  userId               String
+  amount               Float
+  method               PaymentMethod
+  status               PaymentStatus @default(PENDING)
+  transactionReference String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  paymentType          PaymentType
+  details              Json?
+  entityId             String?
+  order                Order?        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  rider                Rider?        @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  PAYPAL
+  BANK_TRANSFER
+  CASH_ON_DELIVERY
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentType {
+  ORDER
+  RIDER_PAYMENT
+  FEATURE_PAYMENT
+}

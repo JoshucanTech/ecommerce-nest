@@ -1,0 +1,110 @@
+model User {
+  id               String          @id @default(uuid())
+  email            String          @unique
+  password         String?
+  firstName        String?
+  lastName         String?
+  phone            String?
+  avatar           String?
+  role             UserRole        @default(BUYER)
+  isActive         Boolean         @default(true)
+  emailVerified    Boolean         @default(false)
+  googleId         String?         @unique
+  facebookId       String?         @unique
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  paymentMethods   PaymentMethod[]
+  addresses        Address[]
+  cart             Cart?
+  Category         Category[]
+  comments         Comment[]
+  receivedMessages Message[]       @relation("ReceivedMessages")
+  messages         Message[]       @relation("UserMessages")
+  notifications    Notification[]
+  orders           Order[]         @relation("UserOrders")
+  Payment          Payment[]
+  profile          Profile?
+  reviews          Review[]
+  rider            Rider?
+  supportTickets   SupportTicket[]
+  settings         UserSettings?
+  userTokens       UserTokens[]
+  vendor           Vendor?
+  wishlistItems    WishlistItem[]
+
+  @@map("users")
+}
+
+model Profile {
+  id        String    @id @default(uuid())
+  bio       String?
+  gender    Gender?
+  birthDate DateTime?
+  avatar    String?
+  userId    String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  street     String
+  city       String
+  state      String
+  postalCode String
+  country    String
+  isDefault  Boolean  @default(false)
+  userId     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@map("addresses")
+}
+
+model UserTokens {
+  id               String   @id @default(uuid())
+  refreshToken     String   @unique
+  accessToken      String   @unique
+  userId           String
+  refreshExpiresAt DateTime
+  accessExpiresAt  DateTime
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_tokens")
+}
+
+model UserSettings {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  language           String   @default("en")
+  currency           String   @default("USD")
+  darkMode           Boolean  @default(false)
+  emailNotifications Boolean  @default(true)
+  pushNotifications  Boolean  @default(true)
+  smsNotifications   Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+enum UserRole {
+  ADMIN
+  SUB_ADMIN
+  VENDOR
+  BUYER
+  RIDER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}

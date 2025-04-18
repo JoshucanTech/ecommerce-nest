@@ -1,0 +1,59 @@
+model Coupon {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  description   String?
+  discountType  DiscountType
+  discountValue Float
+  minPurchase   Float?
+  maxDiscount   Float?
+  startDate     DateTime
+  endDate       DateTime
+  isActive      Boolean      @default(true)
+  usageLimit    Int?
+  usageCount    Int          @default(0)
+  vendorId      String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  vendor        Vendor?      @relation(fields: [vendorId], references: [id])
+  orders        Order[]
+
+  @@map("coupons")
+}
+
+model FlashSale {
+  id          String          @id @default(uuid())
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean         @default(true)
+  vendorId    String
+  slug        String          @unique
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  items       FlashSaleItem[]
+  vendor      Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("flash_sales")
+}
+
+model FlashSaleItem {
+  id                 String    @id @default(uuid())
+  flashSaleId        String
+  productId          String
+  discountPercentage Float
+  quantity           Int
+  soldCount          Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  flashSale          FlashSale @relation(fields: [flashSaleId], references: [id], onDelete: Cascade)
+  product            Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([flashSaleId, productId])
+  @@map("flash_sale_items")
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}

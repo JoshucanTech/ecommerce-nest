@@ -1,0 +1,18 @@
+model Category {
+  id            String     @id @default(uuid())
+  name          String
+  description   String?
+  image         String?
+  userId        String
+  user          User       @relation(fields: [userId], references: [id]) // ✅ user can own many categories
+  parentId      String?
+  slug          String     @unique
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  isActive      Boolean    @default(true)
+  parent        Category?  @relation("CategorySubCategories", fields: [parentId], references: [id])
+  subCategories Category[] @relation("CategorySubCategories")
+  products      Product[]
+
+  @@map("categories")
+}
