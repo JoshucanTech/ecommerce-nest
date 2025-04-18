@@ -1,8 +1,11 @@
 model Order {
   id            String        @id @default(uuid())
   orderNumber   String        @unique
-  userId        String
+  userId        String?
+  user          User?         @relation("UserOrders", fields: [userId], references: [id], onDelete: SetNull)
   vendorId      String?
+  tax           Float?
+  shipping      Float?
   totalAmount   Float
   status        OrderStatus   @default(PENDING)
   paymentStatus PaymentStatus @default(PENDING)
@@ -15,7 +18,6 @@ model Order {
   items         OrderItem[]
   address       Address?      @relation(fields: [addressId], references: [id])
   coupon        Coupon?       @relation(fields: [couponId], references: [id])
-  user          User          @relation("UserOrders", fields: [userId], references: [id])
   vendor        Vendor?       @relation("VendorOrders", fields: [vendorId], references: [id])
   Payment       Payment[]
 
