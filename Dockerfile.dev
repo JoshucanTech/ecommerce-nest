@@ -7,9 +7,11 @@ COPY prisma ./prisma/
 
 RUN npm ci
 
+RUN npx prisma db seed
+
 COPY . .
 
-EXPOSE 3001
+EXPOSE 4000
 
 CMD ["npm", "run", "start:dev"]
 

@@ -12,6 +12,7 @@ import {
 } from "@prisma/client"
 import * as bcrypt from "bcrypt"
 import { generateSlug } from "src/utils/slug-generator"
+import { faker } from '@faker-js/faker';
 
 
 const prisma = new PrismaClient()
@@ -29,10 +30,12 @@ async function main() {
   await prisma.delivery.deleteMany()
   await prisma.payment.deleteMany()
   await prisma.notification.deleteMany()
+  await prisma.flashSaleItem.deleteMany()
   await prisma.flashSale.deleteMany()
   await prisma.coupon.deleteMany()
   await prisma.supportTicket.deleteMany()
   await prisma.faq.deleteMany()
+  await prisma.review.deleteMany()
 
   console.log("Seeding database...")
 
@@ -254,71 +257,53 @@ async function main() {
   // Create products
   const vendorId = (await prisma.vendor.findFirst({ where: { userId: vendorUser.id } })).id
 
-  const products = await Promise.all([
-    prisma.product.create({
-      data: {
-        name: "Smartphone X",
-        slug: "smartphone-x",
-        description: "Latest smartphone with amazing features",
-        price: 999.99,
-        discountPrice: 899.99,
-        quantity: 100,
-        sku: "PHONE-X-001",
-        images: ["/placeholder.svg?height=300&width=300","https://example.com/phone-x-1.jpg", "https://example.com/phone-x-2.jpg"],
-        isPublished: true,
-        vendorId,
-        categoryId: categories[0].id,
-        inventory: {
-          create: {
-            quantity: 100,
-            vendorId,
+
+  // Seed Products with Faker
+  const products = await Promise.all(
+    Array.from({ length: 6 }).map(() => {
+      const name = faker.commerce.productName();
+      const slug = faker.helpers.slugify(name.toLowerCase());
+      const price = parseFloat(faker.commerce.price({ min: 200, max: 500 }));
+      
+      return prisma.product.create({
+        data: {
+          name,
+          slug,
+          description: faker.commerce.productDescription(),
+          price,
+          discountPrice: price - (price * 0.2),
+          quantity: faker.number.int({ min: 10, max: 100 }),
+          sku: faker.string.alphanumeric(8).toUpperCase(),
+          images: [faker.image.url(), faker.image.url()],
+          isPublished: true,
+          vendorId,
+          categoryId: categories[0].id,
+          inventory: {
+            create: {
+              quantity: faker.number.int({ min: 10, max: 100 }),
+              vendorId,
+            },
           },
+
         },
-      },
-    }),
-    prisma.product.create({
-      data: {
-        name: "Cotton T-Shirt",
-        slug: "cotton-t-shirt",
-        description: "Comfortable cotton t-shirt for everyday wear",
-        price: 1529.99,
-        discountPrice: 1399.99,
-        quantity: 100,
-        sku: "TS-001",
-        images: ["/placeholder.svg?height=300&width=300"],
-        isPublished: true,
-        vendorId,
-        categoryId: categories[1].id,
-        inventory: {
-          create: {
-            quantity: 100,
-            vendorId,
-          },
-        },
-      },
-    }),
-    prisma.product.create({
-      data: {
-        name: "Stainless Steel Cookware Set",
-        slug: "stainless-steel-cookware-set",
-        description: "Durable cookware set for all your cooking needs",
-        price: 149.99,
-        quantity: 30,
-        sku: "CK-001",
-        images: ["/placeholder.svg?height=300&width=300"],
-        isPublished: true,
-        vendorId,
-        categoryId: categories[2].id,
-        inventory: {
-          create: {
-            quantity: 30,
-            vendorId,
-          },
-        },
-      },
-    }),
-  ])
+      });
+    })
+  );
+
   console.log("Created products:", products.map((p) => p.name).join(", "))
+
+  // Add Review .
+  const reviews = await prisma.review.create({
+    data: {
+      rating: 5,
+      comment: 'Excellent phone!',
+      productId: products[0].id,
+      userId: buyer.id,
+    },
+  });
+
+  console.log("Created reviews for buyer:", reviews)
+
 
   // Create cart
   const cart = await prisma.cart.create({
@@ -413,6 +398,7 @@ async function main() {
   const flashSale = await prisma.flashSale.create({
     data: {
       name: "Summer Sale",
+      description: 'Biggest discounts of the summer',
       startDate: new Date(),
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
       isActive: true,
@@ -438,6 +424,26 @@ async function main() {
     },
   })
   console.log("Created coupon:", coupon.code)
+
+
+  // Seed Flash Sale Items for Products
+  const flashSaleItems = await Promise.all(
+    products.map((product) =>
+      prisma.flashSaleItem.create({
+        data: {
+          flashSaleId: flashSale.id,
+          productId: product.id,
+          discountPercentage: 25,
+          quantity: 30,
+        },
+      })
+    )
+  );
+
+  console.log("Created flashSaleItems:", flashSaleItems)
+
+
+
 
   // Create FAQ
   const faqs = await Promise.all([

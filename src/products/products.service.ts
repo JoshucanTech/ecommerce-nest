@@ -147,6 +147,7 @@ export class ProductsService {
           reviews: {
             select: {
               rating: true,
+              
             },
           },
         },

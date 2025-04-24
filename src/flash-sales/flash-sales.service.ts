@@ -153,6 +153,12 @@ export class FlashSalesService {
               businessName: true,
               slug: true,
             },
+            
+          },
+          items: {
+            include: {
+              product: true, // Include product data here
+            },
           },
           _count: {
             select: {
