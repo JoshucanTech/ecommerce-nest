@@ -9,9 +9,13 @@ import {
   DiscountType,
   PaymentStatus,
   PaymentType,
+  AdStatus, 
+  AdType, 
+  PricingModel, 
+  AdPlatform 
 } from "@prisma/client"
+
 import * as bcrypt from "bcrypt"
-import { generateSlug } from "src/utils/slug-generator"
 import { faker } from '@faker-js/faker';
 
 
@@ -24,9 +28,11 @@ async function main() {
   await prisma.vendor.deleteMany()
   await prisma.rider.deleteMany()
   await prisma.product.deleteMany()
+  await prisma.inventory.deleteMany()
   await prisma.cart.deleteMany()
   await prisma.wishlistItem.deleteMany()
   await prisma.order.deleteMany()
+  await prisma.orderItem.deleteMany()
   await prisma.delivery.deleteMany()
   await prisma.payment.deleteMany()
   await prisma.notification.deleteMany()
@@ -113,10 +119,19 @@ async function main() {
           businessName: "Quality Products Inc.",
           businessEmail: "contact@qualityproducts.com",
           businessPhone: "+1234567890",
-          businessAddress: "123 Business St, New York, NY 10001",
           description: "We sell the best quality products at affordable prices.",
           isVerified: true,
-          slug:"quality-products-inc."
+          slug:"quality-products-inc.",
+          businessAddress: {
+            create: {
+              street: "123 Main St",
+              city: "New York",
+              state: "NY",
+              postalCode: "10001",
+              country: "USA",
+            },
+          },
+
         },
       },
     },
@@ -282,6 +297,7 @@ async function main() {
             create: {
               quantity: faker.number.int({ min: 10, max: 100 }),
               vendorId,
+              lowStockThreshold: faker.number.int({ min: 3, max: 5 }),
             },
           },
 
@@ -290,13 +306,46 @@ async function main() {
     })
   );
 
+  // Seed Flash Sale Products with Faker
+  const flashSaleProducts = await Promise.all(
+    Array.from({ length: 6 }).map(() => {
+      const name = faker.commerce.productName();
+      const slug = faker.helpers.slugify(name.toLowerCase());
+      const price = parseFloat(faker.commerce.price({ min: 200, max: 500 }));
+      
+      return prisma.product.create({
+        data: {
+          name,
+          slug,
+          description: faker.commerce.productDescription(),
+          price,
+          discountPrice: price - (price * 0.2),
+          quantity: faker.number.int({ min: 10, max: 100 }),
+          sku: faker.string.alphanumeric(8).toUpperCase(),
+          images: [faker.image.url(), faker.image.url()],
+          isPublished: true,
+          vendorId,
+          categoryId: categories[0].id,
+          inventory: {
+            create: {
+              quantity: faker.number.int({ min: 10, max: 100 }),
+              vendorId,
+            },
+          },
+
+        },
+      });
+    })
+  );
+
+
   console.log("Created products:", products.map((p) => p.name).join(", "))
 
   // Add Review .
   const reviews = await prisma.review.create({
     data: {
-      rating: 5,
-      comment: 'Excellent phone!',
+      rating: faker.number.int({ min: 1, max: 5 }),
+      comment: faker.lorem.sentences(2),
       productId: products[0].id,
       userId: buyer.id,
     },
@@ -339,15 +388,15 @@ async function main() {
         create: [
           {
             productId: products[0].id,
-            quantity: 1,
+            quantity: 3,
             unitPrice: products[0].price,
-            totalPrice: products[0].price,
+            totalPrice: products[0].price * 3,
           },
           {
             productId: products[1].id,
-            quantity: 1,
+            quantity: 2,
             unitPrice: products[1].price,
-            totalPrice: products[1].price,
+            totalPrice: products[1].price * 2,
           },
         ],
       },
@@ -428,19 +477,92 @@ async function main() {
 
   // Seed Flash Sale Items for Products
   const flashSaleItems = await Promise.all(
-    products.map((product) =>
+    flashSaleProducts.map((product) =>
       prisma.flashSaleItem.create({
         data: {
           flashSaleId: flashSale.id,
           productId: product.id,
-          discountPercentage: 25,
-          quantity: 30,
+          discountPercentage: faker.number.int({ min: 10, max: 70 }),
+          quantity: faker.number.int({ min: 15, max: 50 }),
         },
       })
     )
   );
 
   console.log("Created flashSaleItems:", flashSaleItems)
+
+
+
+  // Seed Advertisement
+  const advertisement = await prisma.advertisement.create({
+    data: {
+      title: 'Super Sale on Electronics!',
+      description: 'Massive discounts on all electronics items',
+      vendorId,
+      productId: products[0].id,
+      type: AdType.FEATURED_PRODUCT,
+      pricingModel: PricingModel.CPC,
+      bidAmount: 0.5,
+      budget: 1000,
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      mediaUrls: [faker.image.url(), faker.image.url()],
+      adText: faker.lorem.sentence(),
+      callToAction: 'Shop Now',
+      landingPageUrl: 'https://example.com',
+      platformConfigs: {
+        create: [
+          {
+            platform: AdPlatform.IN_APP,
+            platformStatus: 'ACTIVE',
+            platformAdId: faker.string.alphanumeric(12),
+            platformCampaignId: faker.string.alphanumeric(12),
+            settings: {},
+          },
+        ],
+      },
+      targeting: {
+        create: {
+          ageMin: 18,
+          ageMax: 45,
+          genders: ['Male', 'Female'],
+          locations: ['United States', 'Canada'],
+          interests: ['Electronics', 'Gadgets'],
+          keywords: ['smartphone', 'laptop'],
+          devices: ['Mobile', 'Desktop'],
+          browsers: ['Chrome', 'Safari'],
+        },
+      },
+      analytics: {
+        create: [
+          {
+            date: new Date(),
+            platform: AdPlatform.IN_APP,
+            impressions: 1000,
+            clicks: 120,
+            conversions: 30,
+            spend: 50,
+          },
+        ],
+      },
+      payments: {
+        create: [
+          {
+            amount: 100,
+            status: PaymentStatus.COMPLETED,
+            paymentMethod: PaymentMethod.CREDIT_CARD,
+            transactionId: faker.string.alphanumeric(12),
+          },
+        ],
+      },
+    },
+    include: {
+      targeting: true,
+      platformConfigs: true,
+      analytics: true,
+      payments: true,
+    },
+  });
 
 
 
@@ -469,6 +591,7 @@ async function main() {
   console.log("Created FAQs:", faqs.length)
 
   console.log("Database seeded successfully!")
+  console.log('Seed completed \ud83c\udf31');
 }
 
 main()

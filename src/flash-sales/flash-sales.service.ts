@@ -156,8 +156,24 @@ export class FlashSalesService {
             
           },
           items: {
+            
             include: {
-              product: true, // Include product data here
+              product: {
+                include: {
+                  vendor: {
+                    select: {
+                      id: true,
+                      businessName: true,
+                      slug: true,
+                    },
+                  },
+                  reviews: {
+                    select: {
+                      rating: true,
+                    }
+                  },
+                }
+              }, // Include product data here
             },
           },
           _count: {

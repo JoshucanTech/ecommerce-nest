@@ -1,50 +1,73 @@
 model User {
-  id               String          @id @default(uuid())
-  email            String          @unique
-  password         String?
-  firstName        String?
-  lastName         String?
-  phone            String?
-  avatar           String?
-  role             UserRole        @default(BUYER)
-  isActive         Boolean         @default(true)
-  emailVerified    Boolean         @default(false)
-  googleId         String?         @unique
-  facebookId       String?         @unique
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  paymentMethods   PaymentMethod[]
-  addresses        Address[]
-  cart             Cart?
-  Category         Category[]
-  comments         Comment[]
-  receivedMessages Message[]       @relation("ReceivedMessages")
-  messages         Message[]       @relation("UserMessages")
-  notifications    Notification[]
-  orders           Order[]         @relation("UserOrders")
-  Payment          Payment[]
-  profile          Profile?
-  reviews          Review[]
-  rider            Rider?
-  supportTickets   SupportTicket[]
-  settings         UserSettings?
-  userTokens       UserTokens[]
-  vendor           Vendor?
-  wishlistItems    WishlistItem[]
+  id                String     @id @default(uuid())
+  email             String     @unique
+  password          String?
+  firstName         String?
+  lastName          String?
+  phone             String?
+  avatar            String?
+  role              UserRole   @default(BUYER)
+  isActive          Boolean    @default(true)
+  emailVerified     Boolean    @default(false)
+  googleId          String?    @unique
+  facebookId        String?    @unique
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  status            UserStatus @default(ACTIVE)
+  appleId           String?    @unique
+  verificationToken String?
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  lastLogin         DateTime?
+
+  // Relations
+  paymentMethods    PaymentMethod[]
+  addresses         Address[]
+  cart              Cart?
+  Category          Category[]
+  comments          Comment[]
+  receivedMessages  Message[]          @relation("ReceivedMessages")
+  messages          Message[]          @relation("UserMessages")
+  notifications     Notification[]
+  orders            Order[]            @relation("UserOrders")
+  payments          Payment[]
+  profile           Profile?
+  reviews           Review[]
+  rider             Rider?
+  supportTickets    SupportTicket[]
+  settings          UserSettings?
+  userTokens        UserTokens[]
+  vendor            Vendor?
+  wishlistItems     WishlistItem[]
+  vendorApplication VendorApplication? @relation(fields: [vendorApplicationId], references: [id])
+  riderApplication  RiderApplication?  @relation(fields: [riderApplicationId], references: [id])
+
+  // Advertisement related relations
+  reviewedAds         Advertisement[] @relation("AdReviewer")
+  adClicks            AdClick[]
+  adImpressions       AdImpression[]
+  adConversions       AdConversion[]
+  vendorApplicationId String?
+  riderApplicationId  String?
 
   @@map("users")
 }
 
 model Profile {
-  id        String    @id @default(uuid())
-  bio       String?
-  gender    Gender?
-  birthDate DateTime?
-  avatar    String?
-  userId    String    @unique
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
+  bio         String?
+  gender      Gender?
+  avatar      String?
+  userId      String    @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dateOfBirth DateTime?
+  location    String?
+  interests   String[]
+  occupation  String?
+  website     String?
+  socialLinks Json? // Store social media links as JSON
 
   @@map("profiles")
 }
@@ -82,17 +105,72 @@ model UserTokens {
 model UserSettings {
   id                 String   @id @default(uuid())
   userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   language           String   @default("en")
   currency           String   @default("USD")
   darkMode           Boolean  @default(false)
   emailNotifications Boolean  @default(true)
   pushNotifications  Boolean  @default(true)
   smsNotifications   Boolean  @default(false)
+  marketingEmails    Boolean  @default(true)
+  adPreferences      Json? // Store ad preferences as  JSON
+  privacySettings    Json? // Store privacy settings as JSON
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_settings")
+}
+
+// Advertisement tracking models for users
+
+model AdClick {
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  advertisementId String
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  platform        AdPlatform
+  deviceType      String?
+  browser         String?
+  ipAddress       String?
+  location        String?
+  timestamp       DateTime      @default(now())
+
+  @@map("ad_clicks")
+}
+
+model AdImpression {
+  id              String        @id @default(uuid())
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  advertisementId String
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  platform        AdPlatform
+  deviceType      String?
+  browser         String?
+  ipAddress       String?
+  location        String?
+  timestamp       DateTime      @default(now())
+
+  @@map("ad_impressions")
+}
+
+model AdConversion {
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  advertisementId String
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  platform        AdPlatform
+  conversionType  String // e.g., "purchase", "signup", "download"
+  conversionValue Float? // monetary value if applicable
+  orderId         String? // if conversion is related to an order
+  productId       String? // if conversion is related to a product
+  deviceType      String?
+  browser         String?
+  timestamp       DateTime      @default(now())
+
+  @@map("ad_conversions")
 }
 
 enum UserRole {
@@ -107,4 +185,11 @@ enum Gender {
   MALE
   FEMALE
   OTHER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BANNED
 }

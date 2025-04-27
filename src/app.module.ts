@@ -24,6 +24,7 @@ import { ReviewsModule } from "./reviews/reviews.module";
 import { CommentsModule } from "./comments/comments.module";
 import { FlashSalesModule } from "./flash-sales/flash-sales.module";
 import { CategoriesModule } from './categories/categories.module';
+import { AdvertisementsModule } from './advertisements/advertisements.module';
 // 
 // 
 
@@ -46,6 +47,7 @@ import { CategoriesModule } from './categories/categories.module';
     ReviewsModule,
     CommentsModule,
     FlashSalesModule,
+    AdvertisementsModule,
   ],
   // controllers: [AppController],
   // providers: [AppService],

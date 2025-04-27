@@ -3,8 +3,8 @@ model Category {
   name          String
   description   String?
   image         String?
-  userId        String?   
-  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId        String?
+  user          User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
   parentId      String?
   slug          String     @unique
   createdAt     DateTime   @default(now())

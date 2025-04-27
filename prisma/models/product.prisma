@@ -1,27 +1,32 @@
 model Product {
-  id             String          @id @default(uuid())
-  name           String
-  description    String
-  price          Float
-  discountPrice  Float?
-  quantity       Int             @default(0)
-  sku            String          @unique
-  images         String[]
-  isPublished    Boolean         @default(false)
-  vendorId       String
-  categoryId     String
-  slug           String          @unique
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  cartItems      CartItem[]
-  comments       Comment[]
-  flashSaleItems FlashSaleItem[]
-  inventory      Inventory?
-  orderItems     OrderItem[]
-  category       Category        @relation(fields: [categoryId], references: [id])
-  vendor         Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  reviews        Review[]
-  wishlistItems  WishlistItem[]
+  id              String          @id @default(uuid())
+  name            String
+  description     String
+  price           Float
+  discountPrice   Float?
+  quantity        Int             @default(0)
+  sku             String          @unique
+  images          String[]
+  isPublished     Boolean         @default(false)
+  vendorId        String
+  categoryId      String
+  slug            String          @unique
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  cartItems       CartItem[]
+  comments        Comment[]
+  flashSaleItems  FlashSaleItem[]
+  inventory       Inventory?
+  orderItems      OrderItem[]
+  category        Category        @relation(fields: [categoryId], references: [id])
+  vendor          Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  reviews         Review[]
+  wishlistItems   WishlistItem[]
+  advertisements  Advertisement[]
+  attributes      Json? // Store product attributes as JSON
+  tags            String[]
+  metaTitle       String?
+  metaDescription String?
 
   @@map("products")
 }
@@ -49,7 +54,7 @@ model Review {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("reviews")
 }

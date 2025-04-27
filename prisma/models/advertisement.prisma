@@ -1,0 +1,198 @@
+// Advertisement related models
+
+enum AdStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  PAUSED
+  REJECTED
+  COMPLETED
+  ARCHIVED
+}
+
+enum AdType {
+  FEATURED_PRODUCT
+  IN_APP_BANNER
+  IN_APP_POPUP
+  EXTERNAL
+}
+
+enum PricingModel {
+  CPC // Cost per click
+  CPM // Cost per thousand impressions
+  CPV // Cost per view
+  FIXED // Fixed price for duration
+}
+
+enum AdPlatform {
+  IN_APP
+  FACEBOOK
+  INSTAGRAM
+  TWITTER
+  WHATSAPP
+  GOOGLE_ADSENSE
+  TIKTOK
+  LINKEDIN
+  PINTEREST
+  OTHER
+}
+
+model Advertisement {
+  id           String       @id @default(uuid())
+  title        String
+  description  String?
+  userId       String
+  user         User         @relation("UserAdvertisement", fields: [userId], references: [id], onDelete: Cascade)
+  vendorId     String
+  vendor       Vendor       @relation(fields: [vendorId], references: [id])
+  productId    String?
+  product      Product?     @relation(fields: [productId], references: [id])
+  type         AdType
+  status       AdStatus     @default(DRAFT)
+  startDate    DateTime?
+  endDate      DateTime?
+  budget       Float
+  dailyBudget  Float?
+  pricingModel PricingModel
+  bidAmount    Float // Amount per click/view based on pricing model
+
+  // Ad content
+  mediaUrls      String[] // Array of image/video URLs
+  imageUrl       String?
+  targetUrl      String?
+  adText         String?
+  callToAction   String?
+  landingPageUrl String?
+
+  // Targeting
+  targeting AdTargeting?
+
+  // Platform specific configurations
+  platformConfigs AdPlatformConfig[]
+
+  // Analytics
+  // impressions Int   @default(0)
+  // clicks      Int   @default(0)
+  // conversions Int   @default(0)
+  spend Float @default(0)
+
+  // Approval
+  reviewNotes String?
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewer    User?     @relation("AdReviewer", fields: [reviewedBy], references: [id])
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  analytics AdAnalytics[]
+  payments  AdPayment[]
+
+  // User interaction tracking
+  clicks      AdClick[]
+  impressions AdImpression[]
+  conversions AdConversion[]
+}
+
+model AdTargeting {
+  id              String        @id @default(uuid())
+  advertisementId String        @unique
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+
+  // Demographics
+  ageMin    Int?
+  ageMax    Int?
+  genders   String[] // Array of genders
+  locations String[] // Array of locations (countries, cities)
+
+  // Interests and behaviors
+  interests String[] // Array of interest categories
+  keywords  String[] // Array of keywords
+
+  // Device targeting
+  devices  String[] // Array of device types
+  browsers String[] // Array of browsers
+
+  // Custom targeting
+  customAudience Json? // Platform-specific custom audience data
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdPlatformConfig {
+  id              String        @id @default(uuid())
+  advertisementId String
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  platform        AdPlatform
+  isActive        Boolean       @default(true)
+
+  // Platform-specific configuration
+  platformAdId       String? // ID of the ad on the platform
+  platformCampaignId String? // ID of the campaign on the platform
+  platformStatus     String? // Status of the ad on the platform
+
+  // Platform-specific settings
+  settings Json? // Platform-specific settings
+  metadata Json? // Platform-specific settings
+
+  // Platform-specific analytics
+  platformImpressions Int   @default(0)
+  platformClicks      Int   @default(0)
+  platformConversions Int   @default(0)
+  platformSpend       Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([advertisementId, platform])
+}
+
+model AdAnalytics {
+  id              String        @id @default(uuid())
+  advertisementId String
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  date            DateTime
+  platform        AdPlatform
+
+  impressions Int   @default(0)
+  clicks      Int   @default(0)
+  views       Int   @default(0)
+  conversions Int   @default(0)
+  spend       Float @default(0)
+
+  // Engagement metrics
+  ctr               Float? // Click-through rate
+  conversionRate    Float? // Conversion rate
+  costPerClick      Float? // Cost per click
+  costPerConversion Float? // Cost per conversion
+
+  // Additional metrics
+  bounceRate         Float? // Bounce rate
+  avgSessionDuration Float? // Average session duration
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([advertisementId, date, platform])
+}
+
+model AdPayment {
+  id              String        @id @default(uuid())
+  advertisementId String
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id])
+  amount          Float
+  status          PaymentStatus @default(PENDING)
+  transactionId   String?
+  currency        String?
+  paymentMethod   PaymentMethod
+
+  // Invoice details
+  invoiceNumber String? @unique
+  invoiceUrl    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
