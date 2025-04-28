@@ -191,4 +191,70 @@ export class FacebookAdService {
       throw error
     }
   }
+
+  async syncAd(advertisementId: string) {
+    try {
+      this.logger.log(`Syncing Facebook ad for advertisement ID: ${advertisementId}`)
+
+      // Get the platform reference
+      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+        where: {
+          advertisementId,
+          platform: "FACEBOOK",
+        },
+      })
+
+      if (!platformRef) {
+        throw new Error(`Facebook ad reference for advertisement ID ${advertisementId} not found`)
+      }
+
+      // In a real implementation, this would fetch the latest ad data from Facebook Marketing API
+      // For now, we'll simulate the API call
+
+      // Get the advertisement details
+      const advertisement = await this.prisma.advertisement.findUnique({
+        where: { id: advertisementId },
+      })
+
+      if (!advertisement) {
+        throw new Error(`Advertisement with ID ${advertisementId} not found`)
+      }
+
+      // Simulate fetching updated data from Facebook
+      const updatedStatus = Math.random() > 0.9 ? "PAUSED" : "ACTIVE" // Occasionally show as paused
+      const metadata = platformRef.metadata as Record<string, any>
+      const updatedMetadata = {
+        ...(metadata),
+        lastSynced: new Date().toISOString(),
+        adSetId: metadata?.adSetId || `adset_${Date.now()}`,
+        budget: metadata?.budget || Math.floor(Math.random() * 1000) + 100,
+        reach: Math.floor(Math.random() * 50000) + 1000,
+        frequency: Number.parseFloat((Math.random() * 5 + 1).toFixed(2)),
+      }
+
+      // Update the platform reference with the latest data
+      await this.prisma.adPlatformConfig.update({
+        where: { id: platformRef.id },
+        data: {
+          platformStatus: updatedStatus,
+          metadata: updatedMetadata,
+        },
+      })
+
+      // Fetch the latest stats
+      const stats = await this.getFacebookAdStats(advertisementId)
+
+      return {
+        success: true,
+        platform: "FACEBOOK",
+        externalId: platformRef.platformAdId,
+        status: updatedStatus,
+        metadata: updatedMetadata,
+        stats: stats.stats,
+      }
+    } catch (error) {
+      this.logger.error(`Error syncing Facebook ad: ${error.message}`, error.stack)
+      throw error
+    }
+  }
 }

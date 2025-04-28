@@ -41,8 +41,8 @@ model Advertisement {
   id           String       @id @default(uuid())
   title        String
   description  String?
-  userId       String
-  user         User         @relation("UserAdvertisement", fields: [userId], references: [id], onDelete: Cascade)
+  // userId       String
+  // user         User         @relation("UserAdvertisement", fields: [userId], references: [id], onDelete: Cascade)
   vendorId     String
   vendor       Vendor       @relation(fields: [vendorId], references: [id])
   productId    String?
@@ -184,7 +184,10 @@ model AdPayment {
   advertisementId String
   advertisement   Advertisement @relation(fields: [advertisementId], references: [id])
   amount          Float
+  refundedAmount  Float?
+  refundedAt      DateTime?
   status          PaymentStatus @default(PENDING)
+  notes           String?
   transactionId   String?
   currency        String?
   paymentMethod   PaymentMethod

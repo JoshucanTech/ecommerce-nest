@@ -32,6 +32,7 @@ enum PaymentStatus {
   COMPLETED
   FAILED
   REFUNDED
+  DISPUTED
 }
 
 enum PaymentType {

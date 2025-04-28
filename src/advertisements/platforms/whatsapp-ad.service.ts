@@ -199,4 +199,75 @@ export class WhatsappAdService {
       throw error
     }
   }
+
+  async syncAd(advertisementId: string) {
+    try {
+      this.logger.log(`Syncing WhatsApp ad for advertisement ID: ${advertisementId}`)
+
+      // Get the platform reference
+      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+        where: {
+          advertisementId,
+          platform: "WHATSAPP",
+        },
+      })
+
+      if (!platformRef) {
+        throw new Error(`WhatsApp ad reference for advertisement ID ${advertisementId} not found`)
+      }
+
+      // In a real implementation, this would fetch the latest ad data from WhatsApp Business API
+      // For now, we'll simulate the API call
+
+      // Get the advertisement details
+      const advertisement = await this.prisma.advertisement.findUnique({
+        where: { id: advertisementId },
+      })
+
+      if (!advertisement) {
+        throw new Error(`Advertisement with ID ${advertisementId} not found`)
+      }
+
+      // Simulate fetching updated data from WhatsApp
+      const updatedStatus = Math.random() > 0.9 ? "PAUSED" : "ACTIVE" // Occasionally show as paused
+      const metadata = platformRef.metadata as Record<string, any>
+      const updatedMetadata = {
+        ...metadata,
+        lastSynced: new Date().toISOString(),
+        templateId: metadata.templateId || `template_${Date.now()}`,
+        budget: metadata.budget || Math.floor(Math.random() * 500) + 100,
+        audienceSize: Math.floor(Math.random() * 10000) + 1000,
+        messagesSent: Math.floor(Math.random() * 5000) + 500,
+        messagesDelivered: Math.floor((Math.random() * 0.2 + 0.8) * (Math.floor(Math.random() * 5000) + 500)), // 80-100% delivery rate
+        messagesRead: Math.floor(
+          (Math.random() * 0.4 + 0.3) *
+            Math.floor((Math.random() * 0.2 + 0.8) * (Math.floor(Math.random() * 5000) + 500)),
+        ), // 30-70% read rate
+      }
+
+      // Update the platform reference with the latest data
+      await this.prisma.adPlatformConfig.update({
+        where: { id: platformRef.id },
+        data: {
+          platformStatus: updatedStatus,
+          metadata: updatedMetadata,
+        },
+      })
+
+      // Fetch the latest stats
+      const stats = await this.getWhatsappAdStats(advertisementId)
+
+      return {
+        success: true,
+        platform: "WHATSAPP",
+        externalId: platformRef.platformAdId,
+        status: updatedStatus,
+        metadata: updatedMetadata,
+        stats: stats.stats,
+      }
+    } catch (error) {
+      this.logger.error(`Error syncing WhatsApp ad: ${error.message}`, error.stack)
+      throw error
+    }
+  }
 }

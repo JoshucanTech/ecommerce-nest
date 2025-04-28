@@ -197,4 +197,73 @@ export class GoogleAdsenseService {
       throw error
     }
   }
+
+  async syncAd(advertisementId: string) {
+    try {
+      this.logger.log(`Syncing Google AdSense ad for advertisement ID: ${advertisementId}`)
+
+      // Get the platform reference
+      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+        where: {
+          advertisementId,
+          platform: "GOOGLE_ADSENSE",
+        },
+      })
+
+      if (!platformRef) {
+        throw new Error(`Google AdSense ad reference for advertisement ID ${advertisementId} not found`)
+      }
+
+      // In a real implementation, this would fetch the latest ad data from Google Ads API
+      // For now, we'll simulate the API call
+
+      // Get the advertisement details
+      const advertisement = await this.prisma.advertisement.findUnique({
+        where: { id: advertisementId },
+      })
+
+      if (!advertisement) {
+        throw new Error(`Advertisement with ID ${advertisementId} not found`)
+      }
+
+      // Simulate fetching updated data from Google
+      const updatedStatus = Math.random() > 0.9 ? "PAUSED" : "ACTIVE" // Occasionally show as paused
+      const metadata = platformRef.metadata as Record<string, any>
+      
+      const updatedMetadata = {
+        ...metadata,
+        lastSynced: new Date().toISOString(),
+        campaignId: metadata.campaignId || `campaign_${Date.now()}`,
+        budget: metadata.budget || Math.floor(Math.random() * 1200) + 300,
+        qualityScore: Math.floor(Math.random() * 10) + 1,
+        impressionShare: Number.parseFloat((Math.random() * 0.5 + 0.3).toFixed(2)),
+        averagePosition: Number.parseFloat((Math.random() * 5 + 1).toFixed(1)),
+        searchImpressionShare: Number.parseFloat((Math.random() * 0.4 + 0.2).toFixed(2)),
+      }
+
+      // Update the platform reference with the latest data
+      await this.prisma.adPlatformConfig.update({
+        where: { id: platformRef.id },
+        data: {
+          platformStatus: updatedStatus,
+          metadata: updatedMetadata,
+        },
+      })
+
+      // Fetch the latest stats
+      const stats = await this.getGoogleAdStats(advertisementId)
+
+      return {
+        success: true,
+        platform: "GOOGLE_ADSENSE",
+        externalId: platformRef.platformAdId,
+        status: updatedStatus,
+        metadata: updatedMetadata,
+        stats: stats.stats,
+      }
+    } catch (error) {
+      this.logger.error(`Error syncing Google AdSense ad: ${error.message}`, error.stack)
+      throw error
+    }
+  }
 }

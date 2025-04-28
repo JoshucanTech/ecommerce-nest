@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common"
+import { Injectable, BadRequestException, NotFoundException, Logger } from "@nestjs/common"
 import type { PrismaService } from "../prisma/prisma.service"
 import type { CreateAdPaymentDto } from "./dto/create-ad-payment.dto"
 import type { UpdateAdPaymentDto } from "./dto/update-ad-payment.dto"
@@ -6,6 +6,7 @@ import { PaymentStatus } from "@prisma/client"
 
 @Injectable()
 export class AdPaymentsService {
+  private readonly logger = new Logger(AdPaymentsService.name)
   constructor(private prisma: PrismaService) {}
 
   async create(user, createAdPaymentDto: CreateAdPaymentDto) {
@@ -283,6 +284,285 @@ export class AdPaymentsService {
       },
     })
   }
+
+  
+  async processWebhook(payload: any, signature: string) {
+    this.logger.log(`Processing payment webhook with signature: ${signature.substring(0, 10)}...`)
+
+    try {
+      // Verify webhook signature (in a real app, this would validate against a secret)
+      this.verifyWebhookSignature(payload, signature)
+
+      const { event, data } = payload
+
+      switch (event) {
+        case "payment.succeeded":
+          await this.handlePaymentSucceeded(data)
+          break
+        case "payment.failed":
+          await this.handlePaymentFailed(data)
+          break
+        case "payment.refunded":
+          await this.handlePaymentRefunded(data)
+          break
+        case "payment.disputed":
+          await this.handlePaymentDisputed(data)
+          break
+        default:
+          this.logger.warn(`Unhandled webhook event: ${event}`)
+      }
+
+      return { success: true, event }
+    } catch (error) {
+      this.logger.error(`Error processing webhook: ${error.message}`, error.stack)
+      throw new BadRequestException(`Invalid webhook payload: ${error.message}`)
+    }
+  }
+
+  private verifyWebhookSignature(payload: any, signature: string) {
+    // In a real application, this would verify the signature using a shared secret
+    // For example, with Stripe:
+    // const stripeWebhookSecret = this.configService.get('STRIPE_WEBHOOK_SECRET')
+    // const event = stripe.webhooks.constructEvent(payload, signature, stripeWebhookSecret)
+
+    // For now, we'll just do a basic check
+    if (!signature || signature.length < 10) {
+      throw new BadRequestException("Invalid webhook signature")
+    }
+
+    return true
+  }
+
+  private async handlePaymentSucceeded(data: any) {
+    const { paymentId, transactionId } = data
+
+    // Find the payment in our system
+    const payment = await this.prisma.adPayment.findFirst({
+      where: {
+        OR: [{ id: paymentId }, { transactionId }],
+      },
+    })
+
+    if (!payment) {
+      throw new NotFoundException(`Payment not found: ${paymentId || transactionId}`)
+    }
+
+    // Update payment status
+    await this.prisma.adPayment.update({
+      where: { id: payment.id },
+      data: {
+        status: "COMPLETED",
+        updatedAt: new Date(),
+        transactionId: transactionId || payment.transactionId,
+      },
+    })
+
+    // Update advertisement status if needed
+    await this.prisma.advertisement.update({
+      where: { id: payment.advertisementId },
+      data: {
+        status: "ACTIVE",
+      },
+    })
+
+    // Create notification for vendor
+    const advertisement = await this.prisma.advertisement.findUnique({
+      where: { id: payment.advertisementId },
+      select: {
+        vendorId: true,
+        title: true,
+      },
+    })
+
+    if (advertisement) {
+      await this.prisma.notification.create({
+        data: {
+          userId: advertisement.vendorId,
+          title: "Payment Successful",
+          message: `Payment for advertisement "${advertisement.title}" has been processed successfully.`,
+          type: "PAYMENT",
+          data: {
+            paymentId: payment.id,
+            redirectUrl: `/dashboard/advertisements/${payment.advertisementId}`,
+          }
+          
+        },
+      })
+    }
+  }
+
+  private async handlePaymentFailed(data: any) {
+    const { paymentId, transactionId, reason } = data
+
+    // Find the payment in our system
+    const payment = await this.prisma.adPayment.findFirst({
+      where: {
+        OR: [{ id: paymentId }, { transactionId }],
+      },
+    })
+
+    if (!payment) {
+      throw new NotFoundException(`Payment not found: ${paymentId || transactionId}`)
+    }
+
+    // Update payment status
+    await this.prisma.adPayment.update({
+      where: { id: payment.id },
+      data: {
+        status: "FAILED",
+        notes: reason || "Payment processing failed",
+      },
+    })
+
+    // Create notification for vendor
+    const advertisement = await this.prisma.advertisement.findUnique({
+      where: { id: payment.advertisementId },
+      select: {
+        vendorId: true,
+        title: true,
+      },
+    })
+
+    if (advertisement) {
+      await this.prisma.notification.create({
+        data: {
+          userId: advertisement.vendorId,
+          title: "Payment Failed",
+          message: `Payment for advertisement "${advertisement.title}" has failed. Reason: ${reason || "Unknown error"}`,
+          type: "PAYMENT",
+          data: {
+            paymentId: payment.id,
+            redirectUrl: `/dashboard/advertisements/${payment.advertisementId}/payments`,
+          }
+        },
+      })
+    }
+  }
+
+  private async handlePaymentRefunded(data: any) {
+    const { paymentId, transactionId, amount } = data
+
+    // Find the payment in our system
+    const payment = await this.prisma.adPayment.findFirst({
+      where: {
+        OR: [{ id: paymentId }, { transactionId }],
+      },
+    })
+
+    if (!payment) {
+      throw new NotFoundException(`Payment not found: ${paymentId || transactionId}`)
+    }
+
+    // Update payment status
+    await this.prisma.adPayment.update({
+      where: { id: payment.id },
+      data: {
+        status: "REFUNDED",
+        refundedAmount: amount || payment.amount,
+        refundedAt: new Date(),
+      },
+    })
+
+    // Create notification for vendor
+    const advertisement = await this.prisma.advertisement.findUnique({
+      where: { id: payment.advertisementId },
+      select: {
+        vendorId: true,
+        title: true,
+      },
+    })
+
+    if (advertisement) {
+      await this.prisma.notification.create({
+        data: {
+          userId: advertisement.vendorId,
+          title: "Payment Refunded",
+          message: `Payment for advertisement "${advertisement.title}" has been refunded.`,
+          type: "PAYMENT",
+          data: {
+            paymentId: payment.id,
+            redirectUrl: `/dashboard/advertisements/${payment.advertisementId}/payments`,
+          }
+        },
+      })
+    }
+  }
+
+  private async handlePaymentDisputed(data: any) {
+    const { paymentId, transactionId, reason } = data
+
+    // Find the payment in our system
+    const payment = await this.prisma.adPayment.findFirst({
+      where: {
+        OR: [{ id: paymentId }, { transactionId }],
+      },
+    })
+
+    if (!payment) {
+      throw new NotFoundException(`Payment not found: ${paymentId || transactionId}`)
+    }
+
+    // Update payment status
+    await this.prisma.adPayment.update({
+      where: { id: payment.id },
+      data: {
+        status: "DISPUTED",
+        notes: `Dispute reason: ${reason || "Not provided"}`,
+      },
+    })
+
+    // Create notification for admin and vendor
+    const advertisement = await this.prisma.advertisement.findUnique({
+      where: { id: payment.advertisementId },
+      select: {
+        vendorId: true,
+        title: true,
+      },
+    })
+
+    if (advertisement) {
+      // Notify vendor
+      await this.prisma.notification.create({
+        data: {
+          userId: advertisement.vendorId,
+          title: "Payment Disputed",
+          message: `Payment for advertisement "${advertisement.title}" has been disputed. Reason: ${reason || "Not provided"}`,
+          type: "PAYMENT",
+          data: {
+            paymentId: payment.id,
+            redirectUrl: `/dashboard/advertisements/${payment.advertisementId}/payments`,
+          }
+        },
+      })
+
+      // Notify admin (assuming admin user ID is available)
+      const adminUsers = await this.prisma.user.findMany({
+        where: {
+          role: "ADMIN",
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      for (const admin of adminUsers) {
+        await this.prisma.notification.create({
+          data: {
+            userId: admin.id,
+            title: "Payment Dispute",
+            message: `A payment dispute has been filed for advertisement "${advertisement.title}". Reason: ${reason || "Not provided"}`,
+            type: "PAYMENT",
+            
+            data: {
+              paymentId: payment.id,
+              redirectUrl: `/admin/advertisements/${payment.advertisementId}/payments`,
+            }
+          },
+        })
+      }
+    }
+  }
+
 
   async calculateAdCost(advertisementId: string, duration: number, targetViews: number, targetClicks: number) {
     // Get advertisement details

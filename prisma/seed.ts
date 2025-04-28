@@ -42,6 +42,7 @@ async function main() {
   await prisma.supportTicket.deleteMany()
   await prisma.faq.deleteMany()
   await prisma.review.deleteMany()
+  await prisma.advertisement.deleteMany()
 
   console.log("Seeding database...")
 

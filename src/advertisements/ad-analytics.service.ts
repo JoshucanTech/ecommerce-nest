@@ -85,11 +85,12 @@ export class AdAnalyticsService {
         advertisementId: {
           in: adIds,
         },
-        timestamp: {
+        date: {
           gte: startDate ? new Date(startDate) : undefined,
           lte: endDate ? new Date(endDate) : undefined,
         },
       },
+
       include: {
         advertisement: {
           select: {
@@ -178,7 +179,7 @@ export class AdAnalyticsService {
     }
   }
 
-  async recordAdView(adId: string, userId?: string, platform: any) {
+  async recordAdView(platform: any, adId: string, userId?: string) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -199,10 +200,10 @@ export class AdAnalyticsService {
       create: {
         advertisementId: adId,
         date: today,
-        timestamp: new Date(),
         views: 1,
         clicks: 0,
         conversions: 0,
+        platform,
       },
     })
 
@@ -242,10 +243,11 @@ export class AdAnalyticsService {
       create: {
         advertisementId: adId,
         date: today,
-        timestamp: new Date(),
+        // timestamp: new Date(),
         views: 0,
         clicks: 1,
         conversions: 0,
+        platform
       },
     })
 
@@ -264,16 +266,17 @@ export class AdAnalyticsService {
     return analyticsRecord
   }
 
-  async recordAdConversion(adId: string, userId?: string, conversionValue?: number) {
+  async recordAdConversion(platform, adId: string, userId?: string, conversionValue?: number) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
     // Find or create today's analytics record
     const analyticsRecord = await this.prisma.adAnalytics.upsert({
       where: {
-        advertisementId_date: {
+        advertisementId_date_platform: {
           advertisementId: adId,
           date: today,
+          platform,
         },
       },
       update: {
@@ -287,7 +290,7 @@ export class AdAnalyticsService {
       create: {
         advertisementId: adId,
         date: today,
-        timestamp: new Date(),
+        // timestamp: new Date(),
         views: 0,
         clicks: 0,
         conversions: 1,
@@ -335,7 +338,7 @@ export class AdAnalyticsService {
         advertisementId: {
           in: adIds,
         },
-        timestamp: {
+        date: {
           gte: startDate,
           lte: endDate,
         },
@@ -378,7 +381,7 @@ export class AdAnalyticsService {
 
     // Populate with actual data
     analytics.forEach((record) => {
-      const dateStr = record.timestamp.toISOString().split("T")[0]
+      const dateStr = record.date.toISOString().split("T")[0]
       if (dailyMetrics[dateStr]) {
         dailyMetrics[dateStr].views += record.views
         dailyMetrics[dateStr].clicks += record.clicks

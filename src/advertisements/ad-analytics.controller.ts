@@ -26,15 +26,16 @@ export class AdAnalyticsController {
   }
 
   @Post('track-impression')
-  @ApiOperation({ summary: 'Track an ad impression' })
+  @ApiOperation({ summary: 'Track an ad Views/impression' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'The impression has been successfully tracked.',
+    description: 'The Views/impression has been successfully tracked.',
   })
   trackImpression(
     @Body() data: { advertisementId: string; platform: string },
+    @CurrentUser() user
   ) {
-    return this.adAnalyticsService.trackImpression(data.advertisementId, data.platform);
+    return this.adAnalyticsService.recordAdView(data.platform, data.advertisementId, user?.id);
   }
 
   @Post('track-click')
@@ -46,7 +47,7 @@ export class AdAnalyticsController {
   trackClick(
     @Body() data: { advertisementId: string; platform: string },
   ) {
-    return this.adAnalyticsService.trackClick(data.advertisementId, data.platform);
+    return this.adAnalyticsService.recordAdClick(data.advertisementId, data.platform);
   }
 
   @Post('track-conversion')
@@ -58,7 +59,7 @@ export class AdAnalyticsController {
   trackConversion(
     @Body() data: { advertisementId: string; platform: string },
   ) {
-    return this.adAnalyticsService.trackConversion(data.advertisementId, data.platform);
+    return this.adAnalyticsService.recordAdConversion(data.advertisementId, data.platform);
   }
 
   @Get('dashboard')
@@ -69,6 +70,6 @@ export class AdAnalyticsController {
     description: 'Return analytics dashboard data.',
   })
   getDashboard(@CurrentUser() user) {
-    return this.adAnalyticsService.getDashboard(user);
+    return this.adAnalyticsService.getDashboardAnalytics(user);
   }
 }

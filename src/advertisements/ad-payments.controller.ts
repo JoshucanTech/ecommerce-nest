@@ -88,7 +88,7 @@ export class AdPaymentsController {
   // @ApiParam({ name: "id", description: "Ad Payment ID" })
   // process(@Param('id') id: string, @CurrentUser() user) {
   //   return this.adPaymentsService.processPayment(id, user)
-  // }
+  // } 
 
   @Post('webhook')
   @ApiOperation({ summary: 'Payment provider webhook' })
@@ -96,7 +96,7 @@ export class AdPaymentsController {
     status: HttpStatus.OK,
     description: 'Webhook processed successfully.',
   })
-  webhook(@Body() webhookData: any) {
-    return this.adPaymentsService.processWebhook(webhookData);
+  webhook(@Body() webhookData: any, signature:any) {
+    return this.adPaymentsService.processWebhook(webhookData, signature);
   }
 }

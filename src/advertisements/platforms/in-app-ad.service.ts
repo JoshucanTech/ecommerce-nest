@@ -342,6 +342,70 @@ export class InAppAdService {
     }
   }
 
+  
+  async syncAd(advertisementId: string) {
+    try {
+      this.logger.log(`Syncing In-App ad for advertisement ID: ${advertisementId}`)
+
+      // Get the platform reference
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
+        where: {
+          advertisementId,
+          platform: "IN_APP",
+        },
+      })
+
+      if (!platformRef) {
+        throw new Error(`In-App ad reference for advertisement ID ${advertisementId} not found`)
+      }
+
+      // Get the advertisement details
+      const advertisement = await this.prisma.advertisement.findUnique({
+        where: { id: advertisementId },
+      })
+
+      if (!advertisement) {
+        throw new Error(`Advertisement with ID ${advertisementId} not found`)
+      }
+
+      // Simulate fetching updated data for in-app ad
+      const updatedStatus = Math.random() > 0.9 ? "PAUSED" : "ACTIVE" // Occasionally show as paused
+      const updatedMetadata = {
+        ...platformRef.metadata,
+        lastSynced: new Date().toISOString(),
+        priority: platformRef.metadata.priority || "NORMAL",
+        pages: platformRef.metadata.pages || ["HOME", "PRODUCT_LISTING"],
+        impressions: Math.floor(Math.random() * 30000) + 5000,
+        clicks: Math.floor((Math.random() * 0.05 + 0.01) * (Math.floor(Math.random() * 30000) + 5000)), // 1-6% CTR
+      }
+
+      // Update the platform reference with the latest data
+      await this.prisma.adPlatformReference.update({
+        where: { id: platformRef.id },
+        data: {
+          status: updatedStatus,
+          metadata: updatedMetadata,
+        },
+      })
+
+      // Fetch the latest stats
+      const stats = await this.getInAppAdStats(advertisementId)
+
+      return {
+        success: true,
+        platform: "IN_APP",
+        externalId: platformRef.externalId,
+        status: updatedStatus,
+        metadata: updatedMetadata,
+        stats: stats.stats,
+      }
+    } catch (error) {
+      this.logger.error(`Error syncing In-App ad: ${error.message}`, error.stack)
+      throw error
+    }
+  }
+
+
   private calculateAge(dateOfBirth: Date | undefined): number {
     if (!dateOfBirth) return 0
 
