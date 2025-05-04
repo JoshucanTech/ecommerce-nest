@@ -29,7 +29,8 @@ export class LoggingInterceptor implements NestInterceptor {
           this.logger.log(`Response: ${method} ${url}, Status: ${response.statusCode} Time: ${delay}ms`);
           this.logger.warn(`Response time is ${delay}ms for ${method} ${url}`); // Example of warn log
           this.logger.error(`Response error for ${method} ${url}`); // Example of error log
-          this.logger.log(`Response for ${method} ${url}: ${JSON.stringify(response)}`);
+          // this.logger.log(`Response for ${method} ${url}: ${JSON.stringify(response)}`);
+          this.logger.log(`Response for ${method} ${url}`);
 
         }),
       );

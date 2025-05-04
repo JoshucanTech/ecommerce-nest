@@ -23,7 +23,6 @@ export class AdTargetingController {
   })
   @ApiParam({ name: "advertisementId", description: "Advertisement ID" })
   findOne(@Param('advertisementId') advertisementId: string, @CurrentUser() user) {
-    // return this.adTargetingService.getTargeting(advertisementId, user)
     return this.adTargetingService.getTargeting(advertisementId)
   }
 
@@ -40,7 +39,6 @@ export class AdTargetingController {
     @Body() updateAdTargetingDto: CreateAdTargetingDto,
     @CurrentUser() user,
   ) {
-    // return this.adTargetingService.updateTargeting(advertisementId, updateAdTargetingDto, user)
     return this.adTargetingService.updateTargeting(advertisementId, updateAdTargetingDto)
   }
 }

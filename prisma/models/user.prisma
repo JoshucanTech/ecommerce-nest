@@ -43,12 +43,13 @@ model User {
   riderApplication  RiderApplication?  @relation(fields: [riderApplicationId], references: [id])
 
   // Advertisement related relations
-  reviewedAds         Advertisement[] @relation("AdReviewer")
+  reviewedAds         Advertisement[]     @relation("AdReviewer")
   adClicks            AdClick[]
   adImpressions       AdImpression[]
   adConversions       AdConversion[]
   vendorApplicationId String?
   riderApplicationId  String?
+  AdUserInteraction   AdUserInteraction[]
 
   @@map("users")
 }

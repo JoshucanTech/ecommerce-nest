@@ -7,6 +7,7 @@ import {
   Min,
   Max,
 } from "class-validator";
+import { VendorAddress } from "@prisma/client";
 
 export class UpdateVendorDto {
   @ApiPropertyOptional({
@@ -38,8 +39,7 @@ export class UpdateVendorDto {
     example: "456 Business Ave, New York, NY 10002",
   })
   @IsOptional()
-  @IsString()
-  businessAddress?: string;
+  businessAddress?: VendorAddress; 
 
   @ApiPropertyOptional({
     description: "Business logo URL",

@@ -1,11 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger"
-import { IsString, IsEnum, IsOptional, IsBoolean, IsUUID } from "class-validator"
+import { IsString, IsEnum, IsOptional, IsBoolean, IsUUID, IsJSON } from "class-validator"
 import { AdPlatform } from "@prisma/client"
 
 export class CreateAdPlatformConfigDto {
   @ApiProperty({ example: "advertisement-uuid" })
-  @IsUUID()
+  @IsString()
   advertisementId: string
+
+  @ApiProperty({ example: "ad config name" })
+  @IsString()
+  name: string
 
   @ApiProperty({ enum: AdPlatform, example: AdPlatform.FACEBOOK })
   @IsEnum(AdPlatform)
@@ -29,4 +33,9 @@ export class CreateAdPlatformConfigDto {
   @ApiPropertyOptional({ example: { placementType: "feed", audienceExpansion: true } })
   @IsOptional()
   settings?: Record<string, any>
+
+  @ApiPropertyOptional({ example: {"key": "value", "platform-campaign-id": "platform-campaign-id-123"} })
+
+  @IsJSON()
+  config: {}
 }

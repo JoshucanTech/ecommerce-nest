@@ -1,15 +1,14 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from "@nestjs/common"
-import type { PrismaService } from "../prisma/prisma.service"
-import type { CreateAdPaymentDto } from "./dto/create-ad-payment.dto"
-import type { UpdateAdPaymentDto } from "./dto/update-ad-payment.dto"
+import { PrismaService } from "../prisma/prisma.service"
+import { CreateAdPaymentDto } from "./dto/create-ad-payment.dto"
+import { UpdateAdPaymentDto } from "./dto/update-ad-payment.dto"
 import { PaymentStatus } from "@prisma/client"
-
 @Injectable()
 export class AdPaymentsService {
   private readonly logger = new Logger(AdPaymentsService.name)
   constructor(private prisma: PrismaService) {}
 
-  async create(user, createAdPaymentDto: CreateAdPaymentDto) {
+  async create(createAdPaymentDto: CreateAdPaymentDto) {
     const { advertisementId, amount, paymentMethod, currency = "USD" } = createAdPaymentDto
 
     // Verify advertisement exists
@@ -38,76 +37,19 @@ export class AdPaymentsService {
     return processedPayment
   }
 
-  // async findAll(vendorId?: string) {
-  //   let query = {}
+  async findAll(vendorId?: string) {
+    let query = {}
 
-  //   if (vendorId) {
-  //     query = {
-  //       advertisement: {
-  //         vendorId,
-  //       },
-  //     }
-  //   }
-
-  //   return this.prisma.adPayment.findMany({
-  //     where: query,
-  //     include: {
-  //       advertisement: {
-  //         select: {
-  //           title: true,
-  //           type: true,
-  //           vendor: {
-  //             select: {
-  //               id: true,
-  //               businessName: true,
-  //             },
-  //           },
-  //         },
-  //       },
-  //     },
-  //     orderBy: {
-  //       createdAt: "desc",
-  //     },
-  //   })
-  // }
-
-  async findAll(
-    page: number = 1,
-    limit: number = 10,
-    status?: PaymentStatus,
-    advertisementId?: string,
-    vendorId?: string, // Add vendorId if you want to filter by vendor
-  ) {
-    // Build the dynamic query
-    let whereQuery: any = {}
-  
     if (vendorId) {
-      whereQuery = {
-        ...whereQuery,
+      query = {
         advertisement: {
           vendorId,
         },
       }
     }
-  
-    if (status) {
-      whereQuery = {
-        ...whereQuery,
-        status, // Assume `status` is a field in `adPayment`
-      }
-    }
-  
-    if (advertisementId) {
-      whereQuery = {
-        ...whereQuery,
-        advertisementId, // Assume `advertisementId` is a field in `adPayment`
-      }
-    }
-  
+
     return this.prisma.adPayment.findMany({
-      where: whereQuery,
-      skip: (page - 1) * limit,  // Paginate
-      take: limit,               // Limit results
+      where: query,
       include: {
         advertisement: {
           select: {
@@ -127,8 +69,6 @@ export class AdPaymentsService {
       },
     })
   }
-  
-
 
   async findOne(id: string) {
     const payment = await this.prisma.adPayment.findUnique({
@@ -280,12 +220,11 @@ export class AdPaymentsService {
       where: { id: paymentId },
       data: {
         status: "COMPLETED",
-        createdAt: new Date(),
+        processedAt: new Date(),
       },
     })
   }
 
-  
   async processWebhook(payload: any, signature: string) {
     this.logger.log(`Processing payment webhook with signature: ${signature.substring(0, 10)}...`)
 
@@ -334,17 +273,17 @@ export class AdPaymentsService {
   }
 
   private async handlePaymentSucceeded(data: any) {
-    const { paymentId, transactionId } = data
+    const { paymentId, transactionReference } = data
 
     // Find the payment in our system
     const payment = await this.prisma.adPayment.findFirst({
       where: {
-        OR: [{ id: paymentId }, { transactionId }],
+        OR: [{ id: paymentId }, { transactionReference }],
       },
     })
 
     if (!payment) {
-      throw new NotFoundException(`Payment not found: ${paymentId || transactionId}`)
+      throw new NotFoundException(`Payment not found: ${paymentId || transactionReference}`)
     }
 
     // Update payment status
@@ -352,8 +291,8 @@ export class AdPaymentsService {
       where: { id: payment.id },
       data: {
         status: "COMPLETED",
-        updatedAt: new Date(),
-        transactionId: transactionId || payment.transactionId,
+        processedAt: new Date(),
+        transactionReference: transactionReference || payment.transactionReference,
       },
     })
 
@@ -385,24 +324,23 @@ export class AdPaymentsService {
             paymentId: payment.id,
             redirectUrl: `/dashboard/advertisements/${payment.advertisementId}`,
           }
-          
         },
       })
     }
   }
 
   private async handlePaymentFailed(data: any) {
-    const { paymentId, transactionId, reason } = data
+    const { paymentId, transactionReference, reason } = data
 
     // Find the payment in our system
     const payment = await this.prisma.adPayment.findFirst({
       where: {
-        OR: [{ id: paymentId }, { transactionId }],
+        OR: [{ id: paymentId }, { transactionReference }],
       },
     })
 
     if (!payment) {
-      throw new NotFoundException(`Payment not found: ${paymentId || transactionId}`)
+      throw new NotFoundException(`Payment not found: ${paymentId || transactionReference}`)
     }
 
     // Update payment status
@@ -433,24 +371,24 @@ export class AdPaymentsService {
           data: {
             paymentId: payment.id,
             redirectUrl: `/dashboard/advertisements/${payment.advertisementId}/payments`,
-          }
+          }        
         },
       })
     }
   }
 
   private async handlePaymentRefunded(data: any) {
-    const { paymentId, transactionId, amount } = data
+    const { paymentId, transactionReference, amount } = data
 
     // Find the payment in our system
     const payment = await this.prisma.adPayment.findFirst({
       where: {
-        OR: [{ id: paymentId }, { transactionId }],
+        OR: [{ id: paymentId }, { transactionReference }],
       },
     })
 
     if (!payment) {
-      throw new NotFoundException(`Payment not found: ${paymentId || transactionId}`)
+      throw new NotFoundException(`Payment not found: ${paymentId || transactionReference}`)
     }
 
     // Update payment status
@@ -482,24 +420,23 @@ export class AdPaymentsService {
           data: {
             paymentId: payment.id,
             redirectUrl: `/dashboard/advertisements/${payment.advertisementId}/payments`,
-          }
-        },
+          }        },
       })
     }
   }
 
   private async handlePaymentDisputed(data: any) {
-    const { paymentId, transactionId, reason } = data
+    const { paymentId, transactionReference, reason } = data
 
     // Find the payment in our system
     const payment = await this.prisma.adPayment.findFirst({
       where: {
-        OR: [{ id: paymentId }, { transactionId }],
+        OR: [{ id: paymentId }, { transactionReference }],
       },
     })
 
     if (!payment) {
-      throw new NotFoundException(`Payment not found: ${paymentId || transactionId}`)
+      throw new NotFoundException(`Payment not found: ${paymentId || transactionReference}`)
     }
 
     // Update payment status
@@ -531,8 +468,7 @@ export class AdPaymentsService {
           data: {
             paymentId: payment.id,
             redirectUrl: `/dashboard/advertisements/${payment.advertisementId}/payments`,
-          }
-        },
+          }        },
       })
 
       // Notify admin (assuming admin user ID is available)
@@ -552,17 +488,14 @@ export class AdPaymentsService {
             title: "Payment Dispute",
             message: `A payment dispute has been filed for advertisement "${advertisement.title}". Reason: ${reason || "Not provided"}`,
             type: "PAYMENT",
-            
             data: {
               paymentId: payment.id,
-              redirectUrl: `/admin/advertisements/${payment.advertisementId}/payments`,
-            }
-          },
+              redirectUrl: `/dashboard/advertisements/${payment.advertisementId}/payments`,
+            }          },
         })
       }
     }
   }
-
 
   async calculateAdCost(advertisementId: string, duration: number, targetViews: number, targetClicks: number) {
     // Get advertisement details

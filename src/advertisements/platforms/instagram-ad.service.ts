@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common"
-import type { PrismaService } from "../../prisma/prisma.service"
-import type { ConfigService } from "@nestjs/config"
+import { PrismaService } from "../../prisma/prisma.service"
+import { ConfigService } from "@nestjs/config"
 
 @Injectable()
 export class InstagramAdService {
@@ -34,12 +34,12 @@ export class InstagramAdService {
       const instagramAdId = `ig_${Date.now()}_${Math.floor(Math.random() * 1000)}`
 
       // Store the external ad reference
-      await this.prisma.adPlatformConfig.create({
+      await this.prisma.adPlatformReference.create({
         data: {
           advertisementId,
           platform: "INSTAGRAM",
-          platformAdId: instagramAdId,
-          platformStatus: "ACTIVE",
+          externalId: instagramAdId,
+          status: "ACTIVE",
           metadata: {
             adAccountId: adData.adAccountId || "default_account",
             campaignId: adData.campaignId || `campaign_${Date.now()}`,
@@ -52,7 +52,7 @@ export class InstagramAdService {
       return {
         success: true,
         platform: "INSTAGRAM",
-        platformAdId: instagramAdId,
+        externalId: instagramAdId,
         status: "ACTIVE",
       }
     } catch (error) {
@@ -66,7 +66,7 @@ export class InstagramAdService {
       this.logger.log(`Updating Instagram ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "INSTAGRAM",
@@ -81,12 +81,12 @@ export class InstagramAdService {
       // For now, we'll simulate the API call
 
       // Update the platform reference
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: adData.status || platformRef.platformStatus,
+          status: adData.status || platformRef.status,
           metadata: {
-            ...(platformRef.metadata as Record<string, any>),
+            ...platformRef.metadata as Record<string, any>,
             ...adData.metadata,
             lastUpdated: new Date().toISOString(),
           },
@@ -96,8 +96,8 @@ export class InstagramAdService {
       return {
         success: true,
         platform: "INSTAGRAM",
-        platformAdId: platformRef.platformAdId,
-        status: adData.status || platformRef.platformStatus,
+        externalId: platformRef.externalId,
+        status: adData.status || platformRef.status,
       }
     } catch (error) {
       this.logger.error(`Error updating Instagram ad: ${error.message}`, error.stack)
@@ -110,7 +110,7 @@ export class InstagramAdService {
       this.logger.log(`Deleting Instagram ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "INSTAGRAM",
@@ -125,12 +125,12 @@ export class InstagramAdService {
       // For now, we'll simulate the API call
 
       // Update the platform reference to DELETED status
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: "DELETED",
+          status: "DELETED",
           metadata: {
-            ...(platformRef.metadata as Record<string, any>),
+            ...platformRef.metadata as Record<string, any>,
             deletedAt: new Date().toISOString(),
           },
         },
@@ -139,7 +139,7 @@ export class InstagramAdService {
       return {
         success: true,
         platform: "INSTAGRAM",
-        platformAdId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         status: "DELETED",
       }
     } catch (error) {
@@ -153,7 +153,7 @@ export class InstagramAdService {
       this.logger.log(`Getting Instagram ad stats for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "INSTAGRAM",
@@ -175,7 +175,7 @@ export class InstagramAdService {
 
       return {
         platform: "INSTAGRAM",
-        platformAdId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         stats: {
           impressions,
           clicks,
@@ -203,7 +203,7 @@ export class InstagramAdService {
       this.logger.log(`Syncing Instagram ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "INSTAGRAM",
@@ -228,8 +228,7 @@ export class InstagramAdService {
 
       // Simulate fetching updated data from Instagram
       const updatedStatus = Math.random() > 0.9 ? "PAUSED" : "ACTIVE" // Occasionally show as paused
-      const metadata = platformRef.metadata as Record<string, any>
-      
+      const metadata = platformRef.metadata as Record<string, any>;
       const updatedMetadata = {
         ...metadata,
         lastSynced: new Date().toISOString(),
@@ -241,10 +240,10 @@ export class InstagramAdService {
       }
 
       // Update the platform reference with the latest data
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: updatedStatus,
+          status: updatedStatus,
           metadata: updatedMetadata,
         },
       })
@@ -255,7 +254,7 @@ export class InstagramAdService {
       return {
         success: true,
         platform: "INSTAGRAM",
-        externalId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         status: updatedStatus,
         metadata: updatedMetadata,
         stats: stats.stats,
@@ -265,6 +264,4 @@ export class InstagramAdService {
       throw error
     }
   }
-
-
 }

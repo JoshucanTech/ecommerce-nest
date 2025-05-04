@@ -1,7 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsString, IsEmail, IsArray, IsOptional } from "class-validator";
+import { IsString, IsEmail, IsArray, IsOptional, IsUUID } from "class-validator";
+import { VendorAddress } from "@prisma/client";
 
 export class CreateVendorApplicationDto {
+  @ApiProperty({ description: "user id", example: "asdf-321f-1234-1234-123456789000" })
+  @IsUUID()
+  userId: string;
+
   @ApiProperty({ description: "Business name", example: "Tech Gadgets" })
   @IsString()
   businessName: string;
@@ -21,8 +26,8 @@ export class CreateVendorApplicationDto {
     description: "Business address",
     example: "123 Business St, New York, NY 10001",
   })
-  @IsString()
-  businessAddress: string;
+  @IsOptional()
+  businessAddress: VendorAddress;
 
   @ApiPropertyOptional({
     description: "Business logo URL",

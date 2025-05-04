@@ -13,10 +13,10 @@ import { AdTargetingController } from "./ad-targeting.controller"
 import { FacebookAdService } from "./platforms/facebook-ad.service"
 import { InstagramAdService } from "./platforms/instagram-ad.service"
 import { TwitterAdService } from "./platforms/twitter-ad.service"
-import { GoogleAdsenseService } from "./platforms/google-adsense.service"
+import { GoogleAdsenseService as GoogleAdSenseService } from "./platforms/google-adsense.service"
 import { WhatsappAdService } from "./platforms/whatsapp-ad.service"
 import { InAppAdService } from "./platforms/in-app-ad.service"
-
+import { FeaturedProductsController } from "./featured-products.controller"
 
 @Module({
   imports: [PrismaModule],
@@ -26,6 +26,7 @@ import { InAppAdService } from "./platforms/in-app-ad.service"
     AdAnalyticsController,
     AdPaymentsController,
     AdTargetingController,
+    FeaturedProductsController,
   ],
   providers: [
     AdvertisementsService,
@@ -36,10 +37,10 @@ import { InAppAdService } from "./platforms/in-app-ad.service"
     FacebookAdService,
     InstagramAdService,
     TwitterAdService,
-    GoogleAdsenseService,
+    GoogleAdSenseService,
     WhatsappAdService,
     InAppAdService,
   ],
-  exports: [AdvertisementsService, AdPlatformsService, AdAnalyticsService, AdPaymentsService, AdTargetingService],
+  exports: [AdvertisementsService, WhatsappAdService, AdPlatformsService, AdAnalyticsService, AdPaymentsService, AdTargetingService],
 })
 export class AdvertisementsModule {}

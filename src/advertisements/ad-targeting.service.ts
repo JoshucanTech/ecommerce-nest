@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common"
-import type { PrismaService } from "../prisma/prisma.service"
+import { PrismaService } from "../prisma/prisma.service"
 
 @Injectable()
 export class AdTargetingService {
@@ -110,14 +110,14 @@ export class AdTargetingService {
     let matches = true
 
     // Age targeting
-    if (targeting.ageMin || targeting.ageMax) {
+    if (targeting.minAge || targeting.maxAge) {
       const userAge =  this.calculateAge(user.profile?.dateOfBirth)
 
-      if (targeting.ageMin && userAge < targeting.ageMin) {
+      if (targeting.minAge && userAge < targeting.minAge) {
         matches = false
       }
 
-      if (targeting.ageMax && userAge > targeting.ageMax) {
+      if (targeting.maxAge && userAge > targeting.maxAge) {
         matches = false
       }
     }
@@ -197,14 +197,14 @@ export class AdTargetingService {
       const targeting = ad.targeting
 
       // Age targeting
-      if (targeting.ageMin || targeting.ageMax) {
+      if (targeting.minAge || targeting.maxAge) {
         const userAge =  this.calculateAge(user.profile?.dateOfBirth)
 
-        if (targeting.ageMin && userAge < targeting.ageMin) {
+        if (targeting.minAge && userAge < targeting.minAge) {
           matches = false
         }
 
-        if (targeting.ageMax && userAge > targeting.ageMax) {
+        if (targeting.maxAge && userAge > targeting.maxAge) {
           matches = false
         }
       }

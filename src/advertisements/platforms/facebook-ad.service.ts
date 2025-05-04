@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common"
-import type { PrismaService } from "../../prisma/prisma.service"
-import type { ConfigService } from "@nestjs/config"
+import { PrismaService } from "../../prisma/prisma.service"
+import { ConfigService } from "@nestjs/config"
 
 @Injectable()
 export class FacebookAdService {
@@ -34,12 +34,12 @@ export class FacebookAdService {
       const facebookAdId = `fb_${Date.now()}_${Math.floor(Math.random() * 1000)}`
 
       // Store the external ad reference
-      await this.prisma.adPlatformConfig.create({
+      await this.prisma.adPlatformReference.create({
         data: {
           advertisementId,
           platform: "FACEBOOK",
-          platformAdId: facebookAdId,
-          platformStatus: "ACTIVE",
+          externalId: facebookAdId,
+          status: "ACTIVE",
           metadata: {
             adAccountId: adData.adAccountId || "default_account",
             campaignId: adData.campaignId || `campaign_${Date.now()}`,
@@ -51,7 +51,7 @@ export class FacebookAdService {
       return {
         success: true,
         platform: "FACEBOOK",
-        platformAdId: facebookAdId,
+        externalId: facebookAdId,
         status: "ACTIVE",
       }
     } catch (error) {
@@ -65,7 +65,7 @@ export class FacebookAdService {
       this.logger.log(`Updating Facebook ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "FACEBOOK",
@@ -80,12 +80,12 @@ export class FacebookAdService {
       // For now, we'll simulate the API call
 
       // Update the platform reference
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: adData.status || platformRef.platformStatus,
+          status: adData.status || platformRef.status,
           metadata: {
-            ...(platformRef.metadata as Record<string, any>),
+            ...platformRef.metadata as Record<string, any>,
             ...adData.metadata,
             lastUpdated: new Date().toISOString(),
           },
@@ -95,8 +95,8 @@ export class FacebookAdService {
       return {
         success: true,
         platform: "FACEBOOK",
-        platformAdId: platformRef.platformAdId,
-        status: adData.status || platformRef.platformStatus,
+        externalId: platformRef.externalId,
+        status: adData.status || platformRef.status,
       }
     } catch (error) {
       this.logger.error(`Error updating Facebook ad: ${error.message}`, error.stack)
@@ -109,7 +109,7 @@ export class FacebookAdService {
       this.logger.log(`Deleting Facebook ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "FACEBOOK",
@@ -124,12 +124,12 @@ export class FacebookAdService {
       // For now, we'll simulate the API call
 
       // Update the platform reference to DELETED status
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: "DELETED",
+          status: "DELETED",
           metadata: {
-            ...(platformRef.metadata as Record<string, any>),
+            ...platformRef.metadata as Record<string, any>,
             deletedAt: new Date().toISOString(),
           },
         },
@@ -138,7 +138,7 @@ export class FacebookAdService {
       return {
         success: true,
         platform: "FACEBOOK",
-        platformAdId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         status: "DELETED",
       }
     } catch (error) {
@@ -152,7 +152,7 @@ export class FacebookAdService {
       this.logger.log(`Getting Facebook ad stats for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "FACEBOOK",
@@ -174,7 +174,7 @@ export class FacebookAdService {
 
       return {
         platform: "FACEBOOK",
-        platformAdId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         stats: {
           impressions,
           clicks,
@@ -197,7 +197,7 @@ export class FacebookAdService {
       this.logger.log(`Syncing Facebook ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "FACEBOOK",
@@ -222,21 +222,21 @@ export class FacebookAdService {
 
       // Simulate fetching updated data from Facebook
       const updatedStatus = Math.random() > 0.9 ? "PAUSED" : "ACTIVE" // Occasionally show as paused
-      const metadata = platformRef.metadata as Record<string, any>
+      const metadata = platformRef.metadata as Record<string, any>;
       const updatedMetadata = {
-        ...(metadata),
+          ...metadata,
         lastSynced: new Date().toISOString(),
-        adSetId: metadata?.adSetId || `adset_${Date.now()}`,
-        budget: metadata?.budget || Math.floor(Math.random() * 1000) + 100,
+        adSetId: metadata.adSetId || `adset_${Date.now()}`,
+        budget: metadata.budget || Math.floor(Math.random() * 1000) + 100,
         reach: Math.floor(Math.random() * 50000) + 1000,
         frequency: Number.parseFloat((Math.random() * 5 + 1).toFixed(2)),
       }
 
       // Update the platform reference with the latest data
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: updatedStatus,
+          status: updatedStatus,
           metadata: updatedMetadata,
         },
       })
@@ -247,7 +247,7 @@ export class FacebookAdService {
       return {
         success: true,
         platform: "FACEBOOK",
-        externalId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         status: updatedStatus,
         metadata: updatedMetadata,
         stats: stats.stats,

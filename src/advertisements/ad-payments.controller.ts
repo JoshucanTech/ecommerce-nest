@@ -24,7 +24,7 @@ export class AdPaymentsController {
     description: "The ad payment has been successfully created.",
   })
   create(@Body() createAdPaymentDto: CreateAdPaymentDto, @CurrentUser() user) {
-    return this.adPaymentsService.create(user, createAdPaymentDto)
+    return this.adPaymentsService.create(createAdPaymentDto)
   }
 
   @Get()
@@ -39,18 +39,20 @@ export class AdPaymentsController {
   @ApiQuery({ name: "status", required: false, enum: PaymentStatus })
   @ApiQuery({ name: "advertisementId", required: false })
   findAll(
-    @CurrentUser() user,
+    @Param('vendorId') vendorId: string,
     @Query('page') page = 1,
     @Query('limit') limit = 10,
     @Query('status') status?: PaymentStatus,
     @Query('advertisementId') advertisementId?: string,
+    // @CurrentUser() user,
   ) {
     return this.adPaymentsService.findAll(
-       +page,
-       +limit,
-      status,
-      advertisementId,
-      user,
+      vendorId
+      // +page
+      // +limit,
+      // status,
+      // advertisementId,
+      // user,
     )
   }
 
@@ -88,7 +90,7 @@ export class AdPaymentsController {
   // @ApiParam({ name: "id", description: "Ad Payment ID" })
   // process(@Param('id') id: string, @CurrentUser() user) {
   //   return this.adPaymentsService.processPayment(id, user)
-  // } 
+  // }
 
   @Post('webhook')
   @ApiOperation({ summary: 'Payment provider webhook' })
@@ -96,7 +98,7 @@ export class AdPaymentsController {
     status: HttpStatus.OK,
     description: 'Webhook processed successfully.',
   })
-  webhook(@Body() webhookData: any, signature:any) {
+  webhook(@Body() webhookData: any, signature: any) {
     return this.adPaymentsService.processWebhook(webhookData, signature);
   }
 }

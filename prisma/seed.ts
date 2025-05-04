@@ -42,7 +42,15 @@ async function main() {
   await prisma.supportTicket.deleteMany()
   await prisma.faq.deleteMany()
   await prisma.review.deleteMany()
+  await prisma.productAdvertisement.deleteMany()
   await prisma.advertisement.deleteMany()
+  await prisma.adTargeting.deleteMany()
+  await prisma.adPlatformReference.deleteMany()
+  await prisma.adPayment.deleteMany()
+  await prisma.adAnalytics.deleteMany()
+  await prisma.adUserInteraction.deleteMany()
+  await prisma.adPlatformConfig.deleteMany()
+  
 
   console.log("Seeding database...")
 
@@ -340,6 +348,39 @@ async function main() {
   );
 
 
+    // Seed Flash Sale Products with Faker
+    const featuredProducts = await Promise.all(
+      Array.from({ length: 6 }).map(() => {
+        const name = faker.commerce.productName();
+        const slug = faker.helpers.slugify(name.toLowerCase());
+        const price = parseFloat(faker.commerce.price({ min: 200, max: 500 }));
+        
+        return prisma.product.create({
+          data: {
+            name,
+            slug,
+            description: faker.commerce.productDescription(),
+            price,
+            discountPrice: price - (price * 0.2),
+            quantity: faker.number.int({ min: 10, max: 100 }),
+            sku: faker.string.alphanumeric(8).toUpperCase(),
+            images: [faker.image.url(), faker.image.url()],
+            isPublished: true,
+            vendorId,
+            categoryId: categories[0].id,
+            inventory: {
+              create: {
+                quantity: faker.number.int({ min: 10, max: 100 }),
+                vendorId,
+              },
+            },
+  
+          },
+        });
+      })
+    );
+  
+
   console.log("Created products:", products.map((p) => p.name).join(", "))
 
   // Add Review .
@@ -495,75 +536,135 @@ async function main() {
 
 
   // Seed Advertisement
-  const advertisement = await prisma.advertisement.create({
-    data: {
-      title: 'Super Sale on Electronics!',
-      description: 'Massive discounts on all electronics items',
-      vendorId,
-      productId: products[0].id,
-      type: AdType.FEATURED_PRODUCT,
-      pricingModel: PricingModel.CPC,
-      bidAmount: 0.5,
-      budget: 1000,
-      startDate: new Date(),
-      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      mediaUrls: [faker.image.url(), faker.image.url()],
-      adText: faker.lorem.sentence(),
-      callToAction: 'Shop Now',
-      landingPageUrl: 'https://example.com',
-      platformConfigs: {
-        create: [
-          {
-            platform: AdPlatform.IN_APP,
-            platformStatus: 'ACTIVE',
-            platformAdId: faker.string.alphanumeric(12),
-            platformCampaignId: faker.string.alphanumeric(12),
-            settings: {},
-          },
-        ],
+// Create Advertisements
+const ad1 = await prisma.advertisement.create({
+  data: {
+    title: 'Amazing Faetured Product',
+    description: 'This is a fantastic banner ad!',
+    type: AdType.FEATURED_PRODUCT,
+    vendorId,
+    status: 'ACTIVE',
+    bidAmount:100,
+    pricingModel: PricingModel.CPC,
+    startDate: new Date(),
+    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // +7 days
+    budget: 500,
+    imageUrl: 'https://example.com/banner.png',
+
+  },
+});
+
+
+// Seed Flash Sale Items for Products
+const productAdvertisement = await Promise.all(
+  featuredProducts.map((product) =>
+    prisma.productAdvertisement.create({
+      data: {
+        advertisementId: ad1.id,
+        productId: product.id,
+        displayOrder: faker.number.int({ min: 1, max: 100 }),
+        customTitle: faker.commerce.productName(),
+        customDescription: faker.commerce.productDescription(),
+        customImageUrl: faker.image.url(),
+        customPrice: parseFloat(faker.commerce.price({ min: 200, max: 500 })),
+    
       },
-      targeting: {
-        create: {
-          ageMin: 18,
-          ageMax: 45,
-          genders: ['Male', 'Female'],
-          locations: ['United States', 'Canada'],
-          interests: ['Electronics', 'Gadgets'],
-          keywords: ['smartphone', 'laptop'],
-          devices: ['Mobile', 'Desktop'],
-          browsers: ['Chrome', 'Safari'],
-        },
-      },
-      analytics: {
-        create: [
-          {
-            date: new Date(),
-            platform: AdPlatform.IN_APP,
-            impressions: 1000,
-            clicks: 120,
-            conversions: 30,
-            spend: 50,
-          },
-        ],
-      },
-      payments: {
-        create: [
-          {
-            amount: 100,
-            status: PaymentStatus.COMPLETED,
-            paymentMethod: PaymentMethod.CREDIT_CARD,
-            transactionId: faker.string.alphanumeric(12),
-          },
-        ],
-      },
+    })
+  )
+);
+
+console.log("Created featuredProduct advert:", productAdvertisement)
+
+
+// Create Ad Targeting
+await prisma.adTargeting.create({
+  data: {
+    advertisementId: ad1.id,
+    minAge: 18,
+    maxAge: 35,
+    genders: ['MALE', 'FEMALE'],
+    locations: ['United States', 'Canada'],
+    interests: ['Technology', 'Travel'],
+    languages: ['English'],
+    devices: ['Mobile', 'Desktop'],
+  },
+});
+
+// Create Platform Reference
+await prisma.adPlatformReference.create({
+  data: {
+    advertisementId: ad1.id,
+    platform: AdPlatform.IN_APP,
+    externalId: `fb_${ad1.id}`,
+    status: 'ACTIVE',
+    metadata: {
+      pageId: '123456789',
+      campaignId: '987654321',
     },
-    include: {
-      targeting: true,
-      platformConfigs: true,
-      analytics: true,
-      payments: true,
+  },
+});
+
+// Create Ad Payment
+await prisma.adPayment.create({
+  data: {
+    advertisementId: ad1.id,
+    amount: 100,
+    currency: 'USD',
+    paymentMethod: 'CREDIT_CARD',
+    status: 'COMPLETED',
+    transactionReference: 'txn_001',
+    processedAt: new Date(),
+  },
+});
+
+// Create Analytics
+await prisma.adAnalytics.create({
+  data: {
+    advertisementId: ad1.id,
+    date: new Date(),
+    views: 5000,
+    platform:AdPlatform.IN_APP,
+    clicks: 300,
+    conversions: 50,
+    conversionValue: 1500,
+    ctr: 0.06,
+    conversionRate: 0.01,
+  },
+});
+
+// Create User Interaction
+await prisma.adUserInteraction.create({
+  data: {
+    advertisementId: ad1.id,
+    interactionType: 'CLICK',
+    timestamp: new Date(),
+    conversionValue: 30,
+    ipAddress: '192.168.1.1',
+    referrer: 'https://google.com',
+    deviceInfo: {
+      os: 'iOS',
+      browser: 'Safari',
     },
-  });
+    metadata: {
+      sessionDuration: '5m',
+    },
+  },
+});
+
+// Create Ad Platform Config (for settings)
+await prisma.adPlatformConfig.create({
+  data: {
+    platform: AdPlatform.IN_APP,
+    advertisementId: ad1.id,
+    name: 'Facebook Ads Config',
+    description: 'Configuration for Facebook Ads',
+    
+    config: {
+      apiKey: 'fb_api_key_123',
+      secret: 'fb_secret_abc',
+    },
+  },
+});
 
 
 

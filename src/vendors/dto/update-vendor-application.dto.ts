@@ -6,7 +6,7 @@ import {
   IsOptional,
   IsEnum,
 } from "class-validator";
-import { ApplicationStatus } from "@prisma/client";
+import { ApplicationStatus, VendorAddress } from "@prisma/client";
 
 export class UpdateVendorApplicationDto {
   @ApiPropertyOptional({
@@ -39,7 +39,7 @@ export class UpdateVendorApplicationDto {
   })
   @IsOptional()
   @IsString()
-  businessAddress?: string;
+  businessAddress?: VendorAddress;
 
   @ApiPropertyOptional({
     description: "Business logo URL",

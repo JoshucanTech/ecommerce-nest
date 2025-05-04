@@ -6,6 +6,7 @@ import { RolesGuard } from "../auth/guards/roles.guard"
 import { Roles } from "../auth/decorators/roles.decorator"
 import { CurrentUser } from "../auth/decorators/current-user.decorator"
 import { AdAnalyticsQueryDto } from "./dto/ad-analytics-query.dto"
+import { AdPlatform } from "@prisma/client"
 
 @ApiTags("ad-analytics")
 @Controller("ad-analytics")
@@ -22,20 +23,20 @@ export class AdAnalyticsController {
     description: "Return analytics for the advertisement.",
   })
   getAnalytics(@Query() query: AdAnalyticsQueryDto, @CurrentUser() user) {
-    return this.adAnalyticsService.getAdAnalytics(user, query )
+    return this.adAnalyticsService.getAdAnalytics(user, query)
   }
 
   @Post('track-impression')
-  @ApiOperation({ summary: 'Track an ad Views/impression' })
+  @ApiOperation({ summary: 'Track an ad impression' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'The Views/impression has been successfully tracked.',
+    description: 'The impression has been successfully tracked.',
   })
   trackImpression(
-    @Body() data: { advertisementId: string; platform: string },
+    @Body() data: { advertisementId: string; platform: AdPlatform },
     @CurrentUser() user
   ) {
-    return this.adAnalyticsService.recordAdView(data.platform, data.advertisementId, user?.id);
+    return this.adAnalyticsService.recordAdView(data.platform, data.advertisementId, user.id);
   }
 
   @Post('track-click')
@@ -45,7 +46,7 @@ export class AdAnalyticsController {
     description: 'The click has been successfully tracked.',
   })
   trackClick(
-    @Body() data: { advertisementId: string; platform: string },
+    @Body() data: { advertisementId: string; platform: AdPlatform },
   ) {
     return this.adAnalyticsService.recordAdClick(data.advertisementId, data.platform);
   }
@@ -57,9 +58,9 @@ export class AdAnalyticsController {
     description: 'The conversion has been successfully tracked.',
   })
   trackConversion(
-    @Body() data: { advertisementId: string; platform: string },
+    @Body() data: { advertisementId: string; platform: AdPlatform },
   ) {
-    return this.adAnalyticsService.recordAdConversion(data.advertisementId, data.platform);
+    return this.adAnalyticsService.recordAdConversion(data.platform, data.advertisementId);
   }
 
   @Get('dashboard')

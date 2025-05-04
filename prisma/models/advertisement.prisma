@@ -15,6 +15,7 @@ enum AdType {
   IN_APP_BANNER
   IN_APP_POPUP
   EXTERNAL
+  CAROUSEL
 }
 
 enum PricingModel {
@@ -37,6 +38,28 @@ enum AdPlatform {
   OTHER
 }
 
+model AdUserInteraction {
+  id              String        @id @default(uuid())
+  advertisementId String
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  interactionType String // VIEW, CLICK, CONVERSION
+  timestamp       DateTime      @default(now())
+  conversionValue Float? // Value of the conversion if applicable
+  metadata        Json? // Additional data about the interaction
+  deviceInfo      Json? // Information about the user's device
+  ipAddress       String? // User's IP address (anonymized if needed)
+  referrer        String? // Where the user came from
+  Product         Product?      @relation(fields: [productId], references: [id])
+  productId       String?
+
+  @@index([advertisementId])
+  @@index([userId])
+  @@index([interactionType])
+  @@index([timestamp])
+}
+
 model Advertisement {
   id           String       @id @default(uuid())
   title        String
@@ -45,13 +68,11 @@ model Advertisement {
   // user         User         @relation("UserAdvertisement", fields: [userId], references: [id], onDelete: Cascade)
   vendorId     String
   vendor       Vendor       @relation(fields: [vendorId], references: [id])
-  productId    String?
-  product      Product?     @relation(fields: [productId], references: [id])
   type         AdType
   status       AdStatus     @default(DRAFT)
   startDate    DateTime?
   endDate      DateTime?
-  budget       Float
+  budget       Float?
   dailyBudget  Float?
   pricingModel PricingModel
   bidAmount    Float // Amount per click/view based on pricing model
@@ -59,6 +80,7 @@ model Advertisement {
   // Ad content
   mediaUrls      String[] // Array of image/video URLs
   imageUrl       String?
+  videoUrl       String?
   targetUrl      String?
   adText         String?
   callToAction   String?
@@ -77,23 +99,56 @@ model Advertisement {
   spend Float @default(0)
 
   // Approval
-  reviewNotes String?
-  reviewedBy  String?
-  reviewedAt  DateTime?
-  reviewer    User?     @relation("AdReviewer", fields: [reviewedBy], references: [id])
+  reviewNotes     String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  reviewer        User?     @relation("AdReviewer", fields: [reviewedBy], references: [id])
 
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Updated to support multiple products
+  products          ProductAdvertisement[] // Relation to join table for multiple products
+  maxProducts       Int               @default(1) // Maximum number of products this ad can hold
+
   // Relations
-  analytics AdAnalytics[]
-  payments  AdPayment[]
+  analytics        AdAnalytics[]
+  payments         AdPayment[]
+  platformRefs     AdPlatformReference[]
+  userInteractions AdUserInteraction[]
 
   // User interaction tracking
-  clicks      AdClick[]
-  impressions AdImpression[]
-  conversions AdConversion[]
+  clicks               AdClick[]
+  impressions          AdImpression[]
+  conversions          AdConversion[]
+  
+
+  @@index([vendorId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+// New join table to support many-to-many relationship between advertisements and products
+model ProductAdvertisement {
+  id                String        @id @default(uuid())
+  advertisementId   String
+  advertisement     Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  displayOrder      Int           @default(0) // Order in which products appear in the ad
+  customTitle       String? // Optional custom title for this product in this ad
+  customDescription String? // Optional custom description for this product in this ad
+  customImageUrl    String? // Optional custom image URL for this product in this ad
+  customPrice       Float? // Optional custom price for this product in this ad
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([advertisementId, productId])
+  @@index([advertisementId])
+  @@index([productId])
 }
 
 model AdTargeting {
@@ -102,21 +157,23 @@ model AdTargeting {
   advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
 
   // Demographics
-  ageMin    Int?
-  ageMax    Int?
+  minAge    Int?
+  maxAge    Int?
   genders   String[] // Array of genders
   locations String[] // Array of locations (countries, cities)
 
   // Interests and behaviors
   interests String[] // Array of interest categories
   keywords  String[] // Array of keywords
+  languages String[] // Array of languages to target
 
   // Device targeting
   devices  String[] // Array of device types
   browsers String[] // Array of browsers
 
   // Custom targeting
-  customAudience Json? // Platform-specific custom audience data
+  customAudience   Json? // Platform-specific custom audience data
+  excludedAudience Json? // Criteria for audience exclusion
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -128,6 +185,10 @@ model AdPlatformConfig {
   advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
   platform        AdPlatform
   isActive        Boolean       @default(true)
+
+  name        String
+  description String?
+  config      Json // Platform-specific configuration
 
   // Platform-specific configuration
   platformAdId       String? // ID of the ad on the platform
@@ -147,7 +208,23 @@ model AdPlatformConfig {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([advertisementId, platform, name])
+}
+
+model AdPlatformReference {
+  id              String        @id @default(uuid())
+  advertisementId String
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  platform        String // FACEBOOK, INSTAGRAM, TWITTER, GOOGLE_ADSENSE, WHATSAPP, IN_APP
+  externalId      String // ID on the external platform
+  status          String        @default("PENDING") // PENDING, ACTIVE, PAUSED, DELETED
+  metadata        Json? // Platform-specific metadata
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
   @@unique([advertisementId, platform])
+  @@index([platform])
+  @@index([status])
 }
 
 model AdAnalytics {
@@ -168,6 +245,8 @@ model AdAnalytics {
   conversionRate    Float? // Conversion rate
   costPerClick      Float? // Cost per click
   costPerConversion Float? // Cost per conversion
+  timestamp         DateTime @default(now())
+  conversionValue   Float    @default(0) // Total value of conversions 
 
   // Additional metrics
   bounceRate         Float? // Bounce rate
@@ -177,20 +256,24 @@ model AdAnalytics {
   updatedAt DateTime @updatedAt
 
   @@unique([advertisementId, date, platform])
+  @@index([advertisementId])
+  @@index([date])
 }
 
 model AdPayment {
-  id              String        @id @default(uuid())
-  advertisementId String
-  advertisement   Advertisement @relation(fields: [advertisementId], references: [id])
-  amount          Float
-  refundedAmount  Float?
-  refundedAt      DateTime?
-  status          PaymentStatus @default(PENDING)
-  notes           String?
-  transactionId   String?
-  currency        String?
-  paymentMethod   PaymentMethod
+  id                   String        @id @default(uuid())
+  advertisementId      String
+  advertisement        Advertisement @relation(fields: [advertisementId], references: [id])
+  amount               Float
+  refundedAmount       Float?
+  refundedAt           DateTime?
+  status               PaymentStatus @default(PENDING)
+  notes                String?
+  transactionId        String?
+  currency             String?       @default("USD")
+  paymentMethod        PaymentMethod
+  transactionReference String?
+  processedAt          DateTime?
 
   // Invoice details
   invoiceNumber String? @unique
@@ -198,4 +281,8 @@ model AdPayment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([advertisementId])
+  @@index([status])
+  @@index([createdAt])
 }

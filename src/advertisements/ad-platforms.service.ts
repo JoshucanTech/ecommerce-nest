@@ -1,14 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from "@nestjs/common"
-import { PrismaService } from "../prisma/prisma.service"
-import { CreateAdPlatformConfigDto } from "./dto/create-ad-platform-config.dto"
-import { UpdateAdPlatformConfigDto } from "./dto/update-ad-platform-config.dto"
+import  { PrismaService } from "../prisma/prisma.service"
+import  { CreateAdPlatformConfigDto } from "./dto/create-ad-platform-config.dto"
+import  { UpdateAdPlatformConfigDto } from "./dto/update-ad-platform-config.dto"
 import { AdPlatform, UserRole } from "@prisma/client"
-import { FacebookAdService } from "./platforms/facebook-ad.service"
-import { InstagramAdService } from "./platforms/instagram-ad.service"
-import { TwitterAdService } from "./platforms/twitter-ad.service"
-import { GoogleAdsenseService } from "./platforms/google-adsense.service"
-import { WhatsappAdService } from "./platforms/whatsapp-ad.service"
-import { InAppAdService } from "./platforms/in-app-ad.service"
+import  { FacebookAdService } from "./platforms/facebook-ad.service"
+import  { InstagramAdService } from "./platforms/instagram-ad.service"
+import  { TwitterAdService } from "./platforms/twitter-ad.service"
+import  { GoogleAdsenseService as GoogleAdSenseService } from "./platforms/google-adsense.service"
+import  { WhatsappAdService } from "./platforms/whatsapp-ad.service"
+import  { InAppAdService } from "./platforms/in-app-ad.service"
 
 @Injectable()
 export class AdPlatformsService {
@@ -17,7 +17,7 @@ export class AdPlatformsService {
     private facebookAdService: FacebookAdService,
     private instagramAdService: InstagramAdService,
     private twitterAdService: TwitterAdService,
-    private googleAdSenseService: GoogleAdsenseService,
+    private googleAdSenseService: GoogleAdSenseService,
     private whatsappAdService: WhatsappAdService,
     private inAppAdService: InAppAdService,
   ) {}
@@ -51,7 +51,9 @@ export class AdPlatformsService {
 
     // Create platform config
     const platformConfig = await this.prisma.adPlatformConfig.create({
-      data: createAdPlatformConfigDto,
+      data: {
+        ...createAdPlatformConfigDto,        
+      },
     })
 
     return platformConfig
@@ -202,22 +204,22 @@ export class AdPlatformsService {
     let result
     switch (platformConfig.platform) {
       case AdPlatform.FACEBOOK:
-        result = await this.facebookAdService.syncAd(platformConfig)
+        result = await this.facebookAdService.syncAd(platformConfig.advertisementId) 
         break
       case AdPlatform.INSTAGRAM:
-        result = await this.instagramAdService.syncAd(platformConfig)
+        result = await this.instagramAdService.syncAd(platformConfig.advertisementId)
         break
       case AdPlatform.TWITTER:
-        result = await this.twitterAdService.syncAd(platformConfig)
+        result = await this.twitterAdService.syncAd(platformConfig.advertisementId)
         break
       case AdPlatform.GOOGLE_ADSENSE:
-        result = await this.googleAdSenseService.syncAd(platformConfig)
+        result = await this.googleAdSenseService.syncAd(platformConfig.advertisementId)
         break
       case AdPlatform.WHATSAPP:
-        result = await this.whatsappAdService.syncAd(platformConfig)
+        result = await this.whatsappAdService.syncAd(platformConfig.advertisementId)
         break
       case AdPlatform.IN_APP:
-        result = await this.inAppAdService.syncAd(platformConfig)
+        result = await this.inAppAdService.syncAd(platformConfig.advertisementId)
         break
       default:
         throw new BadRequestException(`Unsupported platform: ${platformConfig.platform}`)

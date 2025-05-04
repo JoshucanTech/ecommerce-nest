@@ -14,6 +14,43 @@ import {
 } from "class-validator"
 import { Type } from "class-transformer"
 import { AdType, PricingModel } from "@prisma/client"
+// import { AdType, PricingModel } from "@prisma/client"
+
+
+export class ProductAdvertisementDto {
+  @ApiProperty({ example: "product-uuid" })
+  @IsUUID()
+  productId: string
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  displayOrder?: number
+
+  @ApiPropertyOptional({ example: "Special Summer Edition" })
+  @IsOptional()
+  @IsString()
+  customTitle?: string
+
+  @ApiPropertyOptional({ example: "Limited time offer for our summer collection" })
+  @IsOptional()
+  @IsString()
+  customDescription?: string
+
+  @ApiPropertyOptional({ example: "https://example.com/custom-image.jpg" })
+  @IsOptional()
+  @IsUrl()
+  customImageUrl?: string
+
+  @ApiPropertyOptional({ example: 49.99 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  customPrice?: number
+}
+
+
 
 export class CreateAdTargetingDto {
   @ApiPropertyOptional({ minimum: 13, maximum: 100 })
@@ -85,14 +122,26 @@ export class CreateAdvertisementDto {
   @IsUUID()
   vendorId: string
 
-  @ApiPropertyOptional({ example: "product-uuid" })
-  @IsOptional()
-  @IsUUID()
-  productId?: string
+  // @ApiPropertyOptional({ example: "product-uuid" })
+  // @IsOptional()
+  // @IsUUID()
+  // productId?: string
 
-  @ApiProperty({ enum: AdType, example: AdType.FEATURED_PRODUCT })
-  @IsEnum(AdType)
-  type: AdType
+
+  @ApiPropertyOptional({ example: 5, description: "Maximum number of products this ad can hold" })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(50) // Setting a reasonable upper limit
+  maxProducts?: number
+
+  @ApiPropertyOptional({ type: [ProductAdvertisementDto], description: "Products to include in this advertisement" })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductAdvertisementDto)
+  products?: ProductAdvertisementDto[]
+
 
   @ApiPropertyOptional({ type: String, format: "date-time" })
   @IsOptional()
@@ -118,6 +167,10 @@ export class CreateAdvertisementDto {
   @ApiProperty({ enum: PricingModel, example: PricingModel.CPC })
   @IsEnum(PricingModel)
   pricingModel: PricingModel
+
+  @ApiProperty({ enum: AdType, example: AdType.FEATURED_PRODUCT, description: "Ad type" })
+  @IsEnum(AdType)
+  type: AdType 
 
   @ApiProperty({ example: 0.5, description: "Bid amount per click/view based on pricing model" })
   @IsNumber()
@@ -155,4 +208,7 @@ export class CreateAdvertisementDto {
   @IsArray()
   @IsString({ each: true })
   platforms?: string[]
+
+ 
+
 }

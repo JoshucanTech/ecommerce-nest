@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common"
-import type { PrismaService } from "../../prisma/prisma.service"
-import type { ConfigService } from "@nestjs/config"
+import { PrismaService } from "../../prisma/prisma.service"
+import { ConfigService } from "@nestjs/config"
 
 @Injectable()
 export class TwitterAdService {
@@ -34,12 +34,12 @@ export class TwitterAdService {
       const twitterAdId = `tw_${Date.now()}_${Math.floor(Math.random() * 1000)}`
 
       // Store the external ad reference
-      await this.prisma.adPlatformConfig.create({
+      await this.prisma.adPlatformReference.create({
         data: {
           advertisementId,
           platform: "TWITTER",
-          platformAdId: twitterAdId,
-          platformStatus: "ACTIVE",
+          externalId: twitterAdId,
+          status: "ACTIVE",
           metadata: {
             accountId: adData.accountId || "default_account",
             campaignId: adData.campaignId || `campaign_${Date.now()}`,
@@ -52,7 +52,7 @@ export class TwitterAdService {
       return {
         success: true,
         platform: "TWITTER",
-        platformAdId: twitterAdId,
+        externalId: twitterAdId,
         status: "ACTIVE",
       }
     } catch (error) {
@@ -66,7 +66,7 @@ export class TwitterAdService {
       this.logger.log(`Updating Twitter ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "TWITTER",
@@ -81,12 +81,12 @@ export class TwitterAdService {
       // For now, we'll simulate the API call
 
       // Update the platform reference
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: adData.status || platformRef.platformStatus,
+          status: adData.status || platformRef.status,
           metadata: {
-            ...(platformRef.metadata as Record<string, any>),
+            ...platformRef.metadata as Record<string, any>,
             ...adData.metadata,
             lastUpdated: new Date().toISOString(),
           },
@@ -96,8 +96,8 @@ export class TwitterAdService {
       return {
         success: true,
         platform: "TWITTER",
-        platformAdId: platformRef.platformAdId,
-        platformStatus: adData.status || platformRef.platformStatus,
+        externalId: platformRef.externalId,
+        status: adData.status || platformRef.status,
       }
     } catch (error) {
       this.logger.error(`Error updating Twitter ad: ${error.message}`, error.stack)
@@ -110,7 +110,7 @@ export class TwitterAdService {
       this.logger.log(`Deleting Twitter ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "TWITTER",
@@ -125,12 +125,12 @@ export class TwitterAdService {
       // For now, we'll simulate the API call
 
       // Update the platform reference to DELETED status
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: "DELETED",
+          status: "DELETED",
           metadata: {
-            ...(platformRef.metadata as Record<string, any>),
+            ...platformRef.metadata as Record<string, any>,
             deletedAt: new Date().toISOString(),
           },
         },
@@ -139,7 +139,7 @@ export class TwitterAdService {
       return {
         success: true,
         platform: "TWITTER",
-        platformAdId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         status: "DELETED",
       }
     } catch (error) {
@@ -153,7 +153,7 @@ export class TwitterAdService {
       this.logger.log(`Getting Twitter ad stats for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "TWITTER",
@@ -175,7 +175,7 @@ export class TwitterAdService {
 
       return {
         platform: "TWITTER",
-        platformAdId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         stats: {
           impressions,
           clicks,
@@ -199,13 +199,12 @@ export class TwitterAdService {
     }
   }
 
-  
   async syncAd(advertisementId: string) {
     try {
       this.logger.log(`Syncing Twitter ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "TWITTER",
@@ -230,7 +229,7 @@ export class TwitterAdService {
 
       // Simulate fetching updated data from Twitter
       const updatedStatus = Math.random() > 0.9 ? "PAUSED" : "ACTIVE" // Occasionally show as paused
-      const metadata = platformRef.metadata as Record<string, any>
+      const metadata = platformRef.metadata as Record<string, any>;
       const updatedMetadata = {
         ...metadata,
         lastSynced: new Date().toISOString(),
@@ -246,10 +245,10 @@ export class TwitterAdService {
       }
 
       // Update the platform reference with the latest data
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: updatedStatus,
+          status: updatedStatus,
           metadata: updatedMetadata,
         },
       })
@@ -260,7 +259,7 @@ export class TwitterAdService {
       return {
         success: true,
         platform: "TWITTER",
-        externalId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         status: updatedStatus,
         metadata: updatedMetadata,
         stats: stats.stats,

@@ -50,10 +50,40 @@ export class VendorsService {
       data: {
         ...createVendorApplicationDto,
         userId,
+        
+        businessAddress: {
+          create: [
+            {
+              street: '123 Main St',
+              city: 'New York',
+              country: 'USA',
+              postalCode: '10001',
+              state: 'NY',
+            }
+          ]
+        }
       },
     });
   }
 
+/*************  ✨ Windsurf Command ⭐  *************/
+  /**
+   * Get vendor applications with pagination.
+   *
+   * @param {number} page
+   * @param {number} limit
+   * @param {string} [status]
+   * @returns {Promise<{ data: VendorApplication[], meta: { total: number, page: number, limit: number, totalPages: number } }>}
+   */
+  /**
+   * Get vendor applications with pagination.
+   *
+   * @param {number} page
+   * @param {number} limit
+   * @param {string} [status]
+   * @returns {Promise<{ data: VendorApplication[], meta: { total: number, page: number, limit: number, totalPages: number } }>}
+   */
+/*******  bab8d9c7-566d-48a4-a486-2c4bb81f8484  *******/
   async getApplications(params: {
     page: number;
     limit: number;
@@ -146,6 +176,11 @@ export class VendorsService {
     // Check if application exists
     const application = await this.prisma.vendorApplication.findUnique({
       where: { id },
+     
+    });
+
+    const vendorAddress = await this.prisma.vendorAddress.findFirst({
+      where: { vendorApplicationId:id },
     });
 
     if (!application) {
@@ -172,7 +207,22 @@ export class VendorsService {
     // Update application
     return this.prisma.vendorApplication.update({
       where: { id },
-      data: updateVendorApplicationDto,
+      data: {
+        ...updateVendorApplicationDto,
+        businessAddress:{
+          update: {
+          where: { id: vendorAddress.id },
+          data: {
+            street: updateVendorApplicationDto.businessAddress.street,
+            city: updateVendorApplicationDto.businessAddress.city,
+            country: updateVendorApplicationDto.businessAddress.country,
+            postalCode: updateVendorApplicationDto.businessAddress.postalCode,
+            state: updateVendorApplicationDto.businessAddress.state
+          }
+        }}
+      },
+      
+      
     });
   }
 
@@ -182,6 +232,7 @@ export class VendorsService {
       where: { id },
       include: {
         user: true,
+        businessAddress: true
       },
     });
 
@@ -224,10 +275,19 @@ export class VendorsService {
         businessName: application.businessName,
         businessEmail: application.businessEmail,
         businessPhone: application.businessPhone,
-        businessAddress: application.businessAddress,
         businessLogo: application.businessLogo,
         description: application.description,
         slug,
+        businessAddress: {
+          create: {
+            street: application.businessAddress[0].street,
+            city: application.businessAddress[0].city,
+            country: application.businessAddress[0].country,
+            postalCode: application.businessAddress[0].postalCode,
+            state: application.businessAddress[0].state
+          }
+        },
+
       },
     });
 
@@ -435,8 +495,17 @@ export class VendorsService {
       data: {
         ...updateVendorDto,
         slug,
+        businessAddress: {
+          update: {
+            where: { id: vendor.id },
+            data: {
+              ...updateVendorDto.businessAddress,
+            }
+          },  
+        },
       },
     });
+    
   }
 
   async update(id: string, updateVendorDto: UpdateVendorDto) {
@@ -492,6 +561,15 @@ export class VendorsService {
       data: {
         ...updateVendorDto,
         slug,
+        businessAddress: {
+          update: {
+            where: { id },
+            data: {
+              ...updateVendorDto.businessAddress,
+            }
+          },
+        }
+
       },
     });
   }

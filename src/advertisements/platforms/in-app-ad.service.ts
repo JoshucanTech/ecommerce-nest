@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common"
-import type { PrismaService } from "../../prisma/prisma.service"
-import type { ConfigService } from "@nestjs/config"
+import { PrismaService } from "../../prisma/prisma.service"
+import { ConfigService } from "@nestjs/config"
 
 @Injectable()
 export class InAppAdService {
@@ -31,12 +31,12 @@ export class InAppAdService {
       const inAppAdId = `inapp_${Date.now()}_${Math.floor(Math.random() * 1000)}`
 
       // Store the ad reference
-      await this.prisma.adPlatformConfig.create({
+      await this.prisma.adPlatformReference.create({
         data: {
           advertisementId,
           platform: "IN_APP",
-          platformAdId: inAppAdId,
-          platformStatus: "ACTIVE",
+          externalId: inAppAdId,
+          status: "ACTIVE",
           metadata: {
             placementType: adData.placementType || "BANNER",
             position: adData.position || "TOP",
@@ -49,8 +49,8 @@ export class InAppAdService {
       return {
         success: true,
         platform: "IN_APP",
-        platformAdId: inAppAdId,
-        platformStatus: "ACTIVE",
+        externalId: inAppAdId,
+        status: "ACTIVE",
       }
     } catch (error) {
       this.logger.error(`Error creating In-App ad: ${error.message}`, error.stack)
@@ -63,7 +63,7 @@ export class InAppAdService {
       this.logger.log(`Updating In-App ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "IN_APP",
@@ -75,12 +75,12 @@ export class InAppAdService {
       }
 
       // Update the platform reference
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: adData.status || platformRef.platformStatus,
+          status: adData.status || platformRef.status,
           metadata: {
-            ...(platformRef.metadata as Record<string, any>),
+            ...platformRef.metadata as Record<string, any>,
             ...adData.metadata,
             lastUpdated: new Date().toISOString(),
           },
@@ -90,8 +90,8 @@ export class InAppAdService {
       return {
         success: true,
         platform: "IN_APP",
-        platformAdId: platformRef.platformAdId,
-        platformStatus: adData.status || platformRef.platformStatus,
+        externalId: platformRef.externalId,
+        status: adData.status || platformRef.status,
       }
     } catch (error) {
       this.logger.error(`Error updating In-App ad: ${error.message}`, error.stack)
@@ -104,7 +104,7 @@ export class InAppAdService {
       this.logger.log(`Deleting In-App ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "IN_APP",
@@ -116,12 +116,12 @@ export class InAppAdService {
       }
 
       // Update the platform reference to DELETED status
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: "DELETED",
+          status: "DELETED",
           metadata: {
-            ...(platformRef.metadata as Record<string, any>),
+            ...platformRef.metadata as Record<string, any>,
             deletedAt: new Date().toISOString(),
           },
         },
@@ -130,8 +130,8 @@ export class InAppAdService {
       return {
         success: true,
         platform: "IN_APP",
-        platformAdId: platformRef.platformAdId,
-        platformStatus: "DELETED",
+        externalId: platformRef.externalId,
+        status: "DELETED",
       }
     } catch (error) {
       this.logger.error(`Error deleting In-App ad: ${error.message}`, error.stack)
@@ -144,7 +144,7 @@ export class InAppAdService {
       this.logger.log(`Getting In-App ad stats for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "IN_APP",
@@ -161,7 +161,7 @@ export class InAppAdService {
           advertisementId,
         },
         orderBy: {
-          date: "desc",
+          timestamp: "desc",
         },
         take: 30, // Last 30 days
       })
@@ -177,7 +177,7 @@ export class InAppAdService {
 
       // Get daily breakdown
       const dailyStats = analytics.map((record) => ({
-        date: record.date.toISOString().split("T")[0],
+        date: record.timestamp.toISOString().split("T")[0],
         impressions: record.views,
         clicks: record.clicks,
         conversions: record.conversions,
@@ -187,7 +187,7 @@ export class InAppAdService {
 
       return {
         platform: "IN_APP",
-        platformAdId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         stats: {
           impressions,
           clicks,
@@ -225,10 +225,10 @@ export class InAppAdService {
       this.logger.log(`Getting relevant In-App ads for page: ${page}`)
 
       // Get all active in-app ads
-      const platformRefs = await this.prisma.adPlatformConfig.findMany({
+      const platformRefs = await this.prisma.adPlatformReference.findMany({
         where: {
           platform: "IN_APP",
-          platformStatus: "ACTIVE",
+          status: "ACTIVE",
         },
         include: {
           advertisement: {
@@ -265,14 +265,14 @@ export class InAppAdService {
             }
 
             // Check age targeting
-            if (targeting.ageMin || targeting.ageMax) {
+            if (targeting.minAge || targeting.maxAge) {
               const userAge = this.calculateAge(user.profile?.dateOfBirth)
 
-              if (targeting.ageMin && userAge < targeting.ageMax) {
+              if (targeting.minAge && userAge < targeting.minAge) {
                 return false
               }
 
-              if (targeting.ageMax && userAge > targeting.ageMax) {
+              if (targeting.maxAge && userAge > targeting.maxAge) {
                 return false
               }
             }
@@ -342,7 +342,6 @@ export class InAppAdService {
     }
   }
 
-  
   async syncAd(advertisementId: string) {
     try {
       this.logger.log(`Syncing In-App ad for advertisement ID: ${advertisementId}`)
@@ -370,11 +369,12 @@ export class InAppAdService {
 
       // Simulate fetching updated data for in-app ad
       const updatedStatus = Math.random() > 0.9 ? "PAUSED" : "ACTIVE" // Occasionally show as paused
+      const metadata = platformRef.metadata as Record<string, any>;
       const updatedMetadata = {
-        ...platformRef.metadata,
+        ...metadata,
         lastSynced: new Date().toISOString(),
-        priority: platformRef.metadata.priority || "NORMAL",
-        pages: platformRef.metadata.pages || ["HOME", "PRODUCT_LISTING"],
+        priority: metadata.priority || "NORMAL",
+        pages: metadata.pages || ["HOME", "PRODUCT_LISTING"],
         impressions: Math.floor(Math.random() * 30000) + 5000,
         clicks: Math.floor((Math.random() * 0.05 + 0.01) * (Math.floor(Math.random() * 30000) + 5000)), // 1-6% CTR
       }
@@ -404,7 +404,6 @@ export class InAppAdService {
       throw error
     }
   }
-
 
   private calculateAge(dateOfBirth: Date | undefined): number {
     if (!dateOfBirth) return 0

@@ -1,8 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common"
-import type { PrismaService } from "../../prisma/prisma.service"
-import type { ConfigService } from "@nestjs/config"
-import { pl } from "@faker-js/faker/."
-import { platform } from "os"
+import { PrismaService } from "../../prisma/prisma.service"
+import { ConfigService } from "@nestjs/config"
 
 @Injectable()
 export class GoogleAdsenseService {
@@ -36,12 +34,12 @@ export class GoogleAdsenseService {
       const googleAdId = `ga_${Date.now()}_${Math.floor(Math.random() * 1000)}`
 
       // Store the external ad reference
-      await this.prisma.adPlatformConfig.create({
+      await this.prisma.adPlatformReference.create({
         data: {
           advertisementId,
           platform: "GOOGLE_ADSENSE",
-          platformAdId: googleAdId,
-          platformStatus: "ACTIVE",
+          externalId: googleAdId,
+          status: "ACTIVE",
           metadata: {
             customerId: adData.customerId || "default_customer",
             campaignId: adData.campaignId || `campaign_${Date.now()}`,
@@ -55,7 +53,7 @@ export class GoogleAdsenseService {
       return {
         success: true,
         platform: "GOOGLE_ADSENSE",
-        platformAdId: googleAdId,
+        externalId: googleAdId,
         status: "ACTIVE",
       }
     } catch (error) {
@@ -69,7 +67,7 @@ export class GoogleAdsenseService {
       this.logger.log(`Updating Google AdSense ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "GOOGLE_ADSENSE",
@@ -84,12 +82,12 @@ export class GoogleAdsenseService {
       // For now, we'll simulate the API call
 
       // Update the platform reference
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: adData.status || platformRef.platformStatus,
+          status: adData.status || platformRef.status,
           metadata: {
-            ...(platformRef.metadata as Record<string, any>),
+            ...platformRef.metadata as Record<string, any>,
             ...adData.metadata,
             lastUpdated: new Date().toISOString(),
           },
@@ -99,8 +97,8 @@ export class GoogleAdsenseService {
       return {
         success: true,
         platform: "GOOGLE_ADSENSE",
-        platformAdId: platformRef.platformAdId,
-        platformStatus: adData.status || platformRef.platformStatus,
+        externalId: platformRef.externalId,
+        status: adData.status || platformRef.status,
       }
     } catch (error) {
       this.logger.error(`Error updating Google AdSense ad: ${error.message}`, error.stack)
@@ -113,7 +111,7 @@ export class GoogleAdsenseService {
       this.logger.log(`Deleting Google AdSense ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "GOOGLE_ADSENSE",
@@ -128,12 +126,12 @@ export class GoogleAdsenseService {
       // For now, we'll simulate the API call
 
       // Update the platform reference to DELETED status
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: "DELETED",
+          status: "DELETED",
           metadata: {
-            ...(platformRef.metadata as Record<string, any>),
+            ...platformRef.metadata as Record<string, any>,
             deletedAt: new Date().toISOString(),
           },
         },
@@ -142,8 +140,8 @@ export class GoogleAdsenseService {
       return {
         success: true,
         platform: "GOOGLE_ADSENSE",
-        platformAdId: platformRef.platformAdId,
-        platformStatus: "DELETED",
+        externalId: platformRef.externalId,
+        status: "DELETED",
       }
     } catch (error) {
       this.logger.error(`Error deleting Google AdSense ad: ${error.message}`, error.stack)
@@ -156,7 +154,7 @@ export class GoogleAdsenseService {
       this.logger.log(`Getting Google AdSense ad stats for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "GOOGLE_ADSENSE",
@@ -178,7 +176,7 @@ export class GoogleAdsenseService {
 
       return {
         platform: "GOOGLE_ADSENSE",
-        platformAdId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         stats: {
           impressions,
           clicks,
@@ -203,7 +201,7 @@ export class GoogleAdsenseService {
       this.logger.log(`Syncing Google AdSense ad for advertisement ID: ${advertisementId}`)
 
       // Get the platform reference
-      const platformRef = await this.prisma.adPlatformConfig.findFirst({
+      const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
           platform: "GOOGLE_ADSENSE",
@@ -228,8 +226,7 @@ export class GoogleAdsenseService {
 
       // Simulate fetching updated data from Google
       const updatedStatus = Math.random() > 0.9 ? "PAUSED" : "ACTIVE" // Occasionally show as paused
-      const metadata = platformRef.metadata as Record<string, any>
-      
+      const metadata = platformRef.metadata as Record<string, any>;
       const updatedMetadata = {
         ...metadata,
         lastSynced: new Date().toISOString(),
@@ -242,10 +239,10 @@ export class GoogleAdsenseService {
       }
 
       // Update the platform reference with the latest data
-      await this.prisma.adPlatformConfig.update({
+      await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          platformStatus: updatedStatus,
+          status: updatedStatus,
           metadata: updatedMetadata,
         },
       })
@@ -256,7 +253,7 @@ export class GoogleAdsenseService {
       return {
         success: true,
         platform: "GOOGLE_ADSENSE",
-        externalId: platformRef.platformAdId,
+        externalId: platformRef.externalId,
         status: updatedStatus,
         metadata: updatedMetadata,
         stats: stats.stats,

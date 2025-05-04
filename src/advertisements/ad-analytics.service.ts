@@ -1,26 +1,28 @@
 import { Injectable } from "@nestjs/common"
-import type { PrismaService } from "../prisma/prisma.service"
-import type { AdAnalyticsQueryDto } from "./dto/ad-analytics-query.dto"
+import { PrismaService } from "../prisma/prisma.service"
+import { AdAnalyticsQueryDto } from "./dto/ad-analytics-query.dto"
+import { AdPlatform } from "@prisma/client"
 
 @Injectable()
 export class AdAnalyticsService {
   constructor(private prisma: PrismaService) {}
 
-  async getAdAnalytics(user, query: AdAnalyticsQueryDto) {
+  async getAdAnalytics(adId: string, query: AdAnalyticsQueryDto) {
     // const { startDate, endDate, metrics = ["views", "clicks", "conversions"] } = query
-    const { startDate, endDate, advertisementId } = query
+    const { startDate, endDate } = query
+
 
     // Get analytics for the specified ad
     const analytics = await this.prisma.adAnalytics.findMany({
       where: {
-        advertisementId,
-        date: {
+        advertisementId: adId,
+        timestamp: {
           gte: startDate ? new Date(startDate) : undefined,
           lte: endDate ? new Date(endDate) : undefined,
         },
       },
       orderBy: {
-        date: "asc",
+        timestamp: "asc",
       },
     })
 
@@ -50,7 +52,7 @@ export class AdAnalyticsService {
 
     // Format data for time series if needed
     const timeSeriesData = analytics.map((record) => ({
-      timestamp: record.date,
+      timestamp: record.timestamp,
       views: record.views,
       clicks: record.clicks,
       conversions: record.conversions,
@@ -85,12 +87,11 @@ export class AdAnalyticsService {
         advertisementId: {
           in: adIds,
         },
-        date: {
+        timestamp: {
           gte: startDate ? new Date(startDate) : undefined,
           lte: endDate ? new Date(endDate) : undefined,
         },
       },
-
       include: {
         advertisement: {
           select: {
@@ -179,7 +180,7 @@ export class AdAnalyticsService {
     }
   }
 
-  async recordAdView(platform: any, adId: string, userId?: string) {
+  async recordAdView(platform: AdPlatform, adId: string, userId?: string) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -200,29 +201,33 @@ export class AdAnalyticsService {
       create: {
         advertisementId: adId,
         date: today,
+        timestamp: new Date(),
         views: 1,
         clicks: 0,
         conversions: 0,
-        platform,
+        conversionValue: 0,
+        platform
       },
     })
 
-    // Record user view if user is provided
-    if (userId) {
-      await this.prisma.adUserInteraction.create({
-        data: {
-          advertisementId: adId,
-          userId,
-          interactionType: "VIEW",
-          timestamp: new Date(),
+    // Record user interaction
+    await this.prisma.adUserInteraction.create({
+      data: {
+        advertisementId: adId,
+        userId,
+        interactionType: "VIEW",
+        timestamp: new Date(),
+        metadata: {
+          userAgent: "User agent information would be captured here",
+          page: "Page information would be captured here",
         },
-      })
-    }
+      },
+    })
 
     return analyticsRecord
   }
 
-  async recordAdClick(adId: string, platform, userId?: string) {
+  async recordAdClick(adId: string, platform: AdPlatform,  userId?: string) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -232,7 +237,7 @@ export class AdAnalyticsService {
         advertisementId_date_platform: {
           advertisementId: adId,
           date: today,
-          platform,
+          platform
         },
       },
       update: {
@@ -243,30 +248,33 @@ export class AdAnalyticsService {
       create: {
         advertisementId: adId,
         date: today,
-        // timestamp: new Date(),
+        timestamp: new Date(),
         views: 0,
         clicks: 1,
         conversions: 0,
-        platform
+        conversionValue: 0,
+        platform,
       },
     })
 
-    // Record user click if user is provided
-    if (userId) {
-      await this.prisma.adUserInteraction.create({
-        data: {
-          advertisementId: adId,
-          userId,
-          interactionType: "CLICK",
-          timestamp: new Date(),
+    // Record user interaction
+    await this.prisma.adUserInteraction.create({
+      data: {
+        advertisementId: adId,
+        userId,
+        interactionType: "CLICK",
+        timestamp: new Date(),
+        metadata: {
+          userAgent: "User agent information would be captured here",
+          page: "Page information would be captured here",
         },
-      })
-    }
+      },
+    })
 
     return analyticsRecord
   }
 
-  async recordAdConversion(platform, adId: string, userId?: string, conversionValue?: number) {
+  async recordAdConversion(platform: AdPlatform, adId: string, userId?: string, conversionValue?: number) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -290,26 +298,30 @@ export class AdAnalyticsService {
       create: {
         advertisementId: adId,
         date: today,
-        // timestamp: new Date(),
+        timestamp: new Date(),
         views: 0,
         clicks: 0,
         conversions: 1,
         conversionValue: conversionValue || 0,
+        platform,
       },
     })
 
-    // Record user conversion if user is provided
-    if (userId) {
-      await this.prisma.adUserInteraction.create({
-        data: {
-          advertisementId: adId,
-          userId,
-          interactionType: "CONVERSION",
-          timestamp: new Date(),
-          conversionValue,
+    // Record user interaction
+    await this.prisma.adUserInteraction.create({
+      data: {
+        advertisementId: adId,
+        userId,
+        interactionType: "CONVERSION",
+        timestamp: new Date(),
+        conversionValue,
+        metadata: {
+          userAgent: "User agent information would be captured here",
+          page: "Page information would be captured here",
+          conversionType: "Purchase", // Or other conversion type
         },
-      })
-    }
+      },
+    })
 
     return analyticsRecord
   }
@@ -338,7 +350,7 @@ export class AdAnalyticsService {
         advertisementId: {
           in: adIds,
         },
-        date: {
+        timestamp: {
           gte: startDate,
           lte: endDate,
         },
@@ -381,7 +393,7 @@ export class AdAnalyticsService {
 
     // Populate with actual data
     analytics.forEach((record) => {
-      const dateStr = record.date.toISOString().split("T")[0]
+      const dateStr = record.timestamp.toISOString().split("T")[0]
       if (dailyMetrics[dateStr]) {
         dailyMetrics[dateStr].views += record.views
         dailyMetrics[dateStr].clicks += record.clicks
