@@ -28,6 +28,7 @@ model Vendor {
   isActive        Boolean           @default(true)
   balance         Float             @default(0)
   bankInfo        Json? // Store bank information as JSON
+  userInteractions  AdUserInteraction[]
 
   @@map("vendors")
 }

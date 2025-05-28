@@ -12,6 +12,7 @@ enum AdStatus {
 
 enum AdType {
   FEATURED_PRODUCT
+  FEATURED_VENDOR
   IN_APP_BANNER
   IN_APP_POPUP
   EXTERNAL
@@ -53,9 +54,12 @@ model AdUserInteraction {
   referrer        String? // Where the user came from
   Product         Product?      @relation(fields: [productId], references: [id])
   productId       String?
+  vendorId          String?           // Which vendor in the ad was interacted with (if applicable)
+  vendor            Vendor?           @relation(fields: [vendorId], references: [id], onDelete: SetNull)
 
   @@index([advertisementId])
   @@index([userId])
+  @@index([vendorId])
   @@index([interactionType])
   @@index([timestamp])
 }
@@ -76,6 +80,7 @@ model Advertisement {
   dailyBudget  Float?
   pricingModel PricingModel
   bidAmount    Float // Amount per click/view based on pricing model
+  maxVendors        Int               @default(1) // Maximum number of vendors this ad can hold
 
   // Ad content
   mediaUrls      String[] // Array of image/video URLs
@@ -87,7 +92,7 @@ model Advertisement {
   landingPageUrl String?
 
   // Targeting
-  targeting AdTargeting?
+  targeting      AdTargeting?
 
   // Platform specific configurations
   platformConfigs AdPlatformConfig[]

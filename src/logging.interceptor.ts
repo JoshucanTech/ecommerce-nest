@@ -9,7 +9,7 @@ export class LoggingInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const req = context.switchToHttp().getRequest();
     const now = Date.now();
-    const { method, url } = req;
+    const { method, url, error } = req;
     // const { method, url,  params, query } = req;
     const body = JSON.stringify(req.body);
  
@@ -28,7 +28,7 @@ export class LoggingInterceptor implements NestInterceptor {
           const delay = Date.now() - now;
           this.logger.log(`Response: ${method} ${url}, Status: ${response.statusCode} Time: ${delay}ms`);
           this.logger.warn(`Response time is ${delay}ms for ${method} ${url}`); // Example of warn log
-          this.logger.error(`Response error for ${method} ${url}`); // Example of error log
+          this.logger.error(`Response error for ${method} ${url}: ${error}`); // Example of error log
           // this.logger.log(`Response for ${method} ${url}: ${JSON.stringify(response)}`);
           this.logger.log(`Response for ${method} ${url}`);
 
