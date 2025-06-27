@@ -1,0 +1,73 @@
+// prisma/models/shipping.prisma
+model Shipping {
+  id               String          @id @default(uuid())
+  name             String
+  description      String?
+  deliveryTime     String // e.g., "3-5 business days"
+  price            Float
+  isActive         Boolean         @default(true)
+  vendorId         String
+  vendor           Vendor          @relation(fields: [vendorId], references: [id])
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  orderItems       OrderItem[]
+  shippingZones    ShippingZone[]
+  OrderShipping    OrderShipping[]
+  ShippingPolicy   ShippingPolicy? @relation(fields: [shippingPolicyId], references: [id])
+  shippingPolicyId String?
+
+  @@map("shippings")
+}
+
+model ShippingZone {
+  id         String   @id @default(uuid())
+  country    String
+  region     String?
+  postalCode String?
+  shippingId String
+  shipping   Shipping @relation(fields: [shippingId], references: [id])
+
+  @@map("shipping_zones")
+}
+
+model OrderShipping {
+  id                String         @id @default(uuid())
+  orderId           String
+  shippingId        String
+  trackingCode      String         @unique
+  status            ShippingStatus @default(PROCESSING)
+  estimatedDelivery DateTime?
+  actualDelivery    DateTime?
+  notes             String?
+  order             Order          @relation(fields: [orderId], references: [id])
+  shipping          Shipping       @relation(fields: [shippingId], references: [id])
+  vendor            Vendor         @relation(fields: [vendorId], references: [id])
+  vendorId          String
+
+  @@map("order_shippings")
+}
+
+enum ShippingStatus {
+  PROCESSING
+  PACKED
+  SHIPPED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RETURNED
+}
+
+// New shipping policy model
+model ShippingPolicy {
+  id              String     @id @default(uuid())
+  name            String
+  description     String
+  processingTime  String // e.g. "1-2 business days"
+  shippingMethods Shipping[]
+  vendorId        String
+  vendor          Vendor     @relation(fields: [vendorId], references: [id])
+  products        Product[]
+
+  @@map("shipping_policies")
+}

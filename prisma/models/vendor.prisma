@@ -1,34 +1,37 @@
 model Vendor {
-  id              String            @id @default(uuid())
-  userId          String            @unique
-  businessName    String
-  businessEmail   String            @unique
-  businessPhone   String
-  businessAddress VendorAddress[]
-  businessLogo    String?
-  description     String?
-  isVerified      Boolean           @default(false)
-  rating          Float             @default(0)
-  totalRatings    Int               @default(0)
-  commissionRate  Float             @default(10)
-  slug            String            @unique
-  status          ApplicationStatus @default(PENDING)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  coupons         Coupon[]
-  flashSales      FlashSale[]
-  inventory       Inventory[]
-  orders          Order[]           @relation("VendorOrders")
-  products        Product[]
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  advertisements  Advertisement[]
-  coverImage      String?
-  website         String?
-  socialMedia     Json? // Store social media links as JSON
-  isActive        Boolean           @default(true)
-  balance         Float             @default(0)
-  bankInfo        Json? // Store bank information as JSON
-  userInteractions  AdUserInteraction[]
+  id               String              @id @default(uuid())
+  userId           String              @unique
+  businessName     String
+  businessEmail    String              @unique
+  businessPhone    String
+  businessAddress  VendorAddress[]
+  businessLogo     String?
+  description      String?
+  isVerified       Boolean             @default(false)
+  rating           Float               @default(0)
+  totalRatings     Int                 @default(0)
+  commissionRate   Float               @default(10)
+  slug             String              @unique
+  status           ApplicationStatus   @default(PENDING)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  coupons          Coupon[]
+  flashSales       FlashSale[]
+  inventory        Inventory[]
+  orders           Order[]             @relation("VendorOrders")
+  products         Product[]
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  advertisements   Advertisement[]
+  coverImage       String?
+  website          String?
+  socialMedia      Json? // Store social media links as JSON
+  isActive         Boolean             @default(true)
+  balance          Float               @default(0)
+  bankInfo         Json? // Store bank information as JSON
+  userInteractions AdUserInteraction[]
+  Shipping         Shipping[]
+  OrderShipping    OrderShipping[]
+  ShippingPolicy   ShippingPolicy[]
 
   @@map("vendors")
 }

@@ -50,6 +50,16 @@ async function main() {
   await prisma.adAnalytics.deleteMany();
   await prisma.adUserInteraction.deleteMany();
   await prisma.adPlatformConfig.deleteMany();
+  await prisma.recentlyViewedProduct.deleteMany();
+  await prisma.shippingOption.deleteMany();
+  await prisma.shippingPolicy.deleteMany();
+  await prisma.shippingZone.deleteMany();
+  await prisma.shipping.deleteMany();
+  await prisma.productColor.deleteMany();
+  await prisma.productSize.deleteMany();
+  await prisma.productFeature.deleteMany();
+  await prisma.productSpecification.deleteMany();
+  await prisma.productInBox.deleteMany();
 
   console.log('Seeding database...');
 
@@ -304,7 +314,9 @@ async function main() {
           images: [faker.image.url(), faker.image.url()],
           isPublished: true,
           vendorId,
-          categoryId: categories[0].id,
+          category: {
+            connect: [{ id: categories[0].id }], // many-to-many association
+          },
           inventory: {
             create: {
               quantity: faker.number.int({ min: 10, max: 100 }),
@@ -336,7 +348,9 @@ async function main() {
           images: [faker.image.url(), faker.image.url()],
           isPublished: true,
           vendorId,
-          categoryId: categories[0].id,
+          category: {
+            connect: [{ id: categories[0].id }], // many-to-many association
+          },
           inventory: {
             create: {
               quantity: faker.number.int({ min: 10, max: 100 }),
@@ -367,7 +381,13 @@ async function main() {
           images: [faker.image.url(), faker.image.url()],
           isPublished: true,
           vendorId,
-          categoryId: categories[0].id,
+          warrantyInfo: faker.lorem.sentence(),
+          returnPolicy: faker.lorem.sentence(),
+          soldCount: faker.number.int({ min: 50, max: 100 }),
+          viewCount: faker.number.int({ min: 20, max: 1000 }),
+          category: {
+            connect: [{ id: categories[0].id }], // many-to-many association
+          },
           inventory: {
             create: {
               quantity: faker.number.int({ min: 10, max: 100 }),
@@ -380,6 +400,160 @@ async function main() {
   );
 
   console.log('Created products:', products.map((p) => p.name).join(', '));
+
+  await Promise.all(
+    featuredProducts.flatMap((product) => [
+      // Product Colors
+      prisma.productColor.createMany({
+        data: [
+          {
+            name: 'Red',
+            value: '#FF0000',
+            productId: product.id,
+          },
+          {
+            name: 'Blue',
+            value: '#0000FF',
+            productId: product.id,
+          },
+        ],
+      }),
+
+      // Product Sizes
+      prisma.productSize.createMany({
+        data: [
+          {
+            name: 'Small',
+            productId: product.id,
+          },
+          {
+            name: 'Large',
+            productId: product.id,
+          },
+        ],
+      }),
+
+      // Product Features
+      prisma.productFeature.createMany({
+        data: [
+          {
+            text: 'Water resistant up to 50 meters',
+            productId: product.id,
+          },
+          {
+            text: 'Battery lasts up to 7 days',
+            productId: product.id,
+          },
+        ],
+      }),
+
+      // Product Specifications
+      prisma.productSpecification.createMany({
+        data: [
+          {
+            name: 'Weight',
+            value: '1.2 kg',
+            productId: product.id,
+          },
+          {
+            name: 'Dimensions',
+            value: '25 x 15 x 5 cm',
+            productId: product.id,
+          },
+        ],
+      }),
+
+      // Product In-Box Items
+      prisma.productInBox.createMany({
+        data: [
+          {
+            item: 'Charging cable',
+            productId: product.id,
+          },
+          {
+            item: 'User manual',
+            productId: product.id,
+          },
+        ],
+      }),
+    ]),
+  );
+
+  // Seed Shipping Policy
+  const shippingPolicy = await prisma.shippingPolicy.create({
+    data: {
+      name: 'Standard Shipping Policy',
+      description: 'Ships within 1-2 business days',
+      processingTime: '1-2 business days',
+      vendorId,
+    },
+  });
+
+  // Seed Shipping Options for a few Products (e.g., first 3)
+  await Promise.all(
+    featuredProducts.map(async (product) => {
+      await prisma.shippingOption.createMany({
+        data: [
+          {
+            name: 'Standard Delivery',
+            price: 9.99,
+            days: '3-5 business days',
+            productId: product.id,
+          },
+          {
+            name: 'Express Delivery',
+            price: 19.99,
+            days: '1-2 business days',
+            productId: product.id,
+          },
+        ],
+      });
+
+      // Update the product with a shipping policy
+      await prisma.product.update({
+        where: { id: product.id },
+        data: {
+          shippingPolicyId: shippingPolicy.id,
+        },
+      });
+    }),
+  );
+
+  // Seed Shipping
+  const shipping = await prisma.shipping.create({
+    data: {
+      name: 'Standard Shipping',
+      description: 'Delivers in 3-5 business days',
+      deliveryTime: '3-5 business days',
+      price: 10.0,
+      isActive: true,
+      vendorId,
+    },
+  });
+
+  // Seed Shipping Zones
+  const shippingZones = await prisma.shippingZone.createMany({
+    data: [
+      {
+        country: 'United States',
+        region: 'California',
+        postalCode: '90001',
+        shippingId: shipping.id,
+      },
+      {
+        country: 'Canada',
+        region: 'Ontario',
+        postalCode: 'M4B1B3',
+        shippingId: shipping.id,
+      },
+      {
+        country: 'United Kingdom',
+        region: 'England',
+        postalCode: 'E1 6AN',
+        shippingId: shipping.id,
+      },
+    ],
+  });
 
   // Add Review .
   const reviews = await prisma.review.create({
@@ -671,6 +845,56 @@ async function main() {
       },
     },
   });
+
+  await prisma.supportTicket.create({
+    data: {
+      userId: buyer.id,
+      subject: 'Issue with recent order',
+      description: 'The product arrived damaged.',
+      status: 'OPEN',
+    },
+  });
+
+  // Seed Recently Viewed Products
+  const recentlyViewed = await Promise.all(
+    products.slice(0, 3).map((product) =>
+      prisma.recentlyViewedProduct.create({
+        data: {
+          userId: buyer.id,
+          productId: product.id,
+          viewedAt: new Date(
+            Date.now() - Math.floor(Math.random() * 100000000),
+          ), // Random recent timestamp
+        },
+      }),
+    ),
+  );
+  console.log(
+    'Created recently viewed products:',
+    recentlyViewed.map((rv) => rv.productId),
+  );
+
+  // Seed Recently Viewed Products for a Guest
+  const sessionId = 'sessionId-12345'; // simulate guest session ID
+
+  const guestViewed = await Promise.all(
+    products.slice(3, 6).map((product) =>
+      prisma.recentlyViewedProduct.create({
+        data: {
+          sessionId,
+          productId: product.id,
+          viewedAt: new Date(
+            Date.now() - Math.floor(Math.random() * 100000000),
+          ),
+        },
+      }),
+    ),
+  );
+
+  console.log(
+    'Created recently viewed products for guest:',
+    guestViewed.map((rv) => rv.productId),
+  );
 
   // Create FAQ
   const faqs = await Promise.all([

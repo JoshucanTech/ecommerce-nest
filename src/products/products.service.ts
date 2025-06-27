@@ -2,11 +2,11 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-} from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { CreateProductDto } from "./dto/create-product.dto";
-import { UpdateProductDto } from "./dto/update-product.dto";
-import { generateSlug } from "../utils/slug-generator";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { generateSlug } from '../utils/slug-generator';
 
 @Injectable()
 export class ProductsService {
@@ -19,7 +19,7 @@ export class ProductsService {
     });
 
     if (!vendor) {
-      throw new ForbiddenException("User is not a vendor");
+      throw new ForbiddenException('User is not a vendor');
     }
 
     // Generate slug from product name
@@ -60,7 +60,7 @@ export class ProductsService {
     minPrice?: number;
     maxPrice?: number;
     sortBy?: string;
-    sortOrder?: "asc" | "desc";
+    sortOrder?: 'asc' | 'desc';
   }) {
     const {
       page,
@@ -82,8 +82,8 @@ export class ProductsService {
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -116,9 +116,9 @@ export class ProductsService {
     // Build orderBy
     const orderBy: any = {};
     if (sortBy) {
-      orderBy[sortBy] = sortOrder || "asc";
+      orderBy[sortBy] = sortOrder || 'asc';
     } else {
-      orderBy.createdAt = "desc";
+      orderBy.createdAt = 'desc';
     }
 
     // Get products with pagination
@@ -147,7 +147,6 @@ export class ProductsService {
           reviews: {
             select: {
               rating: true,
-              
             },
           },
         },
@@ -188,14 +187,34 @@ export class ProductsService {
         OR: [{ id: idOrSlug }, { slug: idOrSlug }],
       },
       include: {
-        category: true,
+        category: {
+          select: {
+            name: true,
+            slug: true,
+            id: true,
+          },
+        },
+        colors: true,
+
+        sizes: true,
+
+        features: true,
+        specifications: true,
+        inBoxItems: true,
+        inventory: true,
+        // wishlistItems: true,
         vendor: {
           select: {
             id: true,
             businessName: true,
             slug: true,
-            // rating: true,
-            // totalRatings: true,
+            businessLogo: true,
+            rating: true,
+            isVerified: true,
+            totalRatings: true,
+            OrderShipping: true,
+            Shipping: true,
+            ShippingPolicy: true,
           },
         },
         reviews: {
@@ -210,6 +229,8 @@ export class ProductsService {
             },
           },
         },
+        shippingOptions: true,
+        shippingPolicy: true,
         // inventory: true,
         flashSaleItems: {
           include: {
@@ -276,9 +297,9 @@ export class ProductsService {
     }
 
     // Check if user is the vendor of the product or an admin
-    if (user.role !== "ADMIN" && product.vendor.userId !== user.id) {
+    if (user.role !== 'ADMIN' && product.vendor.userId !== user.id) {
       throw new ForbiddenException(
-        "You do not have permission to update this product",
+        'You do not have permission to update this product',
       );
     }
 
@@ -330,9 +351,9 @@ export class ProductsService {
     }
 
     // Check if user is the vendor of the product or an admin
-    if (user.role !== "ADMIN" && product.vendor.userId !== user.id) {
+    if (user.role !== 'ADMIN' && product.vendor.userId !== user.id) {
       throw new ForbiddenException(
-        "You do not have permission to delete this product",
+        'You do not have permission to delete this product',
       );
     }
 
@@ -341,6 +362,155 @@ export class ProductsService {
       where: { id },
     });
 
-    return { message: "Product deleted successfully" };
+    return { message: 'Product deleted successfully' };
+  }
+
+  async getNewProducts(limit = 10, page = 1) {
+    const daysAgo = new Date();
+    daysAgo.setDate(daysAgo.getDate() - 14);
+
+    const skip = (page - 1) * limit;
+
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where: {
+          isPublished: true,
+          createdAt: {
+            gte: daysAgo,
+          },
+        },
+        skip,
+        take: limit,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+          vendor: {
+            select: {
+              id: true,
+              businessName: true,
+              slug: true,
+            },
+          },
+          reviews: {
+            select: {
+              rating: true,
+            },
+          },
+        },
+      }),
+      this.prisma.product.count({
+        where: {
+          isPublished: true,
+          createdAt: {
+            gte: daysAgo,
+          },
+        },
+      }),
+    ]);
+
+    const productsWithRating = products.map((product) => {
+      const avgRating =
+        product.reviews.length > 0
+          ? product.reviews.reduce((sum, r) => sum + r.rating, 0) /
+            product.reviews.length
+          : 0;
+
+      const { reviews, ...rest } = product;
+
+      return {
+        ...rest,
+        avgRating,
+        reviewCount: product.reviews.length,
+      };
+    });
+
+    return {
+      data: productsWithRating,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  // Record product view
+  async recordView({
+    productId,
+    userId,
+    sessionId,
+  }: {
+    productId: string;
+    userId?: string;
+    sessionId?: string;
+  }) {
+    if (!userId && !sessionId) {
+      throw new Error('Either userId or sessionId must be provided');
+    }
+
+    // Delete existing view to avoid duplicates
+    await this.prisma.recentlyViewedProduct.deleteMany({
+      where: {
+        productId,
+        ...(userId ? { userId } : { sessionId }),
+      },
+    });
+
+    // Create new view
+    await this.prisma.recentlyViewedProduct.create({
+      data: {
+        productId,
+        userId,
+        sessionId,
+        viewedAt: new Date(),
+      },
+    });
+
+    // Keep only the latest 10
+    const views = await this.prisma.recentlyViewedProduct.findMany({
+      where: userId ? { userId } : { sessionId },
+      orderBy: { viewedAt: 'desc' },
+    });
+
+    if (views.length > 10) {
+      const idsToDelete = views.slice(10).map((view) => view.id);
+      await this.prisma.recentlyViewedProduct.deleteMany({
+        where: { id: { in: idsToDelete } },
+      });
+    }
+  }
+
+  // Get recently viewed products
+  async getRecentlyViewed(userId?: string, sessionId?: string) {
+    if (!userId && !sessionId) {
+      throw new Error('Either userId or sessionId must be provided');
+    }
+
+    console.log('sessionId is now: ', sessionId);
+
+    const views = await this.prisma.recentlyViewedProduct.findMany({
+      where: userId ? { userId } : { sessionId },
+      orderBy: { viewedAt: 'desc' },
+      take: 10,
+      include: {
+        product: {
+          include: {
+            category: true,
+            vendor: true,
+          },
+        },
+      },
+    });
+
+    return views.map((view) => view.product);
   }
 }

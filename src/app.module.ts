@@ -25,6 +25,7 @@ import { CommentsModule } from "./comments/comments.module";
 import { FlashSalesModule } from "./flash-sales/flash-sales.module";
 import { CategoriesModule } from './categories/categories.module';
 import { AdvertisementsModule } from './advertisements/advertisements.module';
+import { ShippingModule } from './shipping/shipping.module';
 // 
 // 
 
@@ -48,6 +49,7 @@ import { AdvertisementsModule } from './advertisements/advertisements.module';
     CommentsModule,
     FlashSalesModule,
     AdvertisementsModule,
+    ShippingModule,
   ],
   // controllers: [AppController],
   // providers: [AppService],

@@ -54,8 +54,8 @@ model AdUserInteraction {
   referrer        String? // Where the user came from
   Product         Product?      @relation(fields: [productId], references: [id])
   productId       String?
-  vendorId          String?           // Which vendor in the ad was interacted with (if applicable)
-  vendor            Vendor?           @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendorId        String? // Which vendor in the ad was interacted with (if applicable)
+  vendor          Vendor?       @relation(fields: [vendorId], references: [id], onDelete: SetNull)
 
   @@index([advertisementId])
   @@index([userId])
@@ -80,7 +80,7 @@ model Advertisement {
   dailyBudget  Float?
   pricingModel PricingModel
   bidAmount    Float // Amount per click/view based on pricing model
-  maxVendors        Int               @default(1) // Maximum number of vendors this ad can hold
+  maxVendors   Int          @default(1) // Maximum number of vendors this ad can hold
 
   // Ad content
   mediaUrls      String[] // Array of image/video URLs
@@ -92,7 +92,7 @@ model Advertisement {
   landingPageUrl String?
 
   // Targeting
-  targeting      AdTargeting?
+  targeting AdTargeting?
 
   // Platform specific configurations
   platformConfigs AdPlatformConfig[]
@@ -115,8 +115,8 @@ model Advertisement {
   updatedAt DateTime @updatedAt
 
   // Updated to support multiple products
-  products          ProductAdvertisement[] // Relation to join table for multiple products
-  maxProducts       Int               @default(1) // Maximum number of products this ad can hold
+  products    ProductAdvertisement[] // Relation to join table for multiple products
+  maxProducts Int                    @default(1) // Maximum number of products this ad can hold
 
   // Relations
   analytics        AdAnalytics[]
@@ -125,10 +125,9 @@ model Advertisement {
   userInteractions AdUserInteraction[]
 
   // User interaction tracking
-  clicks               AdClick[]
-  impressions          AdImpression[]
-  conversions          AdConversion[]
-  
+  clicks      AdClick[]
+  impressions AdImpression[]
+  conversions AdConversion[]
 
   @@index([vendorId])
   @@index([status])

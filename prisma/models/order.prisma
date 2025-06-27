@@ -1,40 +1,44 @@
 model Order {
-  id            String        @id @default(uuid())
-  orderNumber   String        @unique
+  id            String          @id @default(uuid())
+  orderNumber   String          @unique
   userId        String?
-  user          User?         @relation("UserOrders", fields: [userId], references: [id], onDelete: SetNull)
+  user          User?           @relation("UserOrders", fields: [userId], references: [id], onDelete: SetNull)
   vendorId      String?
   tax           Float?
   shipping      Float?
   totalAmount   Float
-  status        OrderStatus   @default(PENDING)
-  paymentStatus PaymentStatus @default(PENDING)
+  status        OrderStatus     @default(PENDING)
+  paymentStatus PaymentStatus   @default(PENDING)
   paymentMethod String
   addressId     String?
   couponId      String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
   delivery      Delivery?
   items         OrderItem[]
-  address       Address?      @relation(fields: [addressId], references: [id])
-  coupon        Coupon?       @relation(fields: [couponId], references: [id])
-  vendor        Vendor?       @relation("VendorOrders", fields: [vendorId], references: [id])
+  address       Address?        @relation(fields: [addressId], references: [id])
+  coupon        Coupon?         @relation(fields: [couponId], references: [id])
+  vendor        Vendor?         @relation("VendorOrders", fields: [vendorId], references: [id])
   Payment       Payment[]
+  OrderShipping OrderShipping[]
 
   @@map("orders")
 }
 
 model OrderItem {
-  id         String   @id @default(uuid())
-  orderId    String
-  productId  String
-  quantity   Int
-  unitPrice  Float
-  totalPrice Float
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product    Product  @relation(fields: [productId], references: [id])
+  id             String         @id @default(uuid())
+  orderId        String
+  productId      String
+  quantity       Int
+  unitPrice      Float
+  totalPrice     Float
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product        @relation(fields: [productId], references: [id])
+  shippingId     String?
+  shipping       Shipping?      @relation(fields: [shippingId], references: [id])
+  shippingStatus ShippingStatus @default(PROCESSING)
 
   @@map("order_items")
 }

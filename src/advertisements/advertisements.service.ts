@@ -763,6 +763,7 @@ export class AdvertisementsService {
             select: {
               id: true,
               name: true,
+              slug: true,
               description: true,
               price: true,
               discountPrice: true,
@@ -800,6 +801,7 @@ export class AdvertisementsService {
     // Transform the data to make it more client-friendly
     const transformedProducts = featuredProducts.map((item) => ({
       id: item.product.id,
+      slug: item.product.slug,
       name: item.customTitle || item.product.name,
       description: item.customDescription || item.product.description,
       price: item.customPrice || item.product.price,

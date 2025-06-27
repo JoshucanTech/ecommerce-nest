@@ -1,34 +1,48 @@
 model Product {
-  id               String                 @id @default(uuid())
-  name             String
-  description      String
-  price            Float
-  discountPrice    Float?
-  quantity         Int                    @default(0)
-  sku              String                 @unique
-  images           String[]
-  isPublished      Boolean                @default(false)
-  vendorId         String
-  categoryId       String
-  slug             String                 @unique
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  cartItems        CartItem[]
-  comments         Comment[]
-  flashSaleItems   FlashSaleItem[]
-  inventory        Inventory?
-  orderItems       OrderItem[]
-  category         Category               @relation(fields: [categoryId], references: [id])
-  vendor           Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  reviews          Review[]
-  wishlistItems    WishlistItem[]
-  attributes       Json? // Store product attributes as JSON
-  tags             String[]
-  metaTitle        String?
-  metaDescription  String?
-  advertisements   ProductAdvertisement[]
-  userInteractions AdUserInteraction[]
+  id              String          @id @default(uuid())
+  name            String
+  description     String
+  price           Float
+  discountPrice   Float?
+  quantity        Int             @default(0)
+  sku             String          @unique
+  images          String[]
+  isPublished     Boolean         @default(false)
+  vendorId        String
+  slug            String          @unique
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  cartItems       CartItem[]
+  comments        Comment[]
+  flashSaleItems  FlashSaleItem[]
+  inventory       Inventory?
+  orderItems      OrderItem[]
+  vendor          Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  reviews         Review[]
+  wishlistItems   WishlistItem[]
+  attributes      Json? // Store product attributes as JSON
+  tags            String[]
+  metaTitle       String?
+  metaDescription String?
+  warrantyInfo    String?
+  returnPolicy    String?
+  soldCount       Int @default(0)
+  viewCount       Int @default(0)
 
+  // Add these relations:
+  category              Category[]              @relation("ProductCategories")
+  colors                ProductColor[]
+  sizes                 ProductSize[]
+  shippingOptions       ShippingOption[]
+  features              ProductFeature[]
+  specifications        ProductSpecification[]
+  inBoxItems            ProductInBox[]
+  advertisements        ProductAdvertisement[]
+  userInteractions      AdUserInteraction[]
+  RecentlyViewedProduct RecentlyViewedProduct[]
+  ProductCategory       ProductCategory[]
+  shippingPolicyId      String? // Optional override at product level
+  shippingPolicy        ShippingPolicy?         @relation(fields: [shippingPolicyId], references: [id])
 
   @@map("products")
 }
@@ -59,4 +73,98 @@ model Review {
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("reviews")
+}
+
+model RecentlyViewedProduct {
+  id        String   @id @default(uuid())
+  userId    String? // null if guest
+  sessionId String? // only for guests
+  productId String
+  viewedAt  DateTime @default(now())
+
+  user    User?   @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([viewedAt])
+  @@map("recently_viewed_products")
+}
+
+// Add these to your existing schema
+
+model ProductColor {
+  id              String  @id @default(uuid())
+  name            String
+  value           String // Hex color code
+  inStock         Boolean @default(true)
+  quantity        Int             @default(0)
+  productId       String
+  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_colors")
+}
+
+model ProductSize {
+  id              String  @id @default(uuid())
+  name            String
+  inStock         Boolean @default(true)
+  quantity        Int             @default(0)
+  productId       String
+  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_sizes")
+}
+
+model ProductCategory {
+  id         String   @id @default(uuid())
+  productId  String
+  categoryId String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, categoryId])
+  @@map("product_categories")
+}
+
+model ShippingOption {
+  id        String  @id @default(uuid())
+  name      String
+  price     Float
+  days      String
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("shipping_options")
+}
+
+model ProductFeature {
+  id         String  @id @default(uuid())
+  text       String
+  attributes Json? // Store product attributes as JSON
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_features")
+}
+
+model ProductSpecification {
+  id         String  @id @default(uuid())
+  name       String
+  value      String
+  attributes Json? // Store product attributes as JSON
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_specifications")
+}
+
+model ProductInBox {
+  id         String  @id @default(uuid())
+  item       String
+  attributes Json? // Store product attributes as JSON
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_in_box_items")
 }

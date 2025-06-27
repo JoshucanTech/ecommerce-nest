@@ -1,23 +1,22 @@
 // backend/src/auth/auth.service.ts
 import {
-  Inject, 
+  Inject,
   Scope,
   Injectable,
   UnauthorizedException,
   ConflictException,
   BadRequestException,
-} from "@nestjs/common";
-import  { JwtService } from "@nestjs/jwt";
-import  { ConfigService } from "@nestjs/config";
-import  { PrismaService } from "../prisma/prisma.service";
-import { RegisterDto } from "./dto/register.dto";
-import { LoginDto } from "./dto/login.dto";
-import { UserTokenDto } from "./dto/refresh-token.dto";
-import * as bcrypt from "bcrypt";
-import { UserRole } from "@prisma/client";
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { UserTokenDto } from './dto/refresh-token.dto';
+import * as bcrypt from 'bcrypt';
+import { UserRole } from '@prisma/client';
 // import { Profile } from "@prisma/client";
 import { REQUEST } from '@nestjs/core';
-
 
 @Injectable({ scope: Scope.REQUEST })
 export class AuthService {
@@ -37,7 +36,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException("Email already exists");
+      throw new ConflictException('Email already exists');
     }
 
     // Hash password
@@ -57,15 +56,16 @@ export class AuthService {
         profile: true,
       },
     });
-    
 
     // Generate tokens
     const tokens = await this.generateTokens(user.id, user.email, user.role);
 
-
-
     // Save refresh token
-    await this.saveRefreshToken(user.id, tokens.refreshToken, tokens.accessToken);
+    await this.saveRefreshToken(
+      user.id,
+      tokens.refreshToken,
+      tokens.accessToken,
+    );
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
@@ -88,40 +88,42 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     // Check if user is active
     if (!user.isActive) {
-      throw new UnauthorizedException("User account is inactive");
+      throw new UnauthorizedException('User account is inactive');
     }
-
 
     if (!user.password || !password) {
       // console.log(user.password, password);
-      throw new UnauthorizedException("Invalid credentials Password");
+      throw new UnauthorizedException('Invalid credentials Password');
     }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     // Delete old refresh token using userId
-await this.prisma.userTokens.deleteMany({
-  where: {
-    userId: user.id,
-  },
-});
-
+    await this.prisma.userTokens.deleteMany({
+      where: {
+        userId: user.id,
+      },
+    });
 
     // Generate tokens
     const tokens = await this.generateTokens(user.id, user.email, user.role);
 
     // Save refresh token
-    await this.saveRefreshToken(user.id, tokens.refreshToken, tokens.accessToken);
+    await this.saveRefreshToken(
+      user.id,
+      tokens.refreshToken,
+      tokens.accessToken,
+    );
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
@@ -138,9 +140,8 @@ await this.prisma.userTokens.deleteMany({
     try {
       // Verify refresh token
       const payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get("JWT_REFRESH_SECRET"),
+        secret: this.configService.get('JWT_REFRESH_SECRET'),
       });
-
 
       // Check if token exists in database
       const storedToken = await this.prisma.userTokens.findUnique({
@@ -149,7 +150,7 @@ await this.prisma.userTokens.deleteMany({
       });
 
       if (!storedToken) {
-        throw new UnauthorizedException("Invalid-D Token. Pls Signin");
+        throw new UnauthorizedException('Invalid-D Token. Pls Signin');
       }
 
       // Check if user matches refresh token
@@ -157,12 +158,10 @@ await this.prisma.userTokens.deleteMany({
       // const decoded = this.jwtService.decode(token);
 
       // if (decoded.sub !== storedToken.userId) {
-        if (user.id !== storedToken.userId) {
+      if (user.id !== storedToken.userId) {
         // console.log("decoded.sub !== storedToken.userId Does not match");
-        throw new UnauthorizedException("Invalid token. Pls Signin");
+        throw new UnauthorizedException('Invalid token. Pls Signin');
       }
-
-
 
       // Check if token is expired
       if (new Date() > storedToken.refreshExpiresAt) {
@@ -170,7 +169,7 @@ await this.prisma.userTokens.deleteMany({
         await this.prisma.userTokens.delete({
           where: { id: storedToken.id },
         });
-        throw new UnauthorizedException("Token expired. Pls Signin");
+        throw new UnauthorizedException('Token expired. Pls Signin');
       }
 
       // Generate new tokens
@@ -180,14 +179,17 @@ await this.prisma.userTokens.deleteMany({
         storedToken.user.role,
       );
 
-
       // Delete old refresh token
       await this.prisma.userTokens.delete({
         where: { id: storedToken.id },
       });
 
       // Save new refresh token
-      await this.saveRefreshToken(storedToken.user.id, tokens.refreshToken, tokens.accessToken);
+      await this.saveRefreshToken(
+        storedToken.user.id,
+        tokens.refreshToken,
+        tokens.accessToken,
+      );
 
       return tokens;
     } catch (error) {
@@ -201,6 +203,7 @@ await this.prisma.userTokens.deleteMany({
       where: { id: userId },
       include: {
         profile: true,
+        wishlistItems: true,
         addresses: {
           where: { isDefault: true },
         },
@@ -225,7 +228,7 @@ await this.prisma.userTokens.deleteMany({
     // console.log(user.vendor);
 
     if (!user) {
-      throw new BadRequestException("User not found. Pls Signin");
+      throw new BadRequestException('User not found. Pls Signin');
     }
 
     // Remove password from response
@@ -309,7 +312,7 @@ await this.prisma.userTokens.deleteMany({
       },
     });
 
-    return { message: "Logged out successfully" };
+    return { message: 'Logged out successfully' };
   }
 
   async getToken() {
@@ -327,8 +330,8 @@ await this.prisma.userTokens.deleteMany({
           role,
         },
         {
-          secret: this.configService.get("JWT_ACCESS_SECRET"),
-          expiresIn: this.configService.get("JWT_ACCESS_EXPIRATION"),
+          secret: this.configService.get('JWT_ACCESS_SECRET'),
+          expiresIn: this.configService.get('JWT_ACCESS_EXPIRATION'),
         },
       ),
       this.jwtService.signAsync(
@@ -338,8 +341,8 @@ await this.prisma.userTokens.deleteMany({
           role,
         },
         {
-          secret: this.configService.get("JWT_REFRESH_SECRET"),
-          expiresIn: this.configService.get("JWT_REFRESH_EXPIRATION"),
+          secret: this.configService.get('JWT_REFRESH_SECRET'),
+          expiresIn: this.configService.get('JWT_REFRESH_EXPIRATION'),
         },
       ),
     ]);
@@ -350,16 +353,24 @@ await this.prisma.userTokens.deleteMany({
     };
   }
 
-  private async saveRefreshToken(userId: string, refreshToken: string, accessToken: string) {
+  private async saveRefreshToken(
+    userId: string,
+    refreshToken: string,
+    accessToken: string,
+  ) {
     // Calculate expiration date
-    const refreshExpiresIn = this.configService.get("JWT_REFRESH_EXPIRATION");
-    const accessExpiresIn = this.configService.get("JWT_REFRESH_EXPIRATION");
+    const refreshExpiresIn = this.configService.get('JWT_REFRESH_EXPIRATION');
+    const accessExpiresIn = this.configService.get('JWT_REFRESH_EXPIRATION');
 
     const refreshExpiresAt = new Date();
-    refreshExpiresAt.setTime(refreshExpiresAt.getTime() + Number.parseInt(refreshExpiresIn) * 1000);
+    refreshExpiresAt.setTime(
+      refreshExpiresAt.getTime() + Number.parseInt(refreshExpiresIn) * 1000,
+    );
 
     const accessExpiresAt = new Date();
-    refreshExpiresAt.setTime(refreshExpiresAt.getTime() + Number.parseInt(accessExpiresIn) * 1000);
+    refreshExpiresAt.setTime(
+      refreshExpiresAt.getTime() + Number.parseInt(accessExpiresIn) * 1000,
+    );
 
     // Save refresh token
     await this.prisma.userTokens.create({
@@ -372,6 +383,4 @@ await this.prisma.userTokens.deleteMany({
       },
     });
   }
-
-  
 }
