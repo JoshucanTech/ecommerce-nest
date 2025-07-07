@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   Req,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -28,11 +29,16 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { Session } from '../auth/decorators/session-id.decorator';
+import { RedisService } from 'src/real-time/redis.service';
 
 @ApiTags('products')
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly redisService: RedisService,
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -204,5 +210,44 @@ export class ProductsController {
   @ApiResponse({ status: 404, description: 'Product not found' })
   remove(@Param('id') id: string, @CurrentUser() user) {
     return this.productsService.remove(id, user);
+  }
+
+  // For viewer count
+  @Get(':id/viewers')
+  @Public()
+  getViewerCount(@Param('id') productId: string) {
+    return this.redisService.getViewerCount(productId);
+  }
+
+  @Post(':id/viewers')
+  // @UseGuards(OptionalJwtGuard)
+  @Session()
+  addViewer(@Param('id') productId: string, @CurrentUser() user, @Req() req) {
+    const userId = req.user?.id || req.headers['x-anonymous-id']?.toString();
+    // console.log('The user id for post addViewer is now aaa: ', req);
+    console.log('user: ', user);
+    // console.log('req: ', req);
+    console.log('req.headers x-anonymous-id: ', req.headers['x-anonymous-id']);
+
+    if (!userId) {
+      throw new BadRequestException('User ID or anonymous ID is required');
+    }
+    return this.redisService.addViewer(productId, userId);
+  }
+
+  @Delete(':id/viewers')
+  // @Session()
+  removeViewer(
+    @Param('id') productId: string,
+    @CurrentUser() user,
+    @Req() req,
+  ) {
+    const userId = user?.id || req.headers['x-anonymous-id']?.toString();
+    console.log('The user id for post addViewer is now: ', req);
+
+    if (!userId) {
+      throw new BadRequestException('User ID or anonymous ID is required');
+    }
+    return this.redisService.removeViewer(productId, userId);
   }
 }

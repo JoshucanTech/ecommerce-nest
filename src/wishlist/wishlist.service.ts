@@ -2,8 +2,8 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-} from "@nestjs/common";
-import  { PrismaService } from "../prisma/prisma.service";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class WishlistService {
@@ -48,7 +48,7 @@ export class WishlistService {
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
 
@@ -118,18 +118,29 @@ export class WishlistService {
     });
 
     if (existingItem) {
-      throw new ConflictException("Product is already in wishlist");
+      throw new ConflictException('Product is already in wishlist');
     }
 
     // Add product to wishlist
-    await this.prisma.wishlistItem.create({
+    const addedProduct = await this.prisma.wishlistItem.create({
       data: {
         userId,
         productId,
       },
+      include: {
+        product: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
 
-    return { message: "Product added to wishlist successfully" };
+    const productName = addedProduct.product.name;
+
+    return {
+      message: `${productName} has been added to wishlist successfully`,
+    };
   }
 
   async removeFromWishlist(userId: string, productId: string) {
@@ -139,6 +150,13 @@ export class WishlistService {
         userId_productId: {
           userId,
           productId,
+        },
+      },
+      include: {
+        product: {
+          select: {
+            name: true,
+          },
         },
       },
     });
@@ -159,7 +177,11 @@ export class WishlistService {
       },
     });
 
-    return { message: "Product removed from wishlist successfully" };
+    const productName = wishlistItem.product.name;
+
+    return {
+      message: `${productName} has been removed from wishlist successfully`,
+    };
   }
 
   async clearWishlist(userId: string) {
@@ -168,6 +190,6 @@ export class WishlistService {
       where: { userId },
     });
 
-    return { message: "Wishlist cleared successfully" };
+    return { message: 'Wishlist cleared successfully' };
   }
 }

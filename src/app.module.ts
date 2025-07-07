@@ -26,6 +26,7 @@ import { FlashSalesModule } from "./flash-sales/flash-sales.module";
 import { CategoriesModule } from './categories/categories.module';
 import { AdvertisementsModule } from './advertisements/advertisements.module';
 import { ShippingModule } from './shipping/shipping.module';
+import { RealTimeModule } from './real-time/real-time.module';
 // 
 // 
 
@@ -50,6 +51,7 @@ import { ShippingModule } from './shipping/shipping.module';
     FlashSalesModule,
     AdvertisementsModule,
     ShippingModule,
+    RealTimeModule,
   ],
   // controllers: [AppController],
   // providers: [AppService],

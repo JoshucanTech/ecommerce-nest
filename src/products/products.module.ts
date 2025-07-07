@@ -5,11 +5,12 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 
 import { VendorsModule } from 'src/vendors/vendors.module';
 import { ProductCleanupService } from './product-cleanup.service';
+import { RedisService } from 'src/real-time/redis.service';
 
 @Module({
   imports: [PrismaModule, VendorsModule],
   controllers: [ProductsController],
-  providers: [ProductsService, ProductCleanupService],
+  providers: [ProductsService, ProductCleanupService, RedisService],
   exports: [ProductsService],
 })
 export class ProductsModule {}
