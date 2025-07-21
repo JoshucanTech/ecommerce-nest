@@ -24,6 +24,7 @@ import { ProductsService } from './products.service';
 import { ProductCleanupService } from './product-cleanup.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { RecordViewDto } from './dto/recently-viewed.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -163,6 +164,25 @@ export class ProductsController {
     return this.productsService.getRecentlyViewed(userId, sessionId);
   }
 
+  @Post('recently-viewed')
+  @Public()
+  @ApiOperation({ summary: 'Record product view for recently viewed list' })
+  @ApiResponse({ status: 201, description: 'Product view recorded' })
+  @ApiResponse({
+    status: 400,
+    description: 'Missing productId or session/user ID',
+  })
+  async recordRecentlyView(@Body() body: RecordViewDto) {
+    return this.productsService.recordView(body);
+  }
+
+  // For viewer count
+  @Get(':id/viewers')
+  @Public()
+  getViewerCount(@Param('id') productId: string) {
+    return this.redisService.getViewerCount(productId);
+  }
+
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get a product by ID or slug' })
@@ -212,13 +232,6 @@ export class ProductsController {
     return this.productsService.remove(id, user);
   }
 
-  // For viewer count
-  @Get(':id/viewers')
-  @Public()
-  getViewerCount(@Param('id') productId: string) {
-    return this.redisService.getViewerCount(productId);
-  }
-
   @Post(':id/viewers')
   // @UseGuards(OptionalJwtGuard)
   @Session()
@@ -249,5 +262,18 @@ export class ProductsController {
       throw new BadRequestException('User ID or anonymous ID is required');
     }
     return this.redisService.removeViewer(productId, userId);
+  }
+
+  @Get(':id/frequently-bought-together')
+  @Public()
+  @ApiOperation({ summary: 'Get frequently bought together products' })
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns frequently bought together products',
+  })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  getFrequentlyBoughtTogether(@Param('id') id: string) {
+    return this.productsService.getFrequentlyBoughtTogether(id);
   }
 }

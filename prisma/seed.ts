@@ -16,8 +16,10 @@ import {
   ApplicationStatus,
 } from '@prisma/client';
 
-import * as bcrypt from 'bcrypt';
-import { faker } from '@faker-js/faker';
+import * as bcrypt from 'bcryptjs';
+// const bcrypt = require('bcryptjs');
+
+import { faker, LoremModule } from '@faker-js/faker';
 
 const prisma = new PrismaClient();
 
@@ -55,16 +57,16 @@ async function main() {
   await prisma.shippingPolicy.deleteMany();
   await prisma.shippingZone.deleteMany();
   await prisma.shipping.deleteMany();
-  await prisma.productColor.deleteMany();
-  await prisma.productSize.deleteMany();
   await prisma.productFeature.deleteMany();
   await prisma.productSpecification.deleteMany();
   await prisma.productInBox.deleteMany();
 
   console.log('Seeding database...');
+  console.log('bcrypt', bcrypt);
 
   // Create admin user
-  const adminPassword = await bcrypt.hash('admin123', 10);
+  const salt = await bcrypt.genSalt(10);
+  const adminPassword = await bcrypt.hash('admin123', salt);
   const admin = await prisma.user.create({
     data: {
       email: 'admin@example.com',
@@ -86,7 +88,7 @@ async function main() {
   console.log('Created admin user:', admin.email);
 
   // Create sub-admin user
-  const subAdminPassword = await bcrypt.hash('subAdmin123', 10);
+  const subAdminPassword = await bcrypt.hash('subAdmin123', salt);
   const subAdmin = await prisma.user.create({
     data: {
       email: 'subAdmin@example.com',
@@ -108,7 +110,7 @@ async function main() {
   console.log('Created Sub admin user:', subAdmin.email);
 
   // Create vendor user
-  const vendorPassword = await bcrypt.hash('vendor123', 10);
+  const vendorPassword = await bcrypt.hash('vendor123', salt);
   const vendorUser = await prisma.user.create({
     data: {
       email: 'vendor@example.com',
@@ -158,7 +160,7 @@ async function main() {
   console.log('Created vendor user:', vendorUser.email);
 
   // Create buyer user
-  const buyerPassword = await bcrypt.hash('buyer123', 10);
+  const buyerPassword = await bcrypt.hash('buyer123', salt);
   const buyer = await prisma.user.create({
     data: {
       email: 'buyer@example.com',
@@ -190,7 +192,7 @@ async function main() {
   console.log('Created buyer user:', buyer.email);
 
   // Create rider user
-  const riderPassword = await bcrypt.hash('rider123', 10);
+  const riderPassword = await bcrypt.hash('rider123', salt);
   const rider = await prisma.user.create({
     data: {
       email: 'rider@example.com',
@@ -404,31 +406,21 @@ async function main() {
   await Promise.all(
     featuredProducts.flatMap((product) => [
       // Product Colors
-      prisma.productColor.createMany({
+      prisma.productVariant.createMany({
         data: [
           {
-            name: 'Red',
-            value: '#FF0000',
+            size: 'Lg',
+            color: '#FF0000',
             productId: product.id,
+            price: 333,
+            quantity: 10,
           },
           {
-            name: 'Blue',
-            value: '#0000FF',
+            size: 'md',
+            color: '#AF0AB0',
             productId: product.id,
-          },
-        ],
-      }),
-
-      // Product Sizes
-      prisma.productSize.createMany({
-        data: [
-          {
-            name: 'Small',
-            productId: product.id,
-          },
-          {
-            name: 'Large',
-            productId: product.id,
+            price: 666,
+            quantity: 15,
           },
         ],
       }),
@@ -497,13 +489,13 @@ async function main() {
           {
             name: 'Standard Delivery',
             price: 9.99,
-            days: '3-5 business days',
+            deliveryTime: '3-5 business days',
             productId: product.id,
           },
           {
             name: 'Express Delivery',
             price: 19.99,
-            days: '1-2 business days',
+            deliveryTime: '1-2 business days',
             productId: product.id,
           },
         ],
@@ -556,7 +548,53 @@ async function main() {
   });
 
   // Add Review .
+
   const reviews = await prisma.review.create({
+    data: {
+      rating: faker.number.int({ min: 1, max: 5 }),
+      comment: faker.lorem.sentences(2),
+      productId: products[0].id,
+      userId: buyer.id,
+    },
+  });
+
+  const reviews1 = await prisma.review.create({
+    data: {
+      rating: faker.number.int({ min: 1, max: 5 }),
+      comment: faker.lorem.sentences(2),
+      productId: products[0].id,
+      userId: buyer.id,
+    },
+  });
+
+  const reviews2 = await prisma.review.create({
+    data: {
+      rating: faker.number.int({ min: 1, max: 5 }),
+      comment: faker.lorem.sentences(2),
+      productId: products[0].id,
+      userId: buyer.id,
+    },
+  });
+
+  const reviews3 = await prisma.review.create({
+    data: {
+      rating: faker.number.int({ min: 1, max: 5 }),
+      comment: faker.lorem.sentences(2),
+      productId: products[0].id,
+      userId: buyer.id,
+    },
+  });
+
+  const review4 = await prisma.review.create({
+    data: {
+      rating: faker.number.int({ min: 1, max: 5 }),
+      comment: faker.lorem.sentences(2),
+      productId: products[0].id,
+      userId: buyer.id,
+    },
+  });
+
+  const review5 = await prisma.review.create({
     data: {
       rating: faker.number.int({ min: 1, max: 5 }),
       comment: faker.lorem.sentences(2),

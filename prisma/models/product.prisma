@@ -26,13 +26,11 @@ model Product {
   metaDescription String?
   warrantyInfo    String?
   returnPolicy    String?
-  soldCount       Int @default(0)
-  viewCount       Int @default(0)
+  soldCount       Int             @default(0)
+  viewCount       Int             @default(0)
 
   // Add these relations:
   category              Category[]              @relation("ProductCategories")
-  colors                ProductColor[]
-  sizes                 ProductSize[]
   shippingOptions       ShippingOption[]
   features              ProductFeature[]
   specifications        ProductSpecification[]
@@ -43,6 +41,7 @@ model Product {
   ProductCategory       ProductCategory[]
   shippingPolicyId      String? // Optional override at product level
   shippingPolicy        ShippingPolicy?         @relation(fields: [shippingPolicyId], references: [id])
+  ProductVariant        ProductVariant[]
 
   @@map("products")
 }
@@ -61,19 +60,6 @@ model Inventory {
   @@map("inventory")
 }
 
-model Review {
-  id        String   @id @default(uuid())
-  rating    Int
-  comment   String?
-  productId String
-  userId    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@map("reviews")
-}
 
 model RecentlyViewedProduct {
   id        String   @id @default(uuid())
@@ -91,29 +77,16 @@ model RecentlyViewedProduct {
   @@map("recently_viewed_products")
 }
 
-// Add these to your existing schema
-
-model ProductColor {
-  id              String  @id @default(uuid())
-  name            String
-  value           String // Hex color code
-  inStock         Boolean @default(true)
-  quantity        Int             @default(0)
-  productId       String
-  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@map("product_colors")
-}
-
-model ProductSize {
-  id              String  @id @default(uuid())
-  name            String
-  inStock         Boolean @default(true)
-  quantity        Int             @default(0)
-  productId       String
-  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@map("product_sizes")
+model ProductVariant {
+  id            String  @id @default(uuid())
+  productId     String
+  color         String
+  size          String
+  price         Float
+  discountPrice Float?
+  quantity      Int
+  inStock       Boolean @default(true)
+  product       Product @relation(fields: [productId], references: [id])
 }
 
 model ProductCategory {
@@ -128,12 +101,13 @@ model ProductCategory {
 }
 
 model ShippingOption {
-  id        String  @id @default(uuid())
-  name      String
-  price     Float
-  days      String
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id           String  @id @default(uuid())
+  name         String
+  price        Float
+  deliveryTime String
+  isActive     Boolean @default(true)
+  productId    String
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("shipping_options")
 }

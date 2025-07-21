@@ -194,10 +194,7 @@ export class ProductsService {
             id: true,
           },
         },
-        colors: true,
-
-        sizes: true,
-
+        ProductVariant: true,
         features: true,
         specifications: true,
         inBoxItems: true,
@@ -222,8 +219,8 @@ export class ProductsService {
             user: {
               select: {
                 id: true,
-                // firstName: true,
-                // lastName: true,
+                firstName: true,
+                lastName: true,
                 avatar: true,
               },
             },
@@ -453,6 +450,10 @@ export class ProductsService {
     userId?: string;
     sessionId?: string;
   }) {
+    if (!productId) {
+      throw new Error('ProductId must be provided');
+    }
+
     if (!userId && !sessionId) {
       throw new Error('Either userId or sessionId must be provided');
     }
@@ -490,6 +491,53 @@ export class ProductsService {
   }
 
   // Get recently viewed products
+  async getFrequentlyBoughtTogether(productId: string, limit = 5) {
+    // Find orders containing the given product
+    const ordersWithProduct = await this.prisma.order.findMany({
+      where: {
+        items: {
+          some: {
+            productId: productId,
+          },
+        },
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    if (ordersWithProduct.length === 0) {
+      return [];
+    }
+
+    // Aggregate all other products from these orders
+    const productFrequency = new Map<string, { product: any; count: number }>();
+
+    for (const order of ordersWithProduct) {
+      for (const item of order.items) {
+        if (item.productId !== productId) {
+          if (productFrequency.has(item.productId)) {
+            productFrequency.get(item.productId).count++;
+          } else {
+            productFrequency.set(item.productId, { product: item.product, count: 1 });
+          }
+        }
+      }
+    }
+
+    // Sort by frequency and take the top 'limit'
+    const sortedProducts = Array.from(productFrequency.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit)
+      .map((item) => item.product);
+
+    return sortedProducts;
+  }
+
   async getRecentlyViewed(userId?: string, sessionId?: string) {
     if (!userId && !sessionId) {
       throw new Error('Either userId or sessionId must be provided');

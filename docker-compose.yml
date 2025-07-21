@@ -1,0 +1,32 @@
+services:
+  backend:
+    # container_name: ecommerce-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    image: ecommerce-backend:latest
+    ports:
+      - '4000:3000'
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
+    restart: unless-stopped
+    volumes:
+      - .:/app # Sync code
+      - /app/node_modules # Prevent overwriting node_modules inside container
+  postgres:
+    container_name: ecommerce-postgres
+    image: postgres:15-alpine
+    ports:
+      - '5432:5432'
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+volumes:
+  postgres_data:
