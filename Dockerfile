@@ -18,11 +18,10 @@ RUN --mount=type=cache,target=/app/.npm \
     npm config set cache /app/.npm --global && \
     npm ci --loglevel verbose
 
-# Copy full app code after deps to preserve cache
-COPY . .
 
-# Reset DB and apply migrations for dev
-RUN npx prisma migrate reset --force
+RUN npx prisma generate
+
+
 
 # Copy full app code after deps to preserve cache
 COPY . .
