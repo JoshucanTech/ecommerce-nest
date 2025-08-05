@@ -25,15 +25,16 @@ const prisma = new PrismaClient();
 
 async function main() {
   // Clean database
-  await prisma.user.deleteMany();
-  await prisma.category.deleteMany();
-  await prisma.vendor.deleteMany();
-  await prisma.rider.deleteMany();
-  await prisma.product.deleteMany();
-  await prisma.inventory.deleteMany();
-  await prisma.cart.deleteMany();
+  await prisma.adUserInteraction.deleteMany();
+  await prisma.adAnalytics.deleteMany();
+  await prisma.adPayment.deleteMany();
+  await prisma.adPlatformReference.deleteMany();
+  await prisma.adTargeting.deleteMany();
+  await prisma.productAdvertisement.deleteMany();
+  await prisma.advertisement.deleteMany();
+  await prisma.adPlatformConfig.deleteMany();
+  await prisma.review.deleteMany();
   await prisma.wishlistItem.deleteMany();
-  await prisma.order.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.delivery.deleteMany();
   await prisma.payment.deleteMany();
@@ -43,23 +44,23 @@ async function main() {
   await prisma.coupon.deleteMany();
   await prisma.supportTicket.deleteMany();
   await prisma.faq.deleteMany();
-  await prisma.review.deleteMany();
-  await prisma.productAdvertisement.deleteMany();
-  await prisma.advertisement.deleteMany();
-  await prisma.adTargeting.deleteMany();
-  await prisma.adPlatformReference.deleteMany();
-  await prisma.adPayment.deleteMany();
-  await prisma.adAnalytics.deleteMany();
-  await prisma.adUserInteraction.deleteMany();
-  await prisma.adPlatformConfig.deleteMany();
   await prisma.recentlyViewedProduct.deleteMany();
+  await prisma.shippingZone.deleteMany();
   await prisma.shippingOption.deleteMany();
   await prisma.shippingPolicy.deleteMany();
-  await prisma.shippingZone.deleteMany();
   await prisma.shipping.deleteMany();
   await prisma.productFeature.deleteMany();
   await prisma.productSpecification.deleteMany();
   await prisma.productInBox.deleteMany();
+  await prisma.productVariant.deleteMany();
+  await prisma.cart.deleteMany();
+  await prisma.inventory.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.product.deleteMany();
+  await prisma.category.deleteMany();
+  await prisma.rider.deleteMany();
+  await prisma.vendor.deleteMany();
+  await prisma.user.deleteMany();
 
   console.log('Seeding database...');
   console.log('bcrypt', bcrypt);
@@ -406,23 +407,23 @@ async function main() {
   await Promise.all(
     featuredProducts.flatMap((product) => [
       // Product Colors
-      prisma.productVariant.createMany({
-        data: [
-          {
-            size: 'Lg',
-            color: '#FF0000',
-            productId: product.id,
-            price: 333,
-            quantity: 10,
-          },
-          {
-            size: 'md',
-            color: '#AF0AB0',
-            productId: product.id,
-            price: 666,
-            quantity: 15,
-          },
-        ],
+      prisma.productVariant.create({
+        data: {
+          size: 'Lg',
+          color: '#FF0000',
+          productId: product.id,
+          price: 333,
+          quantity: 10,
+        },
+      }),
+      prisma.productVariant.create({
+        data: {
+          size: 'md',
+          color: '#AF0AB0',
+          productId: product.id,
+          price: 666,
+          quantity: 15,
+        },
       }),
 
       // Product Features

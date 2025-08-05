@@ -17,6 +17,7 @@ import * as bcrypt from 'bcryptjs';
 import { UserRole } from '@prisma/client';
 // import { Profile } from "@prisma/client";
 import { REQUEST } from '@nestjs/core';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable({ scope: Scope.REQUEST })
 export class AuthService {
@@ -24,6 +25,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private eventEmitter: EventEmitter2,
     @Inject(REQUEST) private readonly request: Request,
   ) {}
 
@@ -57,6 +59,15 @@ export class AuthService {
         profile: true,
       },
     });
+
+    // Emit event to merge carts
+    const sessionId = this.request.headers['x-session-id'] as string;
+    if (sessionId) {
+      this.eventEmitter.emit('user.login', {
+        userId: user.id,
+        sessionId,
+      });
+    }
 
     // Generate tokens
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -107,6 +118,15 @@ export class AuthService {
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Emit event to merge carts
+    const sessionId = this.request.headers['x-session-id'] as string;
+    if (sessionId) {
+      this.eventEmitter.emit('user.login', {
+        userId: user.id,
+        sessionId,
+      });
     }
 
     // Delete old refresh token using userId
@@ -298,6 +318,15 @@ export class AuthService {
           include: { profile: true },
         });
       }
+    }
+
+    // Emit event to merge carts
+    const sessionId = this.request.headers['x-session-id'] as string;
+    if (sessionId) {
+      this.eventEmitter.emit('user.login', {
+        userId: user.id,
+        sessionId,
+      });
     }
 
     const { password: _, ...userWithoutPassword } = user;

@@ -7,6 +7,7 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { RolesGuard } from "./auth/guards/roles.guard";
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 import { PrismaModule } from "./prisma/prisma.module";
 import { AuthModule } from "./auth/auth.module";
@@ -27,11 +28,13 @@ import { CategoriesModule } from './categories/categories.module';
 import { AdvertisementsModule } from './advertisements/advertisements.module';
 import { ShippingModule } from './shipping/shipping.module';
 import { RealTimeModule } from './real-time/real-time.module';
+import { PromotionsModule } from './promotions/promotions.module';
 // 
 // 
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
@@ -52,6 +55,7 @@ import { RealTimeModule } from './real-time/real-time.module';
     AdvertisementsModule,
     ShippingModule,
     RealTimeModule,
+    PromotionsModule,
   ],
   // controllers: [AppController],
   // providers: [AppService],

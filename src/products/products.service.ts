@@ -89,7 +89,9 @@ export class ProductsService {
 
     if (category) {
       where.category = {
-        OR: [{ id: category }, { slug: category }],
+        some: {
+          OR: [{ id: category }, { slug: category }],
+        },
       };
     }
 
@@ -256,6 +258,18 @@ export class ProductsService {
           product.reviews.length
         : 0;
 
+    // Calculate rating distribution
+    const ratingDistribution = {
+      '1': 0,
+      '2': 0,
+      '3': 0,
+      '4': 0,
+      '5': 0,
+    };
+    for (const review of product.reviews) {
+      ratingDistribution[review.rating]++;
+    }
+
     // Check if product is in an active flash sale
     const activeFlashSale = product.flashSaleItems.find(
       (item) => item.flashSale !== null,
@@ -264,11 +278,19 @@ export class ProductsService {
       ? product.price * (1 - activeFlashSale.discountPercentage / 100)
       : null;
 
+    // Generate short description
+    const shortDescription =
+      product.description.length > 150
+        ? product.description.substring(0, 147) + '...'
+        : product.description;
+
     return {
       ...product,
       avgRating,
       reviewCount: product.reviews.length,
+      ratingDistribution,
       flashSalePrice,
+      shortDescription,
       activeFlashSale: activeFlashSale
         ? {
             id: activeFlashSale.flashSaleId,
@@ -450,12 +472,16 @@ export class ProductsService {
     userId?: string;
     sessionId?: string;
   }) {
+    console.log('userId', userId);
+    console.log('sessionId', sessionId);
     if (!productId) {
       throw new Error('ProductId must be provided');
     }
 
     if (!userId && !sessionId) {
-      throw new Error('Either userId or sessionId must be provided');
+      throw new ForbiddenException(
+        'Either userId or sessionId must be provided',
+      );
     }
 
     // Delete existing view to avoid duplicates
@@ -488,6 +514,8 @@ export class ProductsService {
         where: { id: { in: idsToDelete } },
       });
     }
+
+    return { success: true };
   }
 
   // Get recently viewed products
@@ -523,7 +551,10 @@ export class ProductsService {
           if (productFrequency.has(item.productId)) {
             productFrequency.get(item.productId).count++;
           } else {
-            productFrequency.set(item.productId, { product: item.product, count: 1 });
+            productFrequency.set(item.productId, {
+              product: item.product,
+              count: 1,
+            });
           }
         }
       }

@@ -165,15 +165,22 @@ export class ProductsController {
   }
 
   @Post('recently-viewed')
-  @Public()
+  @Session()
   @ApiOperation({ summary: 'Record product view for recently viewed list' })
   @ApiResponse({ status: 201, description: 'Product view recorded' })
   @ApiResponse({
     status: 400,
     description: 'Missing productId or session/user ID',
   })
-  async recordRecentlyView(@Body() body: RecordViewDto) {
-    return this.productsService.recordView(body);
+  async recordRecentlyView(
+    @Body()
+    { productId, userId, sessionId }: RecordViewDto,
+    @CurrentUser() user,
+    @Req() req,
+  ) {
+    userId = user?.id;
+    sessionId = req?.headers['x-anonymous-id']?.toString();
+    return this.productsService.recordView({ productId, userId, sessionId });
   }
 
   // For viewer count
@@ -255,8 +262,8 @@ export class ProductsController {
     @CurrentUser() user,
     @Req() req,
   ) {
-    const userId = user?.id || req.headers['x-anonymous-id']?.toString();
-    console.log('The user id for post addViewer is now: ', req);
+    const userId = user?.id || req?.headers['x-anonymous-id']?.toString();
+    // console.log('The user id for post addViewer is now: ', req);
 
     if (!userId) {
       throw new BadRequestException('User ID or anonymous ID is required');
