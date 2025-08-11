@@ -15,8 +15,14 @@ export class OrdersService {
   constructor(private prisma: PrismaService) {}
 
   async create(createOrderDto: CreateOrderDto, userId: string) {
-    const { items, paymentMethod, addressId, couponCode, notes } =
-      createOrderDto;
+    const {
+      items,
+      paymentMethod,
+      addressId,
+      couponCode,
+      notes,
+      shippingSelections,
+    } = createOrderDto;
 
     // Check if address exists and belongs to user
     const address = await this.prisma.address.findFirst({
@@ -163,6 +169,55 @@ export class OrdersService {
       // Apply discount
       orderTotal = Math.max(0, orderTotal - discountAmount);
 
+      // --- NEW SHIPPING LOGIC ---
+
+      const shippingOptionId = shippingSelections[vendorId];
+      if (!shippingOptionId) {
+        throw new BadRequestException(
+          `No shipping option selected for vendor ${vendorId}`,
+        );
+      }
+
+      let shippingPrice = 0;
+
+      // 1. Check for a product-specific shipping option first
+      const productShippingOption = await this.prisma.shippingOption.findFirst(
+        {
+          where: {
+            id: shippingOptionId,
+            // Ensure the option belongs to a product from this vendor
+            product: {
+              vendorId: vendorId,
+            },
+          },
+        },
+      );
+
+      if (productShippingOption) {
+        shippingPrice = productShippingOption.price;
+      } else {
+        // 2. Fall back to a vendor-level shipping option
+        const vendorShippingOption = await this.prisma.shipping.findFirst({
+          where: {
+            id: shippingOptionId,
+            vendorId: vendorId,
+          },
+        });
+
+        if (vendorShippingOption) {
+          shippingPrice = vendorShippingOption.price;
+        } else {
+          throw new BadRequestException(
+            `Invalid shipping option ID: ${shippingOptionId} for vendor ${vendorId}`,
+          );
+        }
+      }
+
+      // Add shipping price to the total
+      orderTotal += shippingPrice;
+
+      // --- END OF NEW SHIPPING LOGIC ---
+
       // Generate order number
       const orderNumber = this.generateOrderNumber();
 
@@ -173,6 +228,7 @@ export class OrdersService {
           userId,
           vendorId,
           totalAmount: orderTotal,
+          shipping: shippingPrice, // Set the shipping field
           status: OrderStatus.PENDING,
           paymentStatus: PaymentStatus.PENDING,
           paymentMethod,

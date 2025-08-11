@@ -419,6 +419,9 @@ export class VendorsService {
             images: true,
           },
         },
+        Shipping: {
+          where: { isActive: true },
+        },
         _count: {
           select: {
             products: true,

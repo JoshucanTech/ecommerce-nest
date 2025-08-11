@@ -7,6 +7,7 @@ import {
   ValidateNested,
   IsInt,
   Min,
+  IsObject,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -30,6 +31,14 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[];
+
+  @ApiProperty({
+    description:
+      "An object mapping vendor IDs to the selected shipping option ID for that vendor",
+    example: { "vendor-uuid-1": "shipping-option-uuid-1" },
+  })
+  @IsObject()
+  shippingSelections: Record<string, string>;
 
   @ApiProperty({ description: "Payment method", example: "CREDIT_CARD" })
   @IsString()
