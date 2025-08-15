@@ -1,4 +1,3 @@
-// src/shipping/shipping.controller.ts
 import {
   Controller,
   Post,
@@ -7,8 +6,6 @@ import {
   Param,
   Patch,
   Delete,
-  Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -16,157 +13,81 @@ import {
   ApiOperation,
   ApiResponse,
   ApiTags,
-  ApiBody,
-  ApiParam,
-  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-// import { UserRole } from '../users/enums/user-role.enum';
 import { ShippingService } from './shipping.service';
 import { CreateShippingDto } from './dto/create-shipping.dto';
 import { UpdateShippingDto } from './dto/update-shipping.dto';
-// import { RequestWithUser } from '../common/interfaces/request-with-user.interface';
-// import { ShippingPolicyResponseDto } from './dto/shipping-policy-response.dto';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @ApiTags('Shipping')
-@ApiBearerAuth()
 @Controller('shipping')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class ShippingController {
   constructor(private readonly shippingService: ShippingService) {}
 
-  // @Post()
-  // @Roles(UserRole.VENDOR, UserRole.ADMIN)
-  // @ApiOperation({ summary: 'Create a new shipping policy' })
-  // @ApiResponse({
-  //   status: 201,
-  //   description: 'Shipping policy created successfully',
-  //   type: ShippingPolicyResponseDto,
-  // })
-  // @ApiResponse({ status: 400, description: 'Invalid input data' })
-  // @ApiResponse({ status: 401, description: 'Unauthorized' })
-  // @ApiResponse({ status: 403, description: 'Forbidden' })
-  // @ApiBody({ type: CreateShippingDto })
-  // async createShippingPolicy(
-  //   @Body() createShippingDto: CreateShippingDto,
-  //   @Req() req: RequestWithUser,
-  // ) {
-  //   return this.shippingService.createShippingPolicy({
-  //     ...createShippingDto,
-  //     vendorId: req.user.vendorId,
-  //   });
-  // }
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a new shipping method' })
+  @ApiResponse({
+    status: 201,
+    description: 'Shipping method created successfully',
+  })
+  async create(
+    @Body() createShippingDto: CreateShippingDto,
+    @CurrentUser() user,
+  ) {
+    return this.shippingService.create(createShippingDto, user.vendorId);
+  }
 
-  // @Get()
-  // @Roles(UserRole.VENDOR, UserRole.ADMIN)
-  // @ApiOperation({ summary: 'Get all shipping policies for the vendor' })
-  // @ApiResponse({
-  //   status: 200,
-  //   description: 'List of shipping policies',
-  //   type: [ShippingPolicyResponseDto],
-  // })
-  // @ApiQuery({
-  //   name: 'isActive',
-  //   required: false,
-  //   description: 'Filter by active status',
-  // })
-  // async getVendorShippingPolicies(
-  //   @Req() req: RequestWithUser,
-  //   @Query('isActive') isActive?: boolean,
-  // ) {
-  //   return this.shippingService.getVendorShippingPolicies(
-  //     req.user.vendorId,
-  //     isActive,
-  //   );
-  // }
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all shipping methods for the vendor' })
+  async findAll(@CurrentUser() user) {
+    return this.shippingService.findAll(user.vendorId);
+  }
 
-  // @Get(':id')
-  // @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.CUSTOMER)
-  // @ApiOperation({ summary: 'Get shipping policy details' })
-  // @ApiResponse({
-  //   status: 200,
-  //   description: 'Shipping policy details',
-  //   type: ShippingPolicyResponseDto,
-  // })
-  // @ApiResponse({ status: 404, description: 'Policy not found' })
-  // @ApiParam({ name: 'id', description: 'Shipping policy ID' })
-  // async getShippingPolicy(@Param('id') id: string) {
-  //   return this.shippingService.getShippingPolicyById(id);
-  // }
+  @Get('vendor/:vendorId')
+  @Public()
+  @ApiOperation({ summary: 'Get available shipping methods for a vendor' })
+  async getAvailableMethodsForVendor(@Param('vendorId') vendorId: string) {
+    return this.shippingService.getAvailableMethodsForVendor(vendorId);
+  }
 
-  // @Get('product/:productId')
-  // @Roles(UserRole.CUSTOMER, UserRole.GUEST)
-  // @ApiOperation({ summary: 'Get shipping policy for a product' })
-  // @ApiResponse({
-  //   status: 200,
-  //   description: 'Product shipping information',
-  //   type: ShippingPolicyResponseDto,
-  // })
-  // @ApiResponse({ status: 404, description: 'Product not found' })
-  // @ApiParam({ name: 'productId', description: 'Product ID' })
-  // async getProductShippingInfo(@Param('productId') productId: string) {
-  //   return this.shippingService.getProductShippingInfo(productId);
-  // }
+  @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get a specific shipping method' })
+  async findOne(@Param('id') id: string, @CurrentUser() user) {
+    return this.shippingService.findOne(id, user.vendorId);
+  }
 
-  // @Patch(':id')
-  // @Roles(UserRole.VENDOR, UserRole.ADMIN)
-  // @ApiOperation({ summary: 'Update a shipping policy' })
-  // @ApiResponse({
-  //   status: 200,
-  //   description: 'Updated shipping policy',
-  //   type: ShippingPolicyResponseDto,
-  // })
-  // @ApiResponse({ status: 400, description: 'Invalid input data' })
-  // @ApiResponse({ status: 404, description: 'Policy not found' })
-  // @ApiParam({ name: 'id', description: 'Shipping policy ID' })
-  // @ApiBody({ type: UpdateShippingDto })
-  // async updateShippingPolicy(
-  //   @Param('id') id: string,
-  //   @Body() updateShippingDto: UpdateShippingDto,
-  //   @Req() req: RequestWithUser,
-  // ) {
-  //   return this.shippingService.updateShippingPolicy(
-  //     id,
-  //     updateShippingDto,
-  //     req.user.vendorId,
-  //   );
-  // }
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a shipping method' })
+  async update(
+    @Param('id') id: string,
+    @Body() updateShippingDto: UpdateShippingDto,
+    @CurrentUser() user,
+  ) {
+    return this.shippingService.update(id, updateShippingDto, user.vendorId);
+  }
 
-  // @Delete(':id')
-  // @Roles(UserRole.VENDOR, UserRole.ADMIN)
-  // @ApiOperation({ summary: 'Delete a shipping policy' })
-  // @ApiResponse({ status: 200, description: 'Policy deleted successfully' })
-  // @ApiResponse({ status: 404, description: 'Policy not found' })
-  // @ApiResponse({
-  //   status: 400,
-  //   description: 'Cannot delete default policy',
-  // })
-  // @ApiParam({ name: 'id', description: 'Shipping policy ID' })
-  // async deleteShippingPolicy(
-  //   @Param('id') id: string,
-  //   @Req() req: RequestWithUser,
-  // ) {
-  //   return this.shippingService.deleteShippingPolicy(id, req.user.vendorId);
-  // }
-
-  // @Post(':policyId/set-default')
-  // @Roles(UserRole.VENDOR, UserRole.ADMIN)
-  // @ApiOperation({ summary: 'Set a policy as default for the vendor' })
-  // @ApiResponse({
-  //   status: 200,
-  //   description: 'Default policy set successfully',
-  // })
-  // @ApiResponse({ status: 404, description: 'Policy not found' })
-  // @ApiParam({ name: 'policyId', description: 'Shipping policy ID' })
-  // async setDefaultPolicy(
-  //   @Param('policyId') policyId: string,
-  //   @Req() req: RequestWithUser,
-  // ) {
-  //   return this.shippingService.setDefaultShippingPolicy(
-  //     policyId,
-  //     req.user.vendorId,
-  //   );
-  // }
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a shipping method' })
+  async remove(@Param('id') id: string, @CurrentUser() user) {
+    return this.shippingService.remove(id, user.vendorId);
+  }
 }

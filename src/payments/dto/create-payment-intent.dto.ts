@@ -1,29 +1,36 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsNumber, IsString, Min } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsArray,
+  IsObject,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+class PaymentIntentItemDto {
+  @ApiProperty()
+  @IsString()
+  productId: string;
+
+  @ApiProperty()
+  @IsString()
+  quantity: number;
+}
 
 export class CreatePaymentIntentDto {
-  @ApiProperty({
-    example: 100.5,
-    description: "Amount to charge",
-  })
-  @IsNumber()
-  @Min(0.5)
-  @IsNotEmpty()
-  amount: number;
+  @ApiProperty({ type: [PaymentIntentItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PaymentIntentItemDto)
+  items: PaymentIntentItemDto[];
 
-  @ApiProperty({
-    example: "USD",
-    description: "Currency code",
-  })
-  @IsString()
-  @IsNotEmpty()
-  currency: string;
+  @ApiProperty()
+  @IsObject()
+  shippingSelections: Record<string, string>;
 
-  @ApiProperty({
-    example: "123e4567-e89b-12d3-a456-426614174000",
-    description: "Order ID",
-  })
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  orderId: string;
+  couponCode?: string;
 }

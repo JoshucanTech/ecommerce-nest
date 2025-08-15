@@ -56,7 +56,7 @@ class ShippingMethodDto {
   tags?: string[];
 }
 
-class ShippingZoneDto {
+export class ShippingZoneDto {
   @ApiProperty({
     example: 'US',
     description: 'Country code',
@@ -159,5 +159,5 @@ export class CreateShippingDto {
 
   @ApiProperty({ example: 'vendor-id' })
   @IsString()
-  vendor: string;
+  vendorId: string;
 }

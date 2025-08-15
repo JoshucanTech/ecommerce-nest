@@ -178,40 +178,20 @@ export class OrdersService {
         );
       }
 
-      let shippingPrice = 0;
-
-      // 1. Check for a product-specific shipping option first
-      const productShippingOption = await this.prisma.shippingOption.findFirst(
-        {
-          where: {
-            id: shippingOptionId,
-            // Ensure the option belongs to a product from this vendor
-            product: {
-              vendorId: vendorId,
-            },
-          },
+      const shippingMethod = await this.prisma.shipping.findFirst({
+        where: {
+          id: shippingOptionId,
+          vendorId: vendorId,
         },
-      );
+      });
 
-      if (productShippingOption) {
-        shippingPrice = productShippingOption.price;
-      } else {
-        // 2. Fall back to a vendor-level shipping option
-        const vendorShippingOption = await this.prisma.shipping.findFirst({
-          where: {
-            id: shippingOptionId,
-            vendorId: vendorId,
-          },
-        });
-
-        if (vendorShippingOption) {
-          shippingPrice = vendorShippingOption.price;
-        } else {
-          throw new BadRequestException(
-            `Invalid shipping option ID: ${shippingOptionId} for vendor ${vendorId}`,
-          );
-        }
+      if (!shippingMethod) {
+        throw new BadRequestException(
+          `Invalid shipping option ID: ${shippingOptionId} for vendor ${vendorId}`,
+        );
       }
+
+      const shippingPrice = shippingMethod.price;
 
       // Add shipping price to the total
       orderTotal += shippingPrice;

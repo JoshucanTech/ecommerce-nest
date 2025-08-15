@@ -2,9 +2,9 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-} from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { OnEvent } from "@nestjs/event-emitter";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { OnEvent } from '@nestjs/event-emitter';
 
 @Injectable()
 export class CartService {
@@ -13,10 +13,16 @@ export class CartService {
   private getCartWhereClause(userId?: string, sessionId?: string) {
     if (userId) return { userId };
     if (sessionId) return { sessionId };
-    throw new BadRequestException("User ID or Session ID must be provided.");
+    throw new BadRequestException('User ID or Session ID must be provided.');
   }
 
-  async getCart({ userId, sessionId }: { userId?: string; sessionId?: string }) {
+  async getCart({
+    userId,
+    sessionId,
+  }: {
+    userId?: string;
+    sessionId?: string;
+  }) {
     const where = this.getCartWhereClause(userId, sessionId);
     let cart = await this.prisma.cart.findUnique({
       where,
@@ -115,12 +121,14 @@ export class CartService {
     productId,
     variantId,
     quantity,
+    shippingId,
   }: {
     userId?: string;
     sessionId?: string;
     productId: string;
     variantId?: string;
     quantity: number;
+    shippingId?: string;
   }) {
     const where = this.getCartWhereClause(userId, sessionId);
 
@@ -136,15 +144,32 @@ export class CartService {
         where: { id: variantId },
       });
       if (!variant || variant.productId !== productId) {
-        throw new NotFoundException(`Variant with ID ${variantId} not found for this product`);
+        throw new NotFoundException(
+          `Variant with ID ${variantId} not found for this product`,
+        );
       }
       if (variant.quantity < quantity) {
-        throw new BadRequestException("Variant is out of stock or has insufficient quantity");
+        throw new BadRequestException(
+          'Variant is out of stock or has insufficient quantity',
+        );
       }
     } else {
       // This logic assumes products without variants have their quantity on the main product record
       if (product.quantity < quantity) {
-        throw new BadRequestException("Product is out of stock or has insufficient quantity");
+        throw new BadRequestException(
+          'Product is out of stock or has insufficient quantity',
+        );
+      }
+    }
+
+    if (shippingId) {
+      const shippingMethod = await this.prisma.shipping.findFirst({
+        where: { id: shippingId, vendorId: product.vendorId },
+      });
+      if (!shippingMethod) {
+        throw new BadRequestException(
+          "Invalid shipping method for this product's vendor.",
+        );
       }
     }
 
@@ -165,7 +190,10 @@ export class CartService {
     if (existingCartItem) {
       return this.prisma.cartItem.update({
         where: { id: existingCartItem.id },
-        data: { quantity: existingCartItem.quantity + quantity },
+        data: {
+          quantity: existingCartItem.quantity + quantity,
+          shippingId: shippingId ?? existingCartItem.shippingId,
+        },
       });
     }
 
@@ -175,6 +203,7 @@ export class CartService {
         productId,
         productVariantId: variantId,
         quantity,
+        shippingId,
       },
     });
   }
@@ -192,9 +221,9 @@ export class CartService {
   }) {
     const where = this.getCartWhereClause(userId, sessionId);
     const cartItem = await this.prisma.cartItem.findFirst({
-      where: { 
+      where: {
         id: itemId,
-        cart: where
+        cart: where,
       },
       include: { product: true, productVariant: true },
     });
@@ -202,14 +231,15 @@ export class CartService {
     if (!cartItem) {
       throw new NotFoundException(`Cart item with ID ${itemId} not found`);
     }
-    
+
     if (quantity <= 0) {
       return this.removeFromCart({ userId, sessionId, itemId });
     }
 
-    const stockQuantity = cartItem.productVariant?.quantity ?? cartItem.product.quantity;
+    const stockQuantity =
+      cartItem.productVariant?.quantity ?? cartItem.product.quantity;
     if (stockQuantity < quantity) {
-      throw new BadRequestException("Insufficient stock");
+      throw new BadRequestException('Insufficient stock');
     }
 
     return this.prisma.cartItem.update({
@@ -229,19 +259,19 @@ export class CartService {
   }) {
     const where = this.getCartWhereClause(userId, sessionId);
     const cartItem = await this.prisma.cartItem.findFirst({
-      where: { 
+      where: {
         id: itemId,
-        cart: where
+        cart: where,
       },
     });
 
     if (!cartItem) {
       // To prevent errors, just confirm success if item is already gone
-      return { message: "Item already removed from cart" };
+      return { message: 'Item already removed from cart' };
     }
 
     await this.prisma.cartItem.delete({ where: { id: itemId } });
-    return { message: "Item removed from cart successfully" };
+    return { message: 'Item removed from cart successfully' };
   }
 
   async clearCart({
@@ -255,14 +285,14 @@ export class CartService {
     const cart = await this.prisma.cart.findUnique({ where });
 
     if (!cart) {
-      return { message: "Cart is already empty" };
+      return { message: 'Cart is already empty' };
     }
 
     await this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
-    return { message: "Cart cleared successfully" };
+    return { message: 'Cart cleared successfully' };
   }
 
-  @OnEvent("user.login")
+  @OnEvent('user.login')
   async handleUserLogin({
     userId,
     sessionId,
@@ -287,10 +317,10 @@ export class CartService {
     }
 
     const userCart = await this.prisma.cart.upsert({
-        where: { userId },
-        create: { userId },
-        update: {},
-        include: { items: true }
+      where: { userId },
+      create: { userId },
+      update: {},
+      include: { items: true },
     });
 
     for (const sessionItem of sessionCart.items) {

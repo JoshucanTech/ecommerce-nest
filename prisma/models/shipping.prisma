@@ -11,10 +11,11 @@ model Shipping {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   orderItems       OrderItem[]
-  shippingZones    ShippingZone[]
+  shippingZones    ShippingZone[] 
   OrderShipping    OrderShipping[]
   ShippingPolicy   ShippingPolicy? @relation(fields: [shippingPolicyId], references: [id])
   shippingPolicyId String?
+  CartItem         CartItem[]
 
   @@map("shippings")
 }
