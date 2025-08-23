@@ -32,6 +32,7 @@ model Vendor {
   Shipping         Shipping[]
   OrderShipping    OrderShipping[]
   ShippingPolicy   ShippingPolicy[]
+  VendorShipping   VendorShipping[]
 
   @@map("vendors")
 }

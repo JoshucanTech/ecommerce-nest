@@ -57,6 +57,7 @@ export class OrdersService {
             },
           },
         },
+        variants: true,
       },
     });
 
@@ -69,10 +70,22 @@ export class OrdersService {
     // Check inventory
     for (const item of items) {
       const product = products.find((p) => p.id === item.productId);
-      if (!product.inventory || product.inventory.quantity < item.quantity) {
-        throw new BadRequestException(
-          `Product ${product.name} has insufficient inventory`,
-        );
+      
+      // If variant is specified, check variant inventory
+      if (item.variantId) {
+        const variant = product.variants.find(v => v.id === item.variantId);
+        if (!variant || variant.quantity < item.quantity) {
+          throw new BadRequestException(
+            `Product variant ${product.name} has insufficient inventory`,
+          );
+        }
+      } else {
+        // Check base product inventory
+        if (!product.inventory || product.inventory.quantity < item.quantity) {
+          throw new BadRequestException(
+            `Product ${product.name} has insufficient inventory`,
+          );
+        }
       }
     }
 
@@ -89,11 +102,13 @@ export class OrdersService {
       itemsByVendor[vendorId].push({
         product,
         quantity: item.quantity,
+        variantId: item.variantId,
       });
     }
 
     // Apply coupon if provided
     let coupon = null;
+    let vendorCoupons = {}; // Track which vendors can use the coupon
     if (couponCode) {
       coupon = await this.prisma.coupon.findUnique({
         where: { code: couponCode },
@@ -113,10 +128,23 @@ export class OrdersService {
       if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
         throw new BadRequestException("Coupon usage limit reached");
       }
+
+      // Determine which vendors can use this coupon
+      if (coupon.vendorId) {
+        // Coupon is vendor-specific
+        vendorCoupons[coupon.vendorId] = coupon;
+      } else {
+        // Coupon is valid for all vendors
+        for (const vendorId in itemsByVendor) {
+          vendorCoupons[vendorId] = coupon;
+        }
+      }
     }
 
     // Create orders for each vendor
     const orders = [];
+    const paymentIntents = []; // Track payment intents for each vendor order
+    
     for (const vendorId in itemsByVendor) {
       const vendorItems = itemsByVendor[vendorId];
 
@@ -124,21 +152,31 @@ export class OrdersService {
       let orderTotal = 0;
       const orderItems = [];
 
-      for (const { product, quantity } of vendorItems) {
+      for (const { product, quantity, variantId } of vendorItems) {
+        // Determine price based on variant or base product
+        let unitPrice;
+        if (variantId) {
+          const variant = product.variants.find(v => v.id === variantId);
+          unitPrice = variant?.discountPrice || variant?.price || product.price;
+        } else {
+          unitPrice = product.discountPrice || product.price;
+        }
+
         // Check for flash sale
         const activeFlashSale = product.flashSaleItems.find(
-          (fsi) => fsi.flashSale !== null,
+          (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
         );
-        const basePrice = product.discountPrice || product.price;
+        
         const itemPrice = activeFlashSale
-          ? basePrice * (1 - activeFlashSale.discountPercentage / 100)
-          : basePrice;
+          ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
+          : unitPrice;
 
         const itemTotal = itemPrice * quantity;
         orderTotal += itemTotal;
 
         orderItems.push({
           productId: product.id,
+          productVariantId: variantId,
           quantity,
           unitPrice: itemPrice,
           totalPrice: itemTotal,
@@ -147,22 +185,69 @@ export class OrdersService {
 
       // Apply coupon discount if applicable
       let discountAmount = 0;
-      if (coupon) {
-        // Check if coupon is vendor-specific
-        if (!coupon.vendorId || coupon.vendorId === vendorId) {
-          if (coupon.discountType === "PERCENTAGE") {
-            discountAmount = orderTotal * (coupon.discountValue / 100);
-            if (coupon.maxDiscount && discountAmount > coupon.maxDiscount) {
-              discountAmount = coupon.maxDiscount;
-            }
-          } else {
-            discountAmount = coupon.discountValue;
+      const vendorCoupon = vendorCoupons[vendorId];
+      if (vendorCoupon) {
+        if (vendorCoupon.discountType === "PERCENTAGE") {
+          discountAmount = orderTotal * (vendorCoupon.discountValue / 100);
+          if (vendorCoupon.maxDiscount && discountAmount > vendorCoupon.maxDiscount) {
+            discountAmount = vendorCoupon.maxDiscount;
           }
+        } else {
+          // Fixed amount discount
+          discountAmount = vendorCoupon.discountValue;
+          // For fixed amount coupons used across multiple vendors, 
+          // we should distribute the discount proportionally
+          if (!vendorCoupon.vendorId) {
+            const totalOrderValueAcrossVendors = Object.values(itemsByVendor).reduce((total, vendorItemList) => {
+              return total + vendorItemList.reduce((vendorTotal, item) => {
+                let unitPrice;
+                if (item.variantId) {
+                  const variant = item.product.variants.find(v => v.id === item.variantId);
+                  unitPrice = variant?.discountPrice || variant?.price || item.product.price;
+                } else {
+                  unitPrice = item.product.discountPrice || item.product.price;
+                }
+                
+                const activeFlashSale = item.product.flashSaleItems.find(
+                  (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
+                );
+                
+                const itemPrice = activeFlashSale
+                  ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
+                  : unitPrice;
+                  
+                return vendorTotal + (itemPrice * item.quantity);
+              }, 0);
+            }, 0);
+            
+            const vendorOrderValue = vendorItems.reduce((total, item) => {
+              let unitPrice;
+              if (item.variantId) {
+                const variant = item.product.variants.find(v => v.id === item.variantId);
+                unitPrice = variant?.discountPrice || variant?.price || item.product.price;
+              } else {
+                unitPrice = item.product.discountPrice || item.product.price;
+              }
+              
+              const activeFlashSale = item.product.flashSaleItems.find(
+                (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
+              );
+              
+              const itemPrice = activeFlashSale
+                ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
+                : unitPrice;
+                
+              return total + (itemPrice * item.quantity);
+            }, 0);
+            
+            // Distribute discount proportionally
+            discountAmount = vendorCoupon.discountValue * (vendorOrderValue / totalOrderValueAcrossVendors);
+          }
+        }
 
-          // Check minimum purchase requirement
-          if (coupon.minPurchase && orderTotal < coupon.minPurchase) {
-            discountAmount = 0;
-          }
+        // Check minimum purchase requirement
+        if (vendorCoupon.minPurchase && orderTotal < vendorCoupon.minPurchase) {
+          discountAmount = 0;
         }
       }
 
@@ -170,7 +255,6 @@ export class OrdersService {
       orderTotal = Math.max(0, orderTotal - discountAmount);
 
       // --- NEW SHIPPING LOGIC ---
-
       const shippingOptionId = shippingSelections[vendorId];
       if (!shippingOptionId) {
         throw new BadRequestException(
@@ -209,11 +293,13 @@ export class OrdersService {
           vendorId,
           totalAmount: orderTotal,
           shipping: shippingPrice, // Set the shipping field
+          discount: discountAmount, // Track discount applied
           status: OrderStatus.PENDING,
           paymentStatus: PaymentStatus.PENDING,
           paymentMethod,
           addressId,
-          couponId: coupon?.id,
+          couponId: vendorCoupon?.id,
+          notes,
           items: {
             create: orderItems,
           },
@@ -243,17 +329,41 @@ export class OrdersService {
       });
 
       orders.push(order);
+      
+      // Create a payment intent for this vendor's order
+      paymentIntents.push({
+        orderId: order.id,
+        vendorId: order.vendorId,
+        amount: orderTotal,
+        currency: 'usd', // Assuming USD, could be dynamic based on region
+      });
 
       // Update inventory
-      for (const { product, quantity } of vendorItems) {
-        await this.prisma.inventory.update({
-          where: { productId: product.id },
-          data: {
-            quantity: {
-              decrement: quantity,
+      for (const { product, quantity, variantId } of vendorItems) {
+        if (variantId) {
+          // Update variant inventory
+          const variant = product.variants.find(v => v.id === variantId);
+          if (variant) {
+            await this.prisma.productVariant.update({
+              where: { id: variantId },
+              data: {
+                quantity: {
+                  decrement: quantity,
+                },
+              },
+            });
+          }
+        } else {
+          // Update base product inventory
+          await this.prisma.inventory.update({
+            where: { productId: product.id },
+            data: {
+              quantity: {
+                decrement: quantity,
+              },
             },
-          },
-        });
+          });
+        }
       }
     }
 
@@ -272,6 +382,7 @@ export class OrdersService {
     return {
       message: "Orders created successfully",
       orders,
+      paymentIntents, // Return payment intents for frontend processing
     };
   }
 
@@ -743,10 +854,11 @@ export class OrdersService {
   }
 
   private generateOrderNumber(): string {
-    const timestamp = Date.now().toString();
-    const random = Math.floor(Math.random() * 10000)
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.floor(Math.random() * 1000)
       .toString()
-      .padStart(4, "0");
-    return `ORD-${timestamp.slice(-8)}${random}`;
+      .padStart(3, "0");
+    return `ORD-${timestamp}-${random}`;
   }
+
 }

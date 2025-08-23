@@ -19,6 +19,15 @@ class OrderItemDto {
   @IsUUID()
   productId: string;
 
+  @ApiProperty({
+    description: "Product Variant ID (optional)",
+    example: "123e4567-e89b-12d3-a456-426614174001",
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  variantId?: string;
+
   @ApiProperty({ description: "Quantity", example: 2 })
   @IsInt()
   @Min(1)
@@ -51,16 +60,19 @@ export class CreateOrderDto {
   @IsUUID()
   addressId: string;
 
-  @ApiPropertyOptional({ description: "Coupon code", example: "SUMMER20" })
-  @IsOptional()
+  @ApiPropertyOptional({
+    description: "Coupon code",
+    example: "SAVE10",
+  })
   @IsString()
+  @IsOptional()
   couponCode?: string;
 
   @ApiPropertyOptional({
     description: "Order notes",
-    example: "Please leave at the front door",
+    example: "Please deliver to the back door",
   })
-  @IsOptional()
   @IsString()
+  @IsOptional()
   notes?: string;
 }

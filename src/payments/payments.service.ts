@@ -30,35 +30,208 @@ export class PaymentsService {
     const productIds = items.map((item) => item.productId);
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds } },
+      include: {
+        variants: true,
+        flashSaleItems: {
+          include: {
+            flashSale: {
+              select: {
+                isActive: true,
+                startDate: true,
+                endDate: true,
+              },
+            },
+          },
+        },
+      },
     });
 
+    // Group items by vendor
+    const itemsByVendor = {};
     for (const item of items) {
       const product = products.find((p) => p.id === item.productId);
-      if (!product) {
-        throw new BadRequestException(
-          `Product with ID ${item.productId} not found`,
-        );
-      }
-      totalAmount += product.price * item.quantity;
-    }
+      const vendorId = product.vendorId;
 
-    for (const vendorId in shippingSelections) {
-      const shippingOptionId = shippingSelections[vendorId];
-      const shippingMethod = await this.prisma.shipping.findFirst({
-        where: { id: shippingOptionId, vendorId },
+      if (!itemsByVendor[vendorId]) {
+        itemsByVendor[vendorId] = [];
+      }
+
+      itemsByVendor[vendorId].push({
+        product,
+        quantity: item.quantity,
+        variantId: item.variantId,
       });
-      if (shippingMethod) {
-        totalAmount += shippingMethod.price;
-      }
     }
 
+    // Apply coupon if provided
+    let coupon = null;
+    let vendorCoupons = {}; // Track which vendors can use the coupon
     if (couponCode) {
-      const coupon = await this.prisma.coupon.findUnique({
+      coupon = await this.prisma.coupon.findUnique({
         where: { code: couponCode },
       });
+
       if (coupon) {
-        totalAmount -= coupon.discountValue;
+        // Check if coupon is active
+        const now = new Date();
+        if (
+          coupon.isActive &&
+          coupon.startDate <= now &&
+          coupon.endDate >= now
+        ) {
+          // Check if coupon has reached usage limit
+          if (!coupon.usageLimit || coupon.usageCount < coupon.usageLimit) {
+            // Determine which vendors can use this coupon
+            if (coupon.vendorId) {
+              // Coupon is vendor-specific
+              vendorCoupons[coupon.vendorId] = coupon;
+            } else {
+              // Coupon is valid for all vendors
+              for (const vendorId in itemsByVendor) {
+                vendorCoupons[vendorId] = coupon;
+              }
+            }
+          }
+        }
       }
+    }
+
+    // Calculate totals for each vendor
+    const vendorTotals = {};
+    for (const vendorId in itemsByVendor) {
+      const vendorItems = itemsByVendor[vendorId];
+      let vendorTotal = 0;
+
+      for (const { product, quantity, variantId } of vendorItems) {
+        // Determine price based on variant or base product
+        let unitPrice;
+        if (variantId) {
+          const variant = product.variants.find((v) => v.id === variantId);
+          unitPrice = variant?.discountPrice || variant?.price || product.price;
+        } else {
+          unitPrice = product.discountPrice || product.price;
+        }
+
+        // Check for flash sale
+        const activeFlashSale = product.flashSaleItems.find(
+          (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
+        );
+
+        const itemPrice = activeFlashSale
+          ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
+          : unitPrice;
+
+        vendorTotal += itemPrice * quantity;
+      }
+
+      // Apply coupon discount if applicable
+      let discountAmount = 0;
+      const vendorCoupon = vendorCoupons[vendorId];
+      if (vendorCoupon) {
+        if (vendorCoupon.discountType === 'PERCENTAGE') {
+          discountAmount = vendorTotal * (vendorCoupon.discountValue / 100);
+          if (
+            vendorCoupon.maxDiscount &&
+            discountAmount > vendorCoupon.maxDiscount
+          ) {
+            discountAmount = vendorCoupon.maxDiscount;
+          }
+        } else {
+          // Fixed amount discount
+          discountAmount = vendorCoupon.discountValue;
+          // For fixed amount coupons used across multiple vendors,
+          // we should distribute the discount proportionally
+          if (!vendorCoupon.vendorId) {
+            const totalOrderValueAcrossVendors: any = Object.values(
+              itemsByVendor,
+            ).reduce((total, vendorItemList) => {
+              return (
+                total +
+                vendorItemList.reduce((vendorTotal, item) => {
+                  let unitPrice;
+                  if (item.variantId) {
+                    const variant = item.product.variants.find(
+                      (v) => v.id === item.variantId,
+                    );
+                    unitPrice =
+                      variant?.discountPrice ||
+                      variant?.price ||
+                      item.product.price;
+                  } else {
+                    unitPrice =
+                      item.product.discountPrice || item.product.price;
+                  }
+
+                  const activeFlashSale = item.product.flashSaleItems.find(
+                    (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
+                  );
+
+                  const itemPrice = activeFlashSale
+                    ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
+                    : unitPrice;
+
+                  return vendorTotal + itemPrice * item.quantity;
+                }, 0)
+              );
+            }, 0);
+
+            const vendorOrderValue = vendorItems.reduce((total, item) => {
+              let unitPrice;
+              if (item.variantId) {
+                const variant = item.product.variants.find(
+                  (v) => v.id === item.variantId,
+                );
+                unitPrice =
+                  variant?.discountPrice ||
+                  variant?.price ||
+                  item.product.price;
+              } else {
+                unitPrice = item.product.discountPrice || item.product.price;
+              }
+
+              const activeFlashSale = item.product.flashSaleItems.find(
+                (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
+              );
+
+              const itemPrice = activeFlashSale
+                ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
+                : unitPrice;
+
+              return total + itemPrice * item.quantity;
+            }, 0);
+
+            // Distribute discount proportionally
+            discountAmount =
+              vendorCoupon.discountValue *
+              (vendorOrderValue / totalOrderValueAcrossVendors);
+          }
+        }
+
+        // Check minimum purchase requirement
+        if (
+          vendorCoupon.minPurchase &&
+          vendorTotal < vendorCoupon.minPurchase
+        ) {
+          discountAmount = 0;
+        }
+      }
+
+      // Apply discount
+      vendorTotal = Math.max(0, vendorTotal - discountAmount);
+
+      // Add shipping cost
+      const shippingOptionId = shippingSelections[vendorId];
+      if (shippingOptionId) {
+        const shippingMethod = await this.prisma.shipping.findFirst({
+          where: { id: shippingOptionId, vendorId },
+        });
+        if (shippingMethod) {
+          vendorTotal += shippingMethod.price;
+        }
+      }
+
+      vendorTotals[vendorId] = vendorTotal;
+      totalAmount += vendorTotal;
     }
 
     // Simulate creating a payment intent with a unique client secret.
@@ -67,6 +240,10 @@ export class PaymentsService {
     return {
       clientSecret,
       totalAmount: Math.round(totalAmount * 100), // Amount in cents
+      vendorTotals: Object.keys(vendorTotals).reduce((acc, vendorId) => {
+        acc[vendorId] = Math.round(vendorTotals[vendorId] * 100);
+        return acc;
+      }, {}),
     };
   }
 }

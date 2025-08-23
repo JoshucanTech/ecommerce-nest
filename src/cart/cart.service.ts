@@ -101,11 +101,14 @@ export class CartService {
             }
           : null,
         finalPrice,
-        totalPrice: finalPrice * item.quantity,
       };
     });
 
-    const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
+    // Calculate subtotal based on final prices
+    const subtotal = items.reduce(
+      (sum, item) => sum + item.finalPrice * item.quantity,
+      0,
+    );
 
     return {
       id: cart.id,

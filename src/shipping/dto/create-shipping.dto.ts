@@ -4,12 +4,33 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
+
+export enum DeliverySystem {
+  PLATFORM = 'platform',
+  VENDOR = 'vendor',
+}
+
+export enum ShippingType {
+  STANDARD = 'STANDARD',
+  EXPEDITED = 'EXPEDITED',
+  TWO_DAY = 'TWO_DAY',
+  ONE_DAY = 'ONE_DAY',
+  SAME_DAY = 'SAME_DAY',
+  INTERNATIONAL = 'INTERNATIONAL',
+}
+
+export enum FulfillmentType {
+  MERCHANT = 'MERCHANT', // Fulfilled by Merchant (FBM)
+  PLATFORM = 'PLATFORM', // Fulfilled by App (FBA)
+  PRIME = 'PRIME',       // Seller Fulfilled Prime (SFP)
+}
 
 class ShippingMethodDto {
   @ApiProperty({
@@ -54,6 +75,15 @@ class ShippingMethodDto {
   @IsString({ each: true })
   @IsOptional()
   tags?: string[];
+  
+  @ApiProperty({
+    enum: ShippingType,
+    example: ShippingType.STANDARD,
+    description: 'Type of shipping method',
+  })
+  @IsEnum(ShippingType)
+  @IsOptional()
+  shippingType?: ShippingType;
 }
 
 export class ShippingZoneDto {
@@ -76,12 +106,66 @@ export class ShippingZoneDto {
 
   @ApiProperty({
     example: '90001',
-    description: 'Postal code range',
+    description: 'Postal code or range',
     required: false,
   })
   @IsString()
   @IsOptional()
   postalCode?: string;
+  
+  @ApiProperty({
+    example: 'Los Angeles',
+    description: 'City name',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  @ApiProperty({
+    example: 5.99,
+    description: 'Zone-specific price override',
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  price?: number;
+  
+  @ApiProperty({
+    example: 0,
+    description: 'Minimum weight for this price',
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  minWeight?: number;
+  
+  @ApiProperty({
+    example: 10,
+    description: 'Maximum weight for this price',
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  maxWeight?: number;
+  
+  @ApiProperty({
+    example: 50,
+    description: 'Minimum order price for free shipping',
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  minPrice?: number;
+  
+  @ApiProperty({
+    example: 1000,
+    description: 'Maximum order price for this rule',
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  maxPrice?: number;
 }
 
 export class CreateShippingDto {
@@ -148,16 +232,36 @@ export class CreateShippingDto {
   @IsOptional()
   isActive?: boolean;
 
-  @ApiProperty({ example: '3-5 business days' })
+  @ApiProperty({ 
+    example: '3-5 business days',
+    description: 'Delivery time estimation'
+  })
   @IsString()
   @IsNotEmpty()
   deliveryTime: string;
 
-  @ApiProperty({ example: 5.99 })
+  @ApiProperty({ 
+    example: 5.99,
+    description: 'Shipping price'
+  })
   @IsNumber()
   price: number;
 
-  @ApiProperty({ example: 'vendor-id' })
+  @ApiProperty({ 
+    example: 'vendor-id',
+    description: 'Vendor ID (required for vendor-specific methods)',
+    required: false
+  })
   @IsString()
-  vendorId: string;
+  @IsOptional()
+  vendorId?: string;
+  
+  @ApiProperty({
+    enum: ShippingType,
+    example: ShippingType.STANDARD,
+    description: 'Type of shipping method',
+  })
+  @IsEnum(ShippingType)
+  @IsOptional()
+  shippingType?: ShippingType;
 }
