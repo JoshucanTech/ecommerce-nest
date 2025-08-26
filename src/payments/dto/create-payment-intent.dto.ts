@@ -16,6 +16,11 @@ class PaymentIntentItemDto {
   @ApiProperty()
   @IsString()
   quantity: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  variantId?: string;
 }
 
 export class CreatePaymentIntentDto {

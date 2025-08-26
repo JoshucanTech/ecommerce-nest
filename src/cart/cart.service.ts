@@ -167,7 +167,7 @@ export class CartService {
 
     if (shippingId) {
       const shippingMethod = await this.prisma.shipping.findFirst({
-        where: { id: shippingId, vendorId: product.vendorId },
+        where: { id: shippingId, Vendor: { some: { id: product.vendorId } } },
       });
       if (!shippingMethod) {
         throw new BadRequestException(

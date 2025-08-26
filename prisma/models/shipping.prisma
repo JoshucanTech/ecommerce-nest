@@ -6,6 +6,8 @@ model Shipping {
   deliveryTime     String // e.g., "3-5 business days"
   price            Float            @default(0) // Base price
   isActive         Boolean          @default(true)
+  minDays          Float            @default(0)
+  maxDays          Float            @default(0)
   // Remove the direct vendor relationship to support many-to-many
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -17,8 +19,9 @@ model Shipping {
   CartItem         CartItem[]
   ShippingPolicy   ShippingPolicy?  @relation(fields: [shippingPolicyId], references: [id])
   shippingPolicyId String?
-  Vendor           Vendor?          @relation(fields: [vendorId], references: [id])
-  vendorId         String?
+  // Vendor           Vendor?          @relation(fields: [vendorId], references: [id])
+  // vendorId         String?
+  Vendor           Vendor[]
   // Add shipping speed/type
   shippingType     ShippingType     @default(STANDARD)
 
@@ -81,18 +84,20 @@ enum ShippingType {
 
 // Model to handle many-to-many relationship between vendors and shipping methods
 model VendorShipping {
-  id            String       @id @default(uuid())
-  vendorId      String
-  shippingId    String
+  id                       String       @id @default(uuid())
+  vendorId                 String
+  shippingId               String
   // Vendor-specific fields
-  priceOverride Float?       // Override the default shipping price for this vendor
-  isActive      Boolean      @default(true)
+  priceOverride            Float?       // Override the default shipping price for this vendor
+  minDaysOverride          Float?
+  maxDaysOverride          Float?
+  isActive                 Boolean      @default(true)
   // Add fulfillment type
-  fulfillment   FulfillmentType @default(MERCHANT)
+  fulfillment              FulfillmentType @default(MERCHANT)
 
   // Relations
-  vendor   Vendor   @relation(fields: [vendorId], references: [id])
-  shipping Shipping @relation(fields: [shippingId], references: [id])
+  vendor                   Vendor   @relation(fields: [vendorId], references: [id])
+  shipping                 Shipping @relation(fields: [shippingId], references: [id])
 
   // Ensure a vendor can't have the same shipping method twice
   @@unique([vendorId, shippingId])

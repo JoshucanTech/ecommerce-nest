@@ -31,7 +31,7 @@ export class PaymentsService {
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds } },
       include: {
-        variants: true,
+        ProductVariant: true,
         flashSaleItems: {
           include: {
             flashSale: {
@@ -144,7 +144,7 @@ export class PaymentsService {
           if (!vendorCoupon.vendorId) {
             const totalOrderValueAcrossVendors: any = Object.values(
               itemsByVendor,
-            ).reduce((total, vendorItemList) => {
+            ).reduce((total, vendorItemList: any) => {
               return (
                 total +
                 vendorItemList.reduce((vendorTotal, item) => {
@@ -223,7 +223,7 @@ export class PaymentsService {
       const shippingOptionId = shippingSelections[vendorId];
       if (shippingOptionId) {
         const shippingMethod = await this.prisma.shipping.findFirst({
-          where: { id: shippingOptionId, vendorId },
+          where: { id: shippingOptionId, Vendor: { some: { id: vendorId } } },
         });
         if (shippingMethod) {
           vendorTotal += shippingMethod.price;

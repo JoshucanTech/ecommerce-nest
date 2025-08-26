@@ -202,6 +202,15 @@ export class ShippingService {
         vs.priceOverride !== null && vs.priceOverride !== undefined
           ? vs.priceOverride
           : vs.shipping.price,
+      minDays:
+        vs.minDaysOverride !== null && vs.minDaysOverride !== undefined
+          ? vs.minDaysOverride
+          : vs.shipping.minDays,
+      maxDays:
+        vs.maxDaysOverride !== null && vs.maxDaysOverride !== undefined
+          ? vs.maxDaysOverride
+          : vs.shipping.maxDays,
+      vendorId,
     }));
   }
 

@@ -3,12 +3,12 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { CreateOrderDto } from "./dto/create-order.dto";
-import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
-import { UpdatePaymentStatusDto } from "./dto/update-payment-status.dto";
-import { OrderStatus, PaymentStatus } from "@prisma/client";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
+import { OrderStatus, PaymentStatus } from '@prisma/client';
 
 @Injectable()
 export class OrdersService {
@@ -57,23 +57,25 @@ export class OrdersService {
             },
           },
         },
-        variants: true,
+        ProductVariant: true,
       },
     });
 
     if (products.length !== productIds.length) {
       throw new BadRequestException(
-        "Some products do not exist or are not published",
+        'Some products do not exist or are not published',
       );
     }
 
     // Check inventory
     for (const item of items) {
       const product = products.find((p) => p.id === item.productId);
-      
+
       // If variant is specified, check variant inventory
       if (item.variantId) {
-        const variant = product.variants.find(v => v.id === item.variantId);
+        const variant = product.ProductVariant.find(
+          (v) => v.id === item.variantId,
+        );
         if (!variant || variant.quantity < item.quantity) {
           throw new BadRequestException(
             `Product variant ${product.name} has insufficient inventory`,
@@ -115,18 +117,18 @@ export class OrdersService {
       });
 
       if (!coupon) {
-        throw new BadRequestException("Invalid coupon code");
+        throw new BadRequestException('Invalid coupon code');
       }
 
       // Check if coupon is active
       const now = new Date();
       if (!coupon.isActive || coupon.startDate > now || coupon.endDate < now) {
-        throw new BadRequestException("Coupon is not active");
+        throw new BadRequestException('Coupon is not active');
       }
 
       // Check if coupon has reached usage limit
       if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
-        throw new BadRequestException("Coupon usage limit reached");
+        throw new BadRequestException('Coupon usage limit reached');
       }
 
       // Determine which vendors can use this coupon
@@ -144,7 +146,7 @@ export class OrdersService {
     // Create orders for each vendor
     const orders = [];
     const paymentIntents = []; // Track payment intents for each vendor order
-    
+
     for (const vendorId in itemsByVendor) {
       const vendorItems = itemsByVendor[vendorId];
 
@@ -156,7 +158,7 @@ export class OrdersService {
         // Determine price based on variant or base product
         let unitPrice;
         if (variantId) {
-          const variant = product.variants.find(v => v.id === variantId);
+          const variant = product.variants.find((v) => v.id === variantId);
           unitPrice = variant?.discountPrice || variant?.price || product.price;
         } else {
           unitPrice = product.discountPrice || product.price;
@@ -166,7 +168,7 @@ export class OrdersService {
         const activeFlashSale = product.flashSaleItems.find(
           (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
         );
-        
+
         const itemPrice = activeFlashSale
           ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
           : unitPrice;
@@ -187,61 +189,82 @@ export class OrdersService {
       let discountAmount = 0;
       const vendorCoupon = vendorCoupons[vendorId];
       if (vendorCoupon) {
-        if (vendorCoupon.discountType === "PERCENTAGE") {
+        if (vendorCoupon.discountType === 'PERCENTAGE') {
           discountAmount = orderTotal * (vendorCoupon.discountValue / 100);
-          if (vendorCoupon.maxDiscount && discountAmount > vendorCoupon.maxDiscount) {
+          if (
+            vendorCoupon.maxDiscount &&
+            discountAmount > vendorCoupon.maxDiscount
+          ) {
             discountAmount = vendorCoupon.maxDiscount;
           }
         } else {
           // Fixed amount discount
           discountAmount = vendorCoupon.discountValue;
-          // For fixed amount coupons used across multiple vendors, 
+          // For fixed amount coupons used across multiple vendors,
           // we should distribute the discount proportionally
           if (!vendorCoupon.vendorId) {
-            const totalOrderValueAcrossVendors = Object.values(itemsByVendor).reduce((total, vendorItemList) => {
-              return total + vendorItemList.reduce((vendorTotal, item) => {
-                let unitPrice;
-                if (item.variantId) {
-                  const variant = item.product.variants.find(v => v.id === item.variantId);
-                  unitPrice = variant?.discountPrice || variant?.price || item.product.price;
-                } else {
-                  unitPrice = item.product.discountPrice || item.product.price;
-                }
-                
-                const activeFlashSale = item.product.flashSaleItems.find(
-                  (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
-                );
-                
-                const itemPrice = activeFlashSale
-                  ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
-                  : unitPrice;
-                  
-                return vendorTotal + (itemPrice * item.quantity);
-              }, 0);
+            const totalOrderValueAcrossVendors: any = Object.values(
+              itemsByVendor,
+            ).reduce((total, vendorItemList: any[]) => {
+              return (
+                total +
+                vendorItemList.reduce((vendorTotal, item) => {
+                  let unitPrice;
+                  if (item.variantId) {
+                    const variant = item.product.variants.find(
+                      (v) => v.id === item.variantId,
+                    );
+                    unitPrice =
+                      variant?.discountPrice ||
+                      variant?.price ||
+                      item.product.price;
+                  } else {
+                    unitPrice =
+                      item.product.discountPrice || item.product.price;
+                  }
+
+                  const activeFlashSale = item.product.flashSaleItems.find(
+                    (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
+                  );
+
+                  const itemPrice = activeFlashSale
+                    ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
+                    : unitPrice;
+
+                  return vendorTotal + itemPrice * item.quantity;
+                }, 0)
+              );
             }, 0);
-            
+
             const vendorOrderValue = vendorItems.reduce((total, item) => {
               let unitPrice;
               if (item.variantId) {
-                const variant = item.product.variants.find(v => v.id === item.variantId);
-                unitPrice = variant?.discountPrice || variant?.price || item.product.price;
+                const variant = item.product.variants.find(
+                  (v) => v.id === item.variantId,
+                );
+                unitPrice =
+                  variant?.discountPrice ||
+                  variant?.price ||
+                  item.product.price;
               } else {
                 unitPrice = item.product.discountPrice || item.product.price;
               }
-              
+
               const activeFlashSale = item.product.flashSaleItems.find(
                 (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
               );
-              
+
               const itemPrice = activeFlashSale
                 ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
                 : unitPrice;
-                
-              return total + (itemPrice * item.quantity);
+
+              return total + itemPrice * item.quantity;
             }, 0);
-            
+
             // Distribute discount proportionally
-            discountAmount = vendorCoupon.discountValue * (vendorOrderValue / totalOrderValueAcrossVendors);
+            discountAmount =
+              vendorCoupon.discountValue *
+              ((vendorOrderValue / totalOrderValueAcrossVendors) as number);
           }
         }
 
@@ -265,7 +288,11 @@ export class OrdersService {
       const shippingMethod = await this.prisma.shipping.findFirst({
         where: {
           id: shippingOptionId,
-          vendorId: vendorId,
+          vendorShippings: {
+            some: {
+              vendorId: vendorId,
+            },
+          },
         },
       });
 
@@ -293,13 +320,11 @@ export class OrdersService {
           vendorId,
           totalAmount: orderTotal,
           shipping: shippingPrice, // Set the shipping field
-          discount: discountAmount, // Track discount applied
           status: OrderStatus.PENDING,
           paymentStatus: PaymentStatus.PENDING,
           paymentMethod,
           addressId,
           couponId: vendorCoupon?.id,
-          notes,
           items: {
             create: orderItems,
           },
@@ -329,7 +354,7 @@ export class OrdersService {
       });
 
       orders.push(order);
-      
+
       // Create a payment intent for this vendor's order
       paymentIntents.push({
         orderId: order.id,
@@ -342,7 +367,7 @@ export class OrdersService {
       for (const { product, quantity, variantId } of vendorItems) {
         if (variantId) {
           // Update variant inventory
-          const variant = product.variants.find(v => v.id === variantId);
+          const variant = product.variants.find((v) => v.id === variantId);
           if (variant) {
             await this.prisma.productVariant.update({
               where: { id: variantId },
@@ -380,7 +405,7 @@ export class OrdersService {
     }
 
     return {
-      message: "Orders created successfully",
+      message: 'Orders created successfully',
       orders,
       paymentIntents, // Return payment intents for frontend processing
     };
@@ -412,7 +437,7 @@ export class OrdersService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           vendor: {
             select: {
@@ -475,7 +500,7 @@ export class OrdersService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           user: {
             select: {
@@ -537,7 +562,7 @@ export class OrdersService {
     });
 
     if (!vendor) {
-      throw new ForbiddenException("User is not a vendor");
+      throw new ForbiddenException('User is not a vendor');
     }
 
     // Build where conditions
@@ -555,7 +580,7 @@ export class OrdersService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           user: {
             select: {
@@ -655,12 +680,12 @@ export class OrdersService {
 
     // Check if user is authorized to view this order
     if (
-      user.role !== "ADMIN" &&
+      user.role !== 'ADMIN' &&
       order.userId !== user.id &&
       order.vendor?.userId !== user.id
     ) {
       throw new ForbiddenException(
-        "You do not have permission to view this order",
+        'You do not have permission to view this order',
       );
     }
 
@@ -688,11 +713,11 @@ export class OrdersService {
 
     // Check if user is authorized to update this order
     if (
-      user.role !== "ADMIN" &&
-      (user.role !== "VENDOR" || order.vendor?.userId !== user.id)
+      user.role !== 'ADMIN' &&
+      (user.role !== 'VENDOR' || order.vendor?.userId !== user.id)
     ) {
       throw new ForbiddenException(
-        "You do not have permission to update this order",
+        'You do not have permission to update this order',
       );
     }
 
@@ -711,9 +736,9 @@ export class OrdersService {
     await this.prisma.notification.create({
       data: {
         userId: order.userId,
-        type: "ORDER_STATUS",
-        title: "Order Status Updated",
-        message: `Your order #${order.orderNumber} has been updated to ${status}${notes ? `: ${notes}` : ""}`,
+        type: 'ORDER_STATUS',
+        title: 'Order Status Updated',
+        message: `Your order #${order.orderNumber} has been updated to ${status}${notes ? `: ${notes}` : ''}`,
         data: {
           orderId: order.id,
           status,
@@ -751,9 +776,9 @@ export class OrdersService {
     await this.prisma.notification.create({
       data: {
         userId: order.userId,
-        type: "PAYMENT",
-        title: "Payment Status Updated",
-        message: `Payment for your order #${order.orderNumber} has been ${status.toLowerCase()}${reference ? ` (Ref: ${reference})` : ""}`,
+        type: 'PAYMENT',
+        title: 'Payment Status Updated',
+        message: `Payment for your order #${order.orderNumber} has been ${status.toLowerCase()}${reference ? ` (Ref: ${reference})` : ''}`,
         data: {
           orderId: order.id,
           paymentStatus: status,
@@ -779,9 +804,9 @@ export class OrdersService {
     }
 
     // Check if user is authorized to cancel this order
-    if (user.role !== "ADMIN" && order.userId !== user.id) {
+    if (user.role !== 'ADMIN' && order.userId !== user.id) {
       throw new ForbiddenException(
-        "You do not have permission to cancel this order",
+        'You do not have permission to cancel this order',
       );
     }
 
@@ -790,7 +815,7 @@ export class OrdersService {
       order.status !== OrderStatus.PENDING &&
       order.status !== OrderStatus.PROCESSING
     ) {
-      throw new BadRequestException("Order cannot be cancelled at this stage");
+      throw new BadRequestException('Order cannot be cancelled at this stage');
     }
 
     // Update order status
@@ -817,8 +842,8 @@ export class OrdersService {
     await this.prisma.notification.create({
       data: {
         userId: order.userId,
-        type: "ORDER_STATUS",
-        title: "Order Cancelled",
+        type: 'ORDER_STATUS',
+        title: 'Order Cancelled',
         message: `Your order #${order.orderNumber} has been cancelled`,
         data: {
           orderId: order.id,
@@ -827,7 +852,7 @@ export class OrdersService {
     });
 
     return {
-      message: "Order cancelled successfully",
+      message: 'Order cancelled successfully',
       order: updatedOrder,
     };
   }
@@ -857,8 +882,7 @@ export class OrdersService {
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.floor(Math.random() * 1000)
       .toString()
-      .padStart(3, "0");
+      .padStart(3, '0');
     return `ORD-${timestamp}-${random}`;
   }
-
 }

@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "shippings" ADD COLUMN     "maxDays" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN     "minDays" DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+-- AlterTable
+ALTER TABLE "vendor_shippings" ADD COLUMN     "maxDaysOverride" DOUBLE PRECISION,
+ADD COLUMN     "minDaysOverride" DOUBLE PRECISION;

@@ -520,7 +520,7 @@ async function main() {
       deliveryTime: '3-5 business days',
       price: 10.0,
       isActive: true,
-      vendorId,
+      Vendor: { connect: { id: vendorId } },
     },
   });
 
