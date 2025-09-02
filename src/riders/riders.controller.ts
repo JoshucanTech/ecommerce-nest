@@ -15,6 +15,8 @@ import {
   ApiParam,
   ApiQuery,
   ApiBearerAuth,
+  ApiBody,
+  ApiHeader,
 } from "@nestjs/swagger";
 import  { RidersService } from "./riders.service";
 import { CreateRiderApplicationDto } from "./dto/create-rider-application.dto";
@@ -35,16 +37,83 @@ export class RidersController {
   @Post("apply")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Apply to become a rider" })
-  @ApiResponse({
-    status: 201,
-    description: "Application submitted successfully",
+  @ApiOperation({ 
+    summary: "Apply to become a rider",
+    description: "Submit a rider application to become a delivery person on the platform. Users can only have one application at a time."
   })
-  @ApiResponse({ status: 400, description: "Bad request" })
-  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiHeader({
+    name: 'Authorization',
+    description: 'Bearer token for authentication',
+    required: true,
+    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+  })
+  @ApiBody({
+    description: 'Rider application data',
+    type: CreateRiderApplicationDto,
+    examples: {
+      motorcycle: {
+        summary: 'Motorcycle rider application',
+        value: {
+          userId: '123e4567-e89b-12d3-a456-426614174000',
+          vehicleType: 'MOTORCYCLE',
+          vehiclePlate: 'ABC123',
+          licenseNumber: 'DL12345678',
+          identityDocument: 'https://example.com/id-document.pdf'
+        }
+      },
+      car: {
+        summary: 'Car driver application',
+        value: {
+          userId: '123e4567-e89b-12d3-a456-426614174000',
+          vehicleType: 'CAR',
+          vehiclePlate: 'XYZ789',
+          licenseNumber: 'DL87654321',
+          identityDocument: 'https://example.com/id-document.pdf'
+        }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 201, 
+    description: "Application submitted successfully",
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+            userId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+            vehicleType: { type: 'string', example: 'MOTORCYCLE' },
+            vehiclePlate: { type: 'string', example: 'ABC123' },
+            licenseNumber: { type: 'string', example: 'DL12345678' },
+            identityDocument: { type: 'string', example: 'https://example.com/id-document.pdf' },
+            status: { type: 'string', example: 'PENDING' },
+            isVerified: { type: 'boolean', example: false },
+            isAvailable: { type: 'boolean', example: false },
+            createdAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' }
+          }
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: "Bad request - Invalid input data" })
+  @ApiResponse({ status: 401, description: "Unauthorized - Missing or invalid authentication token" })
   @ApiResponse({
     status: 409,
-    description: "User already has an application or is a rider",
+    description: "Conflict - User already has an application or is a rider",
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            statusCode: { type: 'number', example: 409 },
+            message: { type: 'string', example: 'User already has a rider application' },
+            error: { type: 'string', example: 'Conflict' }
+          }
+        }
+      }
+    }
   })
   apply(
     @Body() createRiderApplicationDto: CreateRiderApplicationDto,
@@ -57,33 +126,90 @@ export class RidersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Get all rider applications (admin only)" })
+  @ApiOperation({ 
+    summary: "Get all rider applications (admin only)",
+    description: "Retrieve a paginated list of rider applications. Only accessible by administrators."
+  })
+  @ApiHeader({
+    name: 'Authorization',
+    description: 'Bearer token for authentication',
+    required: true,
+    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+  })
   @ApiQuery({
     name: "page",
     required: false,
     type: Number,
-    description: "Page number",
+    description: "Page number for pagination",
+    example: 1
   })
   @ApiQuery({
     name: "limit",
     required: false,
     type: Number,
-    description: "Items per page",
+    description: "Number of items per page",
+    example: 10
   })
   @ApiQuery({
     name: "status",
     required: false,
     type: String,
-    description: "Filter by status",
+    description: "Filter applications by status (PENDING, APPROVED, REJECTED)",
+    example: "PENDING"
   })
-  @ApiResponse({
-    status: 200,
+  @ApiResponse({ 
+    status: 200, 
     description: "Returns paginated rider applications",
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                  userId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+                  vehicleType: { type: 'string', example: 'MOTORCYCLE' },
+                  vehiclePlate: { type: 'string', example: 'ABC123' },
+                  licenseNumber: { type: 'string', example: 'DL12345678' },
+                  identityDocument: { type: 'string', example: 'https://example.com/id-document.pdf' },
+                  status: { type: 'string', example: 'PENDING' },
+                  isVerified: { type: 'boolean', example: false },
+                  isAvailable: { type: 'boolean', example: false },
+                  createdAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
+                  updatedAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
+                  user: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+                      firstName: { type: 'string', example: 'John' },
+                      lastName: { type: 'string', example: 'Doe' },
+                      email: { type: 'string', example: 'john.doe@example.com' }
+                    }
+                  }
+                }
+              }
+            },
+            meta: {
+              type: 'object',
+              properties: {
+                page: { type: 'number', example: 1 },
+                limit: { type: 'number', example: 10 },
+                total: { type: 'number', example: 100 }
+              }
+            }
+          }
+        }
+      }
+    }
   })
-  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiResponse({ status: 401, description: "Unauthorized - Missing or invalid authentication token" })
   @ApiResponse({
     status: 403,
-    description: "Forbidden - Insufficient permissions",
+    description: "Forbidden - Insufficient permissions (admin role required)"
   })
   getApplications(
     @Query("page") page?: number,

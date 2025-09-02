@@ -205,7 +205,7 @@ export class UsersService {
 
   async createAddress(
     userId: string,
-    createAddressDto: Prisma.AddressCreateInput,
+    createAddressDto: CreateAddressDto,
   ) {
     const { isDefault, ...addressData } = createAddressDto;
 

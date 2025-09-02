@@ -5,9 +5,9 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import  { PrismaService } from "../prisma/prisma.service";
-// import { CreateRiderApplicationDto } from "./dto/create-rider-application.dto"
-// import { UpdateRiderDto } from "./dto/update-rider.dto"
-// import { UpdateRiderApplicationDto } from "./dto/update-rider-application.dto"
+import { CreateRiderApplicationDto } from "./dto/create-rider-application.dto"
+import { UpdateRiderDto } from "./dto/update-rider.dto"
+import { UpdateRiderApplicationDto } from "./dto/update-rider-application.dto"
 import { UpdateLocationDto } from "./dto/update-location.dto";
 import { Prisma } from "@prisma/client";
 
@@ -16,7 +16,7 @@ export class RidersService {
   constructor(private prisma: PrismaService) {}
 
   async apply(
-    createRiderApplicationDto: Prisma.RiderApplicationCreateInput,
+    createRiderApplicationDto: CreateRiderApplicationDto,
     userId: string,
   ) {
     // Check if user already has an application
@@ -37,13 +37,21 @@ export class RidersService {
       throw new ConflictException("User is already a rider");
     }
 
+    // Check if license number is unique
+    const licenseExists = await this.prisma.riderApplication.findFirst({
+      where: { licenseNumber: createRiderApplicationDto.licenseNumber },
+    });
+
+    if (licenseExists) {
+      throw new ConflictException("License number already in use");
+    }
+
     // Create rider application
-    return this.prisma.rider.create({
+    return this.prisma.riderApplication.create({
       data: {
-        ...createRiderApplicationDto, // includes userId
-      },
-      include: {
-        user: true, // 🔁 this tells Prisma to return the related user
+        ...createRiderApplicationDto,
+        userId,
+        status: "PENDING",
       },
     });
   }

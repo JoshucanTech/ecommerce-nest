@@ -15,6 +15,8 @@ import {
   ApiParam,
   ApiQuery,
   ApiBearerAuth,
+  ApiBody,
+  ApiHeader,
 } from "@nestjs/swagger";
 import { DeliveriesService } from "./deliveries.service";
 import { CreateDeliveryDto } from "./dto/create-delivery.dto";
@@ -35,13 +37,61 @@ export class DeliveriesController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles("ADMIN", "VENDOR")
-  @ApiOperation({ summary: "Create a new delivery" })
-  @ApiResponse({ status: 201, description: "Delivery created successfully" })
-  @ApiResponse({ status: 400, description: "Bad request" })
-  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiOperation({ 
+    summary: "Create a new delivery",
+    description: "Create a new delivery for an order. Only administrators and vendors can create deliveries."
+  })
+  @ApiHeader({
+    name: 'Authorization',
+    description: 'Bearer token for authentication',
+    required: true,
+    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+  })
+  @ApiBody({
+    description: 'Delivery creation data',
+    type: CreateDeliveryDto,
+    examples: {
+      basic: {
+        summary: 'Basic delivery creation',
+        value: {
+          orderId: '123e4567-e89b-12d3-a456-426614174000',
+          pickupAddress: '123 Vendor St, New York, NY 10001',
+          deliveryAddress: '456 Customer Ave, New York, NY 10002',
+          estimatedDeliveryTime: '2023-07-15T14:00:00Z',
+          notes: 'Please handle with care'
+        }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 201, 
+    description: "Delivery created successfully",
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+            orderId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+            riderId: { type: 'string', example: null, nullable: true },
+            pickupAddress: { type: 'string', example: '123 Vendor St, New York, NY 10001' },
+            deliveryAddress: { type: 'string', example: '456 Customer Ave, New York, NY 10002' },
+            status: { type: 'string', example: 'PENDING' },
+            estimatedDeliveryTime: { type: 'string', format: 'date-time', example: '2023-07-15T14:00:00Z' },
+            actualDeliveryTime: { type: 'string', format: 'date-time', example: null, nullable: true },
+            notes: { type: 'string', example: 'Please handle with care' },
+            createdAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' }
+          }
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: "Bad request - Invalid input data" })
+  @ApiResponse({ status: 401, description: "Unauthorized - Missing or invalid authentication token" })
   @ApiResponse({
     status: 403,
-    description: "Forbidden - Insufficient permissions",
+    description: "Forbidden - Insufficient permissions (admin or vendor role required)"
   })
   create(@Body() createDeliveryDto: CreateDeliveryDto, @CurrentUser() user) {
     return this.deliveriesService.create(createDeliveryDto, user);
@@ -50,30 +100,102 @@ export class DeliveriesController {
   @Get()
   @UseGuards(RolesGuard)
   @Roles("ADMIN")
-  @ApiOperation({ summary: "Get all deliveries (admin only)" })
+  @ApiOperation({ 
+    summary: "Get all deliveries (admin only)",
+    description: "Retrieve a paginated list of all deliveries in the system. Only accessible by administrators."
+  })
+  @ApiHeader({
+    name: 'Authorization',
+    description: 'Bearer token for authentication',
+    required: true,
+    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+  })
   @ApiQuery({
     name: "page",
     required: false,
     type: Number,
-    description: "Page number",
+    description: "Page number for pagination",
+    example: 1
   })
   @ApiQuery({
     name: "limit",
     required: false,
     type: Number,
-    description: "Items per page",
+    description: "Number of items per page",
+    example: 10
   })
   @ApiQuery({
     name: "status",
     required: false,
     type: String,
-    description: "Filter by status",
+    description: "Filter deliveries by status (PENDING, ASSIGNED, PICKED_UP, IN_TRANSIT, DELIVERED, CANCELLED)",
+    example: "PENDING"
   })
-  @ApiResponse({ status: 200, description: "Returns paginated deliveries" })
-  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiResponse({ 
+    status: 200, 
+    description: "Returns paginated deliveries",
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                  orderId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+                  riderId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174002', nullable: true },
+                  pickupAddress: { type: 'string', example: '123 Vendor St, New York, NY 10001' },
+                  deliveryAddress: { type: 'string', example: '456 Customer Ave, New York, NY 10002' },
+                  status: { type: 'string', example: 'PENDING' },
+                  estimatedDeliveryTime: { type: 'string', format: 'date-time', example: '2023-07-15T14:00:00Z' },
+                  actualDeliveryTime: { type: 'string', format: 'date-time', example: null, nullable: true },
+                  notes: { type: 'string', example: 'Please handle with care' },
+                  createdAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
+                  updatedAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
+                  order: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+                      orderNumber: { type: 'string', example: 'ORD-2023-0001' }
+                    }
+                  },
+                  rider: {
+                    type: 'object',
+                    nullable: true,
+                    properties: {
+                      id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174002' },
+                      user: {
+                        type: 'object',
+                        properties: {
+                          firstName: { type: 'string', example: 'John' },
+                          lastName: { type: 'string', example: 'Doe' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            meta: {
+              type: 'object',
+              properties: {
+                page: { type: 'number', example: 1 },
+                limit: { type: 'number', example: 10 },
+                total: { type: 'number', example: 100 }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 401, description: "Unauthorized - Missing or invalid authentication token" })
   @ApiResponse({
     status: 403,
-    description: "Forbidden - Insufficient permissions",
+    description: "Forbidden - Insufficient permissions (admin role required)"
   })
   findAll(
     @Query("page") page?: number,

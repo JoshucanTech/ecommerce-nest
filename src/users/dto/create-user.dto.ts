@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsEmail,
   IsNotEmpty,
@@ -12,7 +12,8 @@ import { UserRole } from "@prisma/client";
 export class CreateUserDto {
   @ApiProperty({
     example: "user@example.com",
-    description: "User email address",
+    description: "User's email address (must be unique)",
+    type: String
   })
   @IsEmail({}, { message: "Please provide a valid email address" })
   @IsNotEmpty({ message: "Email is required" })
@@ -20,7 +21,9 @@ export class CreateUserDto {
 
   @ApiProperty({
     example: "password123",
-    description: "User password",
+    description: "User's password (minimum 6 characters)",
+    minLength: 6,
+    type: String
   })
   @IsString()
   @IsNotEmpty({ message: "Password is required" })
@@ -29,7 +32,8 @@ export class CreateUserDto {
 
   @ApiProperty({
     example: "John",
-    description: "User first name",
+    description: "User's first name",
+    type: String
   })
   @IsString()
   @IsNotEmpty({ message: "First name is required" })
@@ -37,34 +41,36 @@ export class CreateUserDto {
 
   @ApiProperty({
     example: "Doe",
-    description: "User last name",
+    description: "User's last name",
+    type: String
   })
   @IsString()
   @IsNotEmpty({ message: "Last name is required" })
   lastName: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: "+1234567890",
-    description: "User phone number",
-    required: false,
+    description: "User's phone number with country code",
+    type: String
   })
   @IsString()
   @IsOptional()
   phone?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: "https://example.com/avatar.jpg",
-    description: "User avatar URL",
-    required: false,
+    description: "URL to user's avatar image",
+    type: String
   })
   @IsString()
   @IsOptional()
   avatar?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     enum: UserRole,
-    description: "User role",
-    default: UserRole.BUYER,
+    description: "User role in the system",
+    example: UserRole.BUYER,
+    enumName: "UserRole"
   })
   @IsEnum(UserRole)
   @IsOptional()

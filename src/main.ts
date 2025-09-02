@@ -49,13 +49,18 @@ async function bootstrap() {
     .addTag("reviews", "Product reviews endpoints")
     .addTag("comments", "Product comments endpoints")
     .addTag("flash-sales", "Flash sales endpoints")
+    .addTag("locations", "Location management endpoints")
     .build();
 
   app.useGlobalInterceptors(new LoggingInterceptor());
 
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("api/docs", app, document);
+  SwaggerModule.setup("api/docs", app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    }
+  });
 
   
   const port = configService.get<number>("PORT") || 3000;

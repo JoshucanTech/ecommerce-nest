@@ -2,40 +2,55 @@ import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsString, IsBoolean, IsOptional } from "class-validator";
 
 export class UpdateSettingsDto {
-  @ApiPropertyOptional({ description: "Preferred language", example: "en" })
+  @ApiPropertyOptional({ 
+    description: "Preferred language code (ISO 639-1)",
+    example: "en",
+    type: String
+  })
   @IsOptional()
   @IsString()
   language?: string;
 
-  @ApiPropertyOptional({ description: "Preferred currency", example: "USD" })
+  @ApiPropertyOptional({ 
+    description: "Preferred currency code (ISO 4217)",
+    example: "USD",
+    type: String
+  })
   @IsOptional()
   @IsString()
   currency?: string;
 
-  @ApiPropertyOptional({ description: "Dark mode enabled", example: true })
+  @ApiPropertyOptional({ 
+    description: "Enable or disable dark mode interface",
+    example: true,
+    type: Boolean
+  })
   @IsOptional()
   @IsBoolean()
   darkMode?: boolean;
 
-  @ApiPropertyOptional({
-    description: "Email notifications enabled",
+  @ApiPropertyOptional({ 
+    description: "Enable or disable email notifications",
     example: true,
+    type: Boolean
   })
   @IsOptional()
   @IsBoolean()
   emailNotifications?: boolean;
 
-  @ApiPropertyOptional({
-    description: "Push notifications enabled",
+  @ApiPropertyOptional({ 
+    description: "Enable or disable push notifications",
     example: true,
+    type: Boolean
   })
   @IsOptional()
   @IsBoolean()
   pushNotifications?: boolean;
 
-  @ApiPropertyOptional({
-    description: "SMS notifications enabled",
+  @ApiPropertyOptional({ 
+    description: "Enable or disable SMS notifications",
     example: false,
+    type: Boolean
   })
   @IsOptional()
   @IsBoolean()

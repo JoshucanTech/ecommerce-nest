@@ -285,24 +285,30 @@ export class OrdersService {
         );
       }
 
-      const shippingMethod = await this.prisma.shipping.findFirst({
+      // Fetch the vendorShipping record to get price override if available
+      const vendorShipping = await this.prisma.vendorShipping.findFirst({
         where: {
-          id: shippingOptionId,
-          vendorShippings: {
-            some: {
-              vendorId: vendorId,
-            },
-          },
+          vendorId: vendorId,
+          shippingId: shippingOptionId,
+        },
+        include: {
+          shipping: true,
         },
       });
 
-      if (!shippingMethod) {
+      if (!vendorShipping) {
         throw new BadRequestException(
           `Invalid shipping option ID: ${shippingOptionId} for vendor ${vendorId}`,
         );
       }
 
-      const shippingPrice = shippingMethod.price;
+      // Use the vendor's price override if available, otherwise use the default price
+      const shippingPrice = 
+        vendorShipping.priceOverride !== null && vendorShipping.priceOverride !== undefined
+          ? vendorShipping.priceOverride
+          : vendorShipping.shipping.price;
+
+      const shippingMethod = vendorShipping.shipping;
 
       // Add shipping price to the total
       orderTotal += shippingPrice;

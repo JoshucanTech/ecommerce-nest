@@ -4,23 +4,29 @@ import { Gender } from "@prisma/client";
 
 export class UpdateProfileDto {
   @ApiPropertyOptional({
-    description: "User bio",
+    description: "User biography or personal description",
     example: "I love shopping for tech gadgets!",
+    type: String
   })
   @IsOptional()
   @IsString()
   bio?: string;
 
   @ApiPropertyOptional({
-    description: "Gender",
+    description: "User gender identity",
     enum: Gender,
     example: Gender.MALE,
+    enumName: "Gender"
   })
   @IsOptional()
   @IsEnum(Gender)
   gender?: Gender;
 
-  @ApiPropertyOptional({ description: "Birth date", example: "1990-01-01" })
+  @ApiPropertyOptional({ 
+    description: "User birth date in ISO format",
+    example: "1990-01-01",
+    type: String
+  })
   @IsOptional()
   @IsDateString()
   birthDate?: string;
