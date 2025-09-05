@@ -15,9 +15,10 @@ model Rider {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   deliveries       Delivery[]
-  Payment          Payment[]
   earnings         RiderEarning[]
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders           Order[]
+  payments         Payment[]
 
   @@map("riders")
 }
@@ -59,4 +60,37 @@ enum VehicleType {
   CAR
   VAN
   TRUCK
+}
+
+model Delivery {
+  id                    String         @id @default(uuid())
+  orderId               String         @unique
+  riderId               String?
+  status                DeliveryStatus @default(PENDING)
+  pickupAddress         String
+  deliveryAddress       String
+  pickupTime            DateTime? // When the rider picked up the order
+  estimatedDeliveryTime DateTime?
+  actualDeliveryTime    DateTime? // When the order was delivered
+  trackingNumber        String         @unique
+  notes                 String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  order                 Order          @relation(fields: [orderId], references: [id])
+  rider                 Rider?         @relation(fields: [riderId], references: [id])
+  riderEarnings         RiderEarning[]
+  User                  User?          @relation(fields: [userId], references: [id])
+  userId                String?
+
+  @@map("deliveries")
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+  CANCELLED
 }

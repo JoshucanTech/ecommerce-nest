@@ -2,14 +2,17 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-} from "@nestjs/common";
-import  { PrismaService } from "../prisma/prisma.service";
-import { UpdateUserDto } from "./dto/update-user.dto";
-import { UpdateProfileDto } from "./dto/update-profile.dto";
-import { CreateAddressDto } from "./dto/create-address.dto";
-import { UpdateAddressDto } from "./dto/update-address.dto";
-import { UpdateSettingsDto } from "./dto/update-settings.dto";
-import { Prisma } from "@prisma/client";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateAddressDto } from './dto/update-address.dto';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { CreateShippingAddressDto } from './dto/create-shipping-address.dto';
+import { UpdateShippingAddressDto } from './dto/update-shipping-address.dto';
+import { AddressType } from './enums/address-type.enum';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -29,10 +32,10 @@ export class UsersService {
 
     if (search) {
       where.OR = [
-        { email: { contains: search, mode: "insensitive" } },
-        { firstName: { contains: search, mode: "insensitive" } },
-        { lastName: { contains: search, mode: "insensitive" } },
-        { phone: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -46,7 +49,7 @@ export class UsersService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         select: {
           id: true,
           email: true,
@@ -134,7 +137,7 @@ export class UsersService {
       });
 
       if (existingUser) {
-        throw new BadRequestException("Email already in use");
+        throw new BadRequestException('Email already in use');
       }
     }
 
@@ -199,14 +202,11 @@ export class UsersService {
   async getAddresses(userId: string) {
     return this.prisma.address.findMany({
       where: { userId },
-      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });
   }
 
-  async createAddress(
-    userId: string,
-    createAddressDto: CreateAddressDto,
-  ) {
+  async createAddress(userId: string, createAddressDto: CreateAddressDto) {
     const { isDefault, ...addressData } = createAddressDto;
 
     // If this is the default address, unset any existing default
@@ -282,6 +282,262 @@ export class UsersService {
       where: { id },
     });
 
-    return { message: "Address deleted successfully" };
+    return { message: 'Address deleted successfully' };
+  }
+
+  async createShippingAddress(
+    userId: string,
+    createShippingAddressDto: CreateShippingAddressDto,
+  ) {
+    // Check if user exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    // If this is the default address, unset any existing default
+    if (createShippingAddressDto.isDefault) {
+      await this.prisma.shippingAddress.updateMany({
+        where: { userId, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    // If address type is not provided, set to OTHER
+    const addressType =
+      createShippingAddressDto.addressType || AddressType.OTHER;
+
+    // Create the shipping address
+    return this.prisma.shippingAddress.create({
+      data: {
+        ...createShippingAddressDto,
+        addressType,
+        user: { connect: { id: userId } },
+        // If sharedWithId is provided, create a shared address relationship
+        sharedWith: createShippingAddressDto.sharedWithId
+          ? {
+              create: [
+                {
+                  sharedBy: { connect: { id: userId } },
+                  sharedWith: {
+                    connect: { id: createShippingAddressDto.sharedWithId },
+                  },
+                  canEdit: createShippingAddressDto.canEdit || false,
+                  expiresAt: createShippingAddressDto.expiresAt,
+                },
+              ],
+            }
+          : undefined,
+      },
+    });
+  }
+
+  async getShippingAddresses(
+    userId: string,
+    type?: AddressType,
+    shared?: boolean,
+  ) {
+    // Build where conditions based on parameters
+    const where: any = { userId };
+
+    if (type) {
+      where.addressType = type;
+    }
+
+    if (shared !== undefined) {
+      where.sharedWith = {
+        some: { sharedWithId: userId },
+      };
+    }
+
+    return this.prisma.shippingAddress.findMany({
+      where,
+      include: {
+        sharedWith: true,
+        orders: {
+          select: {
+            id: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getShippingAddress(userId: string, addressId: string) {
+    const address = await this.prisma.shippingAddress.findFirst({
+      where: {
+        id: addressId,
+        OR: [{ userId }, { sharedWith: { some: { sharedWithId: userId } } }],
+      },
+      include: {
+        sharedWith: {
+          include: {
+            sharedWith: true,
+          },
+        },
+        sharedFrom: true,
+        sharedCopies: true,
+        orders: {
+          select: {
+            id: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!address) {
+      throw new NotFoundException(
+        `Shipping address with ID ${addressId} not found`,
+      );
+    }
+
+    // Update lastUsed and useCount
+    await this.prisma.shippingAddress.update({
+      where: { id: addressId },
+      data: {
+        lastUsed: new Date(),
+        useCount: address.useCount + 1,
+      },
+    });
+
+    return address;
+  }
+
+  async updateShippingAddress(
+    userId: string,
+    addressId: string,
+    updateShippingAddressDto: UpdateShippingAddressDto,
+  ) {
+    // Check if address exists and belongs to user
+    const address = await this.prisma.shippingAddress.findFirst({
+      where: {
+        id: addressId,
+        userId,
+      },
+    });
+
+    if (!address) {
+      throw new NotFoundException(
+        `Shipping address with ID ${addressId} not found`,
+      );
+    }
+
+    // If updating isDefault to true, unset any existing default
+    if (updateShippingAddressDto.isDefault && !address.isDefault) {
+      await this.prisma.shippingAddress.updateMany({
+        where: { userId, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    // If updating addressType to undefined, set to OTHER
+    const addressType =
+      updateShippingAddressDto.addressType || address.addressType;
+
+    // Update the shipping address
+    return this.prisma.shippingAddress.update({
+      where: { id: addressId },
+      data: {
+        ...updateShippingAddressDto,
+        addressType,
+      },
+    });
+  }
+
+  async deleteShippingAddress(userId: string, addressId: string) {
+    // Check if address exists and belongs to user
+    const address = await this.prisma.shippingAddress.findFirst({
+      where: {
+        id: addressId,
+        userId,
+      },
+    });
+
+    if (!address) {
+      throw new NotFoundException(
+        `Shipping address with ID ${addressId} not found`,
+      );
+    }
+
+    // Delete the shipping address
+    return this.prisma.shippingAddress.delete({
+      where: { id: addressId },
+    });
+  }
+
+  async shareShippingAddress(
+    userId: string,
+    addressId: string,
+    sharedWithId: string,
+    canEdit: boolean,
+    expiresAt: Date,
+  ) {
+    // Check if address exists and belongs to user
+    const address = await this.prisma.shippingAddress.findFirst({
+      where: {
+        id: addressId,
+        userId,
+      },
+    });
+
+    if (!address) {
+      throw new NotFoundException(
+        `Shipping address with ID ${addressId} not found`,
+      );
+    }
+
+    // Check if sharedWith user exists
+    const sharedWithUser = await this.prisma.user.findUnique({
+      where: { id: sharedWithId },
+    });
+
+    if (!sharedWithUser) {
+      throw new NotFoundException(`User with ID ${sharedWithId} not found`);
+    }
+
+    // Create a shared address relationship
+    return this.prisma.sharedAddress.create({
+      data: {
+        sharedBy: { connect: { id: userId } },
+        sharedWith: { connect: { id: sharedWithId } },
+        address: { connect: { id: addressId } },
+        canEdit,
+        expiresAt,
+      },
+    });
+  }
+
+  async getShippingAddressUsage(userId: string, addressId: string) {
+    // Check if address exists and belongs to user or is shared with user
+    const address = await this.prisma.shippingAddress.findFirst({
+      where: {
+        id: addressId,
+        OR: [{ userId }, { sharedWith: { some: { sharedWithId: userId } } }],
+      },
+    });
+
+    if (!address) {
+      throw new NotFoundException(
+        `Shipping address with ID ${addressId} not found`,
+      );
+    }
+
+    // Get address usage history
+    return this.prisma.order.findMany({
+      where: {
+        shippingAddressId: addressId,
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        total: true,
+        status: true,
+      },
+    });
   }
 }

@@ -30,6 +30,9 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Prisma } from "@prisma/client";
+import { CreateShippingAddressDto } from './dto/create-shipping-address.dto';
+import { UpdateShippingAddressDto } from './dto/update-shipping-address.dto';
+import { AddressType } from './enums/address-type.enum';
 
 @ApiTags("users")
 @Controller("users")
@@ -456,6 +459,122 @@ export class UsersController {
   @ApiResponse({ status: 404, description: "Address not found" })
   removeAddress(@CurrentUser() user, @Param("id") id: string) {
     return this.usersService.removeAddress(user.id, id);
+  }
+
+  @Post('shipping-addresses')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR')
+  @ApiOperation({ summary: 'Create a new shipping address with Amazon-level features' })
+  @ApiBody({ type: CreateShippingAddressDto })
+  @ApiResponse({ status: 201, description: 'Shipping address created' })
+  @ApiResponse({ status: 409, description: 'Address already exists' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  createShippingAddress(
+    @CurrentUser() user: any,
+    @Body() createShippingAddressDto: CreateShippingAddressDto,
+  ) {
+    return this.usersService.createShippingAddress(user.id, createShippingAddressDto);
+  }
+
+  @Get('shipping-addresses')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR')
+  @ApiOperation({ summary: 'Get all saved shipping addresses with Amazon-level filtering' })
+  @ApiQuery({ name: 'type', enum: AddressType, required: false })
+  @ApiQuery({ name: 'shared', type: Boolean, required: false })
+  @ApiResponse({ status: 200, description: 'List of shipping addresses' })
+  getShippingAddresses(
+    @CurrentUser() user: any,
+    @Query('type') type?: AddressType,
+    @Query('shared') shared?: boolean,
+  ) {
+    return this.usersService.getShippingAddresses(user.id, type, shared);
+  }
+
+  @Get('shipping-addresses/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR')
+  @ApiOperation({ summary: 'Get a specific shipping address' })
+  @ApiParam({ name: 'id', description: 'Address ID' })
+  @ApiResponse({ status: 200, description: 'Shipping address details' })
+  @ApiResponse({ status: 404, description: 'Shipping address not found' })
+  getShippingAddress(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.getShippingAddress(user.id, id);
+  }
+
+  @Patch('shipping-addresses/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR')
+  @ApiOperation({ summary: 'Update a shipping address with Amazon-level features' })
+  @ApiParam({ name: 'id', description: 'Address ID' })
+  @ApiBody({ type: UpdateShippingAddressDto })
+  @ApiResponse({ status: 200, description: 'Shipping address updated' })
+  @ApiResponse({ status: 404, description: 'Shipping address not found' })
+  updateShippingAddress(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() updateShippingAddressDto: UpdateShippingAddressDto,
+  ) {
+    return this.usersService.updateShippingAddress(user.id, id, updateShippingAddressDto);
+  }
+
+  @Delete('shipping-addresses/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR')
+  @ApiOperation({ summary: 'Delete a shipping address' })
+  @ApiParam({ name: 'id', description: 'Address ID' })
+  @ApiResponse({ status: 200, description: 'Shipping address deleted' })
+  @ApiResponse({ status: 404, description: 'Shipping address not found' })
+  deleteShippingAddress(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.deleteShippingAddress(user.id, id);
+  }
+
+  @Post('shipping-addresses/:id/share')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR')
+  @ApiOperation({ summary: 'Share a shipping address with another user' })
+  @ApiParam({ name: 'id', description: 'Address ID' })
+  @ApiBody({ 
+    schema: {
+      type: 'object',
+      properties: {
+        sharedWithId: { type: 'string', description: 'User ID to share with' },
+        canEdit: { type: 'boolean', description: 'Whether shared user can edit' },
+        expiresAt: { type: 'string', format: 'date-time', description: 'Optional expiration' }
+      },
+      required: ['sharedWithId']
+    }
+  })
+  @ApiResponse({ status: 200, description: 'Shipping address shared successfully' })
+  @ApiResponse({ status: 404, description: 'Shipping address or user not found' })
+  shareShippingAddress(
+    @CurrentUser() user: any,
+    @Param('id') addressId: string,
+    @Body('sharedWithId') sharedWithId: string,
+    @Body('canEdit') canEdit: boolean,
+    @Body('expiresAt') expiresAt: Date,
+  ) {
+    return this.usersService.shareShippingAddress(user.id, addressId, sharedWithId, canEdit, expiresAt);
+  }
+
+  @Get('shipping-addresses/:id/usage')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR')
+  @ApiOperation({ summary: 'Get usage history of a shipping address' })
+  @ApiParam({ name: 'id', description: 'Address ID' })
+  @ApiResponse({ status: 200, description: 'Usage history of the shipping address' })
+  @ApiResponse({ status: 404, description: 'Shipping address not found' })
+  getShippingAddressUsage(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.getShippingAddressUsage(user.id, id);
   }
 
   @Patch(":id")

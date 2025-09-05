@@ -8,6 +8,8 @@ model Notification {
   data      Json?
   createdAt DateTime         @default(now())
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Order     Order?           @relation(fields: [orderId], references: [id])
+  orderId   String?
 
   @@map("notifications")
 }

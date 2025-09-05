@@ -418,7 +418,7 @@ async function main() {
       }),
       prisma.productVariant.create({
         data: {
-          size: 'md',
+          size: 'Md',
           color: '#AF0AB0',
           productId: product.id,
           price: 666,
@@ -632,6 +632,9 @@ async function main() {
       tax: 27.99,
       shipping: 5.99,
       totalAmount: 313.95,
+      subtotal: 280.0,
+      total: 313.95,
+      shippingCost: 0,
       status: OrderStatus.PENDING,
       paymentStatus: PaymentStatus.PENDING,
       paymentMethod: PaymentMethod.CREDIT_CARD,

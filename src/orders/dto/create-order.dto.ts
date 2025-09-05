@@ -8,8 +8,11 @@ import {
   IsInt,
   Min,
   IsObject,
+  IsBoolean,
 } from "class-validator";
 import { Type } from "class-transformer";
+
+import { CreateShippingAddressDto } from "../../users/dto/create-shipping-address.dto";
 
 class OrderItemDto {
   @ApiProperty({
@@ -75,4 +78,30 @@ export class CreateOrderDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @ApiPropertyOptional({
+    description: 'Use user\'s default address as shipping address',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  useUserAddress?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Use a saved shipping address',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @IsUUID()
+  @IsOptional()
+  shippingAddressId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping address if different from user address',
+    type: CreateShippingAddressDto,
+  })
+  @ValidateNested()
+  @Type(() => CreateShippingAddressDto)
+  @IsOptional()
+  shippingAddress?: CreateShippingAddressDto;
+
 }

@@ -52,6 +52,13 @@ model User {
   AdUserInteraction     AdUserInteraction[]
   RecentlyViewedProduct RecentlyViewedProduct[]
 
+  // Shipping address relations
+  shippingAddresses ShippingAddress[]
+  sharedAddresses   SharedAddress[]   @relation("SharedWithUser")
+  sharedByAddresses SharedAddress[]   @relation("SharedByUser")
+  orderItems        OrderItem[]
+  deliveries        Delivery[]
+
   @@map("users")
 }
 

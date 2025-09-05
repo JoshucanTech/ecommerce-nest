@@ -31,16 +31,16 @@ model Shipping {
 model ShippingZone {
   id         String   @id @default(uuid())
   country    String
-  region     String?  // State/Province
-  postalCode String?  // Postal code or range
-  city       String?  // City (for more granular control)
-  price      Float?   // Zone-specific price override
+  region     String? // State/Province
+  postalCode String? // Postal code or range
+  city       String? // City (for more granular control)
+  price      Float? // Zone-specific price override
   shippingId String
   shipping   Shipping @relation(fields: [shippingId], references: [id])
-  minWeight  Float?   // Minimum weight for this price
-  maxWeight  Float?   // Maximum weight for this price
-  minPrice   Float?   // Minimum order price for free shipping
-  maxPrice   Float?   // Maximum order price for this rule
+  minWeight  Float? // Minimum weight for this price
+  maxWeight  Float? // Maximum weight for this price
+  minPrice   Float? // Minimum order price for free shipping
+  maxPrice   Float? // Maximum order price for this rule
 
   @@map("shipping_zones")
 }
@@ -84,20 +84,20 @@ enum ShippingType {
 
 // Model to handle many-to-many relationship between vendors and shipping methods
 model VendorShipping {
-  id                       String       @id @default(uuid())
-  vendorId                 String
-  shippingId               String
+  id              String          @id @default(uuid())
+  vendorId        String
+  shippingId      String
   // Vendor-specific fields
-  priceOverride            Float?       // Override the default shipping price for this vendor
-  minDaysOverride          Float?
-  maxDaysOverride          Float?
-  isActive                 Boolean      @default(true)
+  priceOverride   Float? // Override the default shipping price for this vendor
+  minDaysOverride Float?
+  maxDaysOverride Float?
+  isActive        Boolean         @default(true)
   // Add fulfillment type
-  fulfillment              FulfillmentType @default(MERCHANT)
+  fulfillment     FulfillmentType @default(MERCHANT)
 
   // Relations
-  vendor                   Vendor   @relation(fields: [vendorId], references: [id])
-  shipping                 Shipping @relation(fields: [shippingId], references: [id])
+  vendor   Vendor   @relation(fields: [vendorId], references: [id])
+  shipping Shipping @relation(fields: [shippingId], references: [id])
 
   // Ensure a vendor can't have the same shipping method twice
   @@unique([vendorId, shippingId])
@@ -105,9 +105,9 @@ model VendorShipping {
 }
 
 enum FulfillmentType {
-  MERCHANT  // Fulfilled by Merchant (FBM)
-  PLATFORM  // Fulfilled by App (FBA)
-  PRIME     // Seller Fulfilled Prime (SFP)
+  MERCHANT // Fulfilled by Merchant (FBM)
+  PLATFORM // Fulfilled by App (FBA)
+  PRIME // Seller Fulfilled Prime (SFP)
 }
 
 // New shipping policy model
@@ -122,4 +122,57 @@ model ShippingPolicy {
   products        Product[]
 
   @@map("shipping_policies")
+}
+
+// Enhanced shipping address model with Amazon-level features
+model ShippingAddress {
+  id           String            @id @default(uuid())
+  street       String
+  city         String
+  state        String
+  postalCode   String
+  country      String
+  isDefault    Boolean           @default(false)
+  nickname     String? // Optional name for the address (e.g., "Home", "Work", "Gift")
+  addressType  AddressType       @default(OTHER) // Type classification
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders       Order[] // Track which orders used this address
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  lastUsed     DateTime? // Track when address was last used
+  useCount     Int               @default(0) // Track how many times address has been used
+  sharedWith   SharedAddress[] // Users this address is shared with
+  sharedFromId String? // If this is a shared copy, reference to original
+  sharedFrom   ShippingAddress?  @relation("SharedAddressRelation", fields: [sharedFromId], references: [id])
+  sharedCopies ShippingAddress[] @relation("SharedAddressRelation")
+
+  @@index([userId])
+  @@index([country, postalCode])
+  @@map("shipping_addresses")
+}
+
+// Type classification for shipping addresses
+enum AddressType {
+  HOME
+  WORK
+  GIFT
+  BUSINESS
+  OTHER
+}
+
+// Relationship for shared addresses
+model SharedAddress {
+  id           String          @id @default(uuid())
+  sharedById   String
+  sharedBy     User            @relation("SharedByUser", fields: [sharedById], references: [id])
+  sharedWithId String
+  sharedWith   User            @relation("SharedWithUser", fields: [sharedWithId], references: [id])
+  addressId    String
+  address      ShippingAddress @relation(fields: [addressId], references: [id])
+  canEdit      Boolean         @default(false) // Whether shared user can edit the address
+  expiresAt    DateTime? // Optional expiration for shared access
+
+  @@unique([addressId, sharedWithId])
+  @@map("shared_addresses")
 }

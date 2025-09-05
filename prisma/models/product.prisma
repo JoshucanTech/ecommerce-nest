@@ -78,16 +78,17 @@ model RecentlyViewedProduct {
 }
 
 model ProductVariant {
-  id            String     @id @default(uuid())
+  id            String      @id @default(uuid())
   productId     String
   color         String
   size          String
   price         Float
   discountPrice Float?
   quantity      Int
-  inStock       Boolean    @default(true)
-  product       Product    @relation(fields: [productId], references: [id])
+  inStock       Boolean     @default(true)
+  product       Product     @relation(fields: [productId], references: [id])
   CartItem      CartItem[]
+  OrderItem     OrderItem[]
 }
 
 model ProductCategory {

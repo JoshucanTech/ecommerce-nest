@@ -22,18 +22,65 @@ export class OrdersService {
       couponCode,
       notes,
       shippingSelections,
+      useUserAddress,
+      shippingAddress,
+      shippingAddressId,
     } = createOrderDto;
 
     // Check if address exists and belongs to user
-    const address = await this.prisma.address.findFirst({
-      where: {
-        id: addressId,
-        userId,
-      },
-    });
+    let address;
+    
+    if (useUserAddress) {
+      // Get user's default address
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { addresses: { where: { isDefault: true } } }
+      });
+      
+      if (!user || !user.addresses || user.addresses.length === 0) {
+        throw new NotFoundException('User does not have a default address');
+      }
+      
+      address = user.addresses[0];
+    } else if (shippingAddressId) {
+      // Get a saved shipping address
+      const savedAddress = await this.prisma.shippingAddress.findFirst({
+        where: {
+          id: shippingAddressId,
+          OR: [
+            { userId },
+            { sharedWith: { some: { sharedWithId: userId } } }
+          ]
+        },
+      });
 
-    if (!address) {
-      throw new NotFoundException(`Address with ID ${addressId} not found`);
+      if (!savedAddress) {
+        throw new NotFoundException(`Saved shipping address with ID ${shippingAddressId} not found`);
+      }
+      
+      address = savedAddress;
+    } else if (addressId) {
+      address = await this.prisma.address.findFirst({
+        where: {
+          id: addressId,
+          userId,
+        },
+      });
+
+      if (!address) {
+        throw new NotFoundException(`Address with ID ${addressId} not found`);
+      }
+    } else if (shippingAddress) {
+      // Create a temporary address object from shippingAddress
+      address = {
+        id: null, // This is a temporary address not stored in DB
+        ...shippingAddress,
+        userId: userId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    } else {
+      throw new BadRequestException('Either useUserAddress, shippingAddressId, addressId, or shippingAddress must be provided');
     }
 
     // Validate products and calculate total
@@ -91,7 +138,7 @@ export class OrdersService {
       }
     }
 
-    // Group items by vendor
+    // Group items by vendor and determine shipping zones
     const itemsByVendor = {};
     for (const item of items) {
       const product = products.find((p) => p.id === item.productId);
@@ -100,11 +147,25 @@ export class OrdersService {
       if (!itemsByVendor[vendorId]) {
         itemsByVendor[vendorId] = [];
       }
+      
+      // Find shipping zone based on address details
+      const shippingZone = await this.prisma.shippingZone.findFirst({
+        where: {
+          country: address.country,
+          OR: [
+            { postalCode: address.postalCode },
+            { city: address.city },
+            { region: address.state }
+          ]
+        },
+        include: { shipping: true }
+      });
 
       itemsByVendor[vendorId].push({
         product,
         quantity: item.quantity,
         variantId: item.variantId,
+        shippingZone
       });
     }
 
@@ -277,43 +338,44 @@ export class OrdersService {
       // Apply discount
       orderTotal = Math.max(0, orderTotal - discountAmount);
 
-      // --- NEW SHIPPING LOGIC ---
+      // Get shipping selection for this vendor
       const shippingOptionId = shippingSelections[vendorId];
-      if (!shippingOptionId) {
+      
+      // Skip shipping validation if there's only one vendor
+      if (!shippingOptionId && Object.keys(itemsByVendor).length > 1) {
         throw new BadRequestException(
-          `No shipping option selected for vendor ${vendorId}`,
+          `Shipping selection required for vendor ${vendorId}`
         );
       }
 
-      // Fetch the vendorShipping record to get price override if available
-      const vendorShipping = await this.prisma.vendorShipping.findFirst({
-        where: {
-          vendorId: vendorId,
-          shippingId: shippingOptionId,
-        },
-        include: {
-          shipping: true,
-        },
-      });
-
-      if (!vendorShipping) {
+      // Find shipping zone for this vendor's items
+      const shippingZone = itemsByVendor[vendorId][0]?.shippingZone;
+      
+      if (!shippingZone && Object.keys(itemsByVendor).length > 1) {
         throw new BadRequestException(
-          `Invalid shipping option ID: ${shippingOptionId} for vendor ${vendorId}`,
+          `No shipping zone found for vendor ${vendorId} address: ${address.country}, ${address.state}, ${address.city}`
         );
       }
-
-      // Use the vendor's price override if available, otherwise use the default price
-      const shippingPrice = 
-        vendorShipping.priceOverride !== null && vendorShipping.priceOverride !== undefined
-          ? vendorShipping.priceOverride
-          : vendorShipping.shipping.price;
-
-      const shippingMethod = vendorShipping.shipping;
-
+      
+      // Get shipping price from zone and selected option
+      let shippingPrice = 0;
+      
+      if (shippingZone && shippingOptionId) {
+        const shippingOption = shippingZone.shipping.options.find(
+          option => option.id === shippingOptionId
+        );
+        
+        if (!shippingOption) {
+          throw new BadRequestException(
+            `Invalid shipping option ID: ${shippingOptionId} for vendor ${vendorId}`
+          );
+        }
+        
+        shippingPrice = shippingOption.price;
+      }
+      
       // Add shipping price to the total
       orderTotal += shippingPrice;
-
-      // --- END OF NEW SHIPPING LOGIC ---
 
       // Generate order number
       const orderNumber = this.generateOrderNumber();
@@ -322,18 +384,34 @@ export class OrdersService {
       const order = await this.prisma.order.create({
         data: {
           orderNumber,
-          userId,
-          vendorId,
+          user: {
+            connect: { id: userId }
+          },
+          vendor: {
+            connect: { id: vendorId }
+          },
           totalAmount: orderTotal,
           shipping: shippingPrice, // Set the shipping field
+          subtotal: orderTotal - shippingPrice, // Calculate subtotal
+          total: orderTotal, // Total including shipping
           status: OrderStatus.PENDING,
           paymentStatus: PaymentStatus.PENDING,
           paymentMethod,
-          addressId,
-          couponId: vendorCoupon?.id,
+          // Handle address creation for the order
+          address: useUserAddress ? {
+            connect: { id: address.id }
+          } : shippingAddress ? {
+            create: {
+              ...shippingAddress,
+              user: { connect: { id: userId } }
+            }
+          } : addressId ? {
+            connect: { id: addressId }
+          } : undefined,
+          coupon: vendorCoupon ? { connect: { id: vendorCoupon.id } } : undefined,
           items: {
             create: orderItems,
-          },
+          }
         },
         include: {
           items: {
