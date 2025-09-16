@@ -7,7 +7,7 @@ services:
       target: dev
     image: ecommerce-backend:latest
     ports:
-      - '4000:4000'
+      - '${BACKEND_PORT:-4000}:4000'
     environment:
       NODE_ENV: ${NODE_ENV}
       DATABASE_URL: ${DATABASE_URL}
@@ -18,41 +18,91 @@ services:
       POSTGRES_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      HOST: 0.0.0.0 # Listen on all interfaces
+      PORT: 4000
+      NODE_OPTIONS: --max-old-space-size=1024
     restart: unless-stopped
     networks:
       - backend_network
       - frontend_network
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - .:/app # Sync code
       - /app/node_modules # Prevent overwriting node_modules inside container
-    command: ['/bin/sh', '-c', 'npx prisma generate && npx prisma migrate deploy && npm run start:dev']
+    command:
+      [
+        '/bin/sh',
+        '-c',
+        'npx prisma generate && npx prisma migrate deploy && npm run start:dev',
+      ]
+    # healthcheck:
+    #   test: ['CMD', 'curl', '-f', 'http://localhost:4000/api/health']
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
+    #   start_period: 100s # Give app time to start before checking
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:4000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '0.5'
+
   postgres:
     container_name: ecommerce-postgres
     image: postgres:15-alpine
     ports:
-      - '5432:5432'
+      - '${POSTGRES_PORT:-5432}:5432'
     environment:
       DATABASE_URL: ${DATABASE_URL}
-      POSTGRES_DB: ecommerce
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret2580
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     networks:
       - backend_network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
 
   prisma-studio:
     container_name: prisma-studio
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
     image: ecommerce-backend:latest
     ports:
-      - '5555:5555'
+      - '${PRISMA_STUDIO_PORT:-5555}:5555'
     depends_on:
-      - backend
-      - postgres
+      backend:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     environment:
       DATABASE_URL: ${DATABASE_URL}
     working_dir: /app
@@ -62,13 +112,24 @@ services:
       sh -c "npx prisma generate && npx prisma studio --port 5555"
     networks:
       - backend_network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
 
   prisma-seed:
     container_name: prisma-seed
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
     image: ecommerce-backend:latest
     depends_on:
-      - backend
-      - postgres
+      backend:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     environment:
       DATABASE_URL: ${DATABASE_URL}
     working_dir: /app
@@ -86,10 +147,24 @@ services:
     networks:
       - backend_network
     ports:
-      - '6379:6379'
+      - '${REDIS_PORT:-6379}:6379'
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   frontend_network:
