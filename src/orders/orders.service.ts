@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateOrderDto, OrderItemDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
@@ -29,35 +29,34 @@ export class OrdersService {
 
     // Check if address exists and belongs to user
     let address;
-    
+
     if (useUserAddress) {
       // Get user's default address
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        include: { addresses: { where: { isDefault: true } } }
+        include: { addresses: { where: { isDefault: true } } },
       });
-      
+
       if (!user || !user.addresses || user.addresses.length === 0) {
         throw new NotFoundException('User does not have a default address');
       }
-      
+
       address = user.addresses[0];
     } else if (shippingAddressId) {
       // Get a saved shipping address
       const savedAddress = await this.prisma.shippingAddress.findFirst({
         where: {
           id: shippingAddressId,
-          OR: [
-            { userId },
-            { sharedWith: { some: { sharedWithId: userId } } }
-          ]
+          OR: [{ userId }, { sharedWith: { some: { sharedWithId: userId } } }],
         },
       });
 
       if (!savedAddress) {
-        throw new NotFoundException(`Saved shipping address with ID ${shippingAddressId} not found`);
+        throw new NotFoundException(
+          `Saved shipping address with ID ${shippingAddressId} not found`,
+        );
       }
-      
+
       address = savedAddress;
     } else if (addressId) {
       address = await this.prisma.address.findFirst({
@@ -77,10 +76,12 @@ export class OrdersService {
         ...shippingAddress,
         userId: userId,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
     } else {
-      throw new BadRequestException('Either useUserAddress, shippingAddressId, addressId, or shippingAddress must be provided');
+      throw new BadRequestException(
+        'Either useUserAddress, shippingAddressId, addressId, or shippingAddress must be provided',
+      );
     }
 
     // Validate products and calculate total
@@ -147,7 +148,7 @@ export class OrdersService {
       if (!itemsByVendor[vendorId]) {
         itemsByVendor[vendorId] = [];
       }
-      
+
       // Find shipping zone based on address details
       const shippingZone = await this.prisma.shippingZone.findFirst({
         where: {
@@ -155,17 +156,17 @@ export class OrdersService {
           OR: [
             { postalCode: address.postalCode },
             { city: address.city },
-            { region: address.state }
-          ]
+            { region: address.state },
+          ],
         },
-        include: { shipping: true }
+        include: { shipping: true },
       });
 
       itemsByVendor[vendorId].push({
         product,
         quantity: item.quantity,
         variantId: item.variantId,
-        shippingZone
+        shippingZone,
       });
     }
 
@@ -213,20 +214,24 @@ export class OrdersService {
 
       // Calculate order total
       let orderTotal = 0;
-      const orderItems = [];
+      const orderItems: OrderItemDto[] = [];
 
       for (const { product, quantity, variantId } of vendorItems) {
         // Determine price based on variant or base product
         let unitPrice;
         if (variantId) {
-          const variant = product.variants.find((v) => v.id === variantId);
+          // Ensure variants array exists before calling find
+          const variants = product.ProductVariant || [];
+          const variant = variants.find((v) => v.id === variantId);
           unitPrice = variant?.discountPrice || variant?.price || product.price;
         } else {
           unitPrice = product.discountPrice || product.price;
         }
 
         // Check for flash sale
-        const activeFlashSale = product.flashSaleItems.find(
+        // Ensure flashSaleItems array exists before calling find
+        const flashSaleItems = product.flashSaleItems || [];
+        const activeFlashSale = flashSaleItems.find(
           (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
         );
 
@@ -239,7 +244,7 @@ export class OrdersService {
 
         orderItems.push({
           productId: product.id,
-          productVariantId: variantId,
+          variantId,
           quantity,
           unitPrice: itemPrice,
           totalPrice: itemTotal,
@@ -272,7 +277,9 @@ export class OrdersService {
                 vendorItemList.reduce((vendorTotal, item) => {
                   let unitPrice;
                   if (item.variantId) {
-                    const variant = item.product.variants.find(
+                    // Ensure variants array exists before calling find
+                    const variants = item.product.ProductVariant || [];
+                    const variant = variants.find(
                       (v) => v.id === item.variantId,
                     );
                     unitPrice =
@@ -284,7 +291,9 @@ export class OrdersService {
                       item.product.discountPrice || item.product.price;
                   }
 
-                  const activeFlashSale = item.product.flashSaleItems.find(
+                  // Ensure flashSaleItems array exists before calling find
+                  const flashSaleItems = item.product.flashSaleItems || [];
+                  const activeFlashSale = flashSaleItems.find(
                     (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
                   );
 
@@ -300,9 +309,9 @@ export class OrdersService {
             const vendorOrderValue = vendorItems.reduce((total, item) => {
               let unitPrice;
               if (item.variantId) {
-                const variant = item.product.variants.find(
-                  (v) => v.id === item.variantId,
-                );
+                // Ensure variants array exists before calling find
+                const variants = item.product.ProductVariant || [];
+                const variant = variants.find((v) => v.id === item.variantId);
                 unitPrice =
                   variant?.discountPrice ||
                   variant?.price ||
@@ -311,7 +320,9 @@ export class OrdersService {
                 unitPrice = item.product.discountPrice || item.product.price;
               }
 
-              const activeFlashSale = item.product.flashSaleItems.find(
+              // Ensure flashSaleItems array exists before calling find
+              const flashSaleItems = item.product.flashSaleItems || [];
+              const activeFlashSale = flashSaleItems.find(
                 (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
               );
 
@@ -340,40 +351,41 @@ export class OrdersService {
 
       // Get shipping selection for this vendor
       const shippingOptionId = shippingSelections[vendorId];
-      
+
       // Skip shipping validation if there's only one vendor
       if (!shippingOptionId && Object.keys(itemsByVendor).length > 1) {
         throw new BadRequestException(
-          `Shipping selection required for vendor ${vendorId}`
+          `Shipping selection required for vendor ${vendorId}`,
         );
       }
 
       // Find shipping zone for this vendor's items
       const shippingZone = itemsByVendor[vendorId][0]?.shippingZone;
-      
-      if (!shippingZone && Object.keys(itemsByVendor).length > 1) {
-        throw new BadRequestException(
-          `No shipping zone found for vendor ${vendorId} address: ${address.country}, ${address.state}, ${address.city}`
-        );
-      }
-      
+
       // Get shipping price from zone and selected option
       let shippingPrice = 0;
-      
+
       if (shippingZone && shippingOptionId) {
         const shippingOption = shippingZone.shipping.options.find(
-          option => option.id === shippingOptionId
+          (option) => option.id === shippingOptionId,
         );
-        
+
         if (!shippingOption) {
           throw new BadRequestException(
-            `Invalid shipping option ID: ${shippingOptionId} for vendor ${vendorId}`
+            `Invalid shipping option ID: ${shippingOptionId} for vendor ${vendorId}`,
           );
         }
-        
+
         shippingPrice = shippingOption.price;
+      } else if (!shippingZone && Object.keys(itemsByVendor).length > 1) {
+        // Instead of throwing an error immediately, we log a warning and use default shipping
+        console.warn(
+          `No shipping zone found for vendor ${vendorId} address: ${address.country}, ${address.state}, ${address.city}. Using default shipping cost of 0.`,
+        );
+        // Use 0 as default shipping cost when no zone is found
+        shippingPrice = 0;
       }
-      
+
       // Add shipping price to the total
       orderTotal += shippingPrice;
 
@@ -385,10 +397,10 @@ export class OrdersService {
         data: {
           orderNumber,
           user: {
-            connect: { id: userId }
+            connect: { id: userId },
           },
           vendor: {
-            connect: { id: vendorId }
+            connect: { id: vendorId },
           },
           totalAmount: orderTotal,
           shipping: shippingPrice, // Set the shipping field
@@ -398,20 +410,37 @@ export class OrdersService {
           paymentStatus: PaymentStatus.PENDING,
           paymentMethod,
           // Handle address creation for the order
-          address: useUserAddress ? {
-            connect: { id: address.id }
-          } : shippingAddress ? {
-            create: {
-              ...shippingAddress,
-              user: { connect: { id: userId } }
-            }
-          } : addressId ? {
-            connect: { id: addressId }
-          } : undefined,
-          coupon: vendorCoupon ? { connect: { id: vendorCoupon.id } } : undefined,
+          address: useUserAddress
+            ? {
+                connect: { id: address.id },
+              }
+            : shippingAddress
+              ? {
+                  create: {
+                    ...shippingAddress,
+                    user: { connect: { id: userId } },
+                  },
+                }
+              : addressId
+                ? {
+                    connect: { id: addressId },
+                  }
+                : undefined,
+          coupon: vendorCoupon
+            ? { connect: { id: vendorCoupon.id } }
+            : undefined,
           items: {
-            create: orderItems,
-          }
+            create: orderItems.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              totalPrice: item.totalPrice,
+              ...(item.variantId && { variantId: item.variantId }),
+              product: {
+                connect: { id: item.productId },
+              },
+            })),
+          },
         },
         include: {
           items: {
@@ -451,7 +480,9 @@ export class OrdersService {
       for (const { product, quantity, variantId } of vendorItems) {
         if (variantId) {
           // Update variant inventory
-          const variant = product.variants.find((v) => v.id === variantId);
+          // Ensure variants array exists before calling find
+          const variants = product.ProductVariant || [];
+          const variant = variants.find((v) => v.id === variantId);
           if (variant) {
             await this.prisma.productVariant.update({
               where: { id: variantId },
