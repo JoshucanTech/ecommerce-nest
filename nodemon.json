@@ -1,0 +1,6 @@
+{
+  "watch": [".env", "src"],
+  "ext": "ts,json,env",
+  "ignore": ["src/**/*.spec.ts"],
+  "exec": "nest start --watch"
+}

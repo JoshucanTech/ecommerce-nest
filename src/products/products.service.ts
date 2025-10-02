@@ -275,7 +275,9 @@ export class ProductsService {
     }
 
     // Check if product is in an active flash sale
-    const activeFlashSale = product.flashSaleItems.find(
+    // Ensure flashSaleItems array exists before calling find
+    const flashSaleItems = product.flashSaleItems || [];
+    const activeFlashSale = flashSaleItems.find(
       (item) => item.flashSale !== null,
     );
     const flashSalePrice = activeFlashSale

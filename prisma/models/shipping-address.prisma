@@ -1,0 +1,53 @@
+// prisma/models/shipping-address.prisma
+
+model ShippingAddress {
+  id           String            @id @default(uuid())
+  street       String
+  city         String
+  state        String
+  postalCode   String
+  country      String
+  isDefault    Boolean           @default(false)
+  nickname     String? // Optional name for the address (e.g., "Home", "Work", "Gift")
+  addressType  AddressType       @default(OTHER) // Type classification
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders       Order[] // Track which orders used this address
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  lastUsed     DateTime? // Track when address was last used
+  useCount     Int               @default(0) // Track how many times address has been used
+  sharedWith   SharedAddress[] // Users this address is shared with
+  sharedFromId String? // If this is a shared copy, reference to original
+  sharedFrom   ShippingAddress?  @relation("SharedAddressRelation", fields: [sharedFromId], references: [id])
+  sharedCopies ShippingAddress[] @relation("SharedAddressRelation")
+
+  @@index([userId])
+  @@index([country, postalCode])
+  @@map("shipping_addresses")
+}
+
+// Type classification for shipping addresses
+enum AddressType {
+  HOME
+  WORK
+  GIFT
+  BUSINESS
+  OTHER
+}
+
+// Relationship for shared addresses
+model SharedAddress {
+  id           String          @id @default(uuid())
+  sharedById   String
+  sharedBy     User            @relation("SharedByUser", fields: [sharedById], references: [id])
+  sharedWithId String
+  sharedWith   User            @relation("SharedWithUser", fields: [sharedWithId], references: [id])
+  addressId    String
+  address      ShippingAddress @relation(fields: [addressId], references: [id])
+  canEdit      Boolean         @default(false) // Whether shared user can edit the address
+  expiresAt    DateTime? // Optional expiration for shared access
+
+  @@unique([addressId, sharedWithId])
+  @@map("shared_addresses")
+}

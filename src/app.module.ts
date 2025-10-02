@@ -1,13 +1,14 @@
-import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { AppController, TestController } from './app.controller';
 import { AppService } from './app.service';
 //
 //
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ValidationPipe } from '@nestjs/common';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -30,6 +31,8 @@ import { ShippingModule } from './shipping/shipping.module';
 import { RealTimeModule } from './real-time/real-time.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { LocationsModule } from './locations/locations.module';
+import { RequestLoggerMiddleware } from './middleware/request-logger.middleware';
+import { ValidationExceptionFilter } from './exceptions/validation-exception.filter';
 //
 //
 
@@ -59,9 +62,9 @@ import { LocationsModule } from './locations/locations.module';
     PromotionsModule,
     LocationsModule,
   ],
-  // controllers: [AppController],
-  // providers: [AppService],
+  controllers: [AppController, TestController],
   providers: [
+    AppService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
@@ -70,6 +73,20 @@ import { LocationsModule } from './locations/locations.module';
       provide: APP_GUARD,
       useClass: RolesGuard,
     },
+    {
+      provide: APP_PIPE,
+      useClass: ValidationPipe,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: ValidationExceptionFilter,
+    },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(RequestLoggerMiddleware)
+      .forRoutes('*');
+  }
+}

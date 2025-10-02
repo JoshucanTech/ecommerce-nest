@@ -106,14 +106,18 @@ export class PaymentsService {
         // Determine price based on variant or base product
         let unitPrice;
         if (variantId) {
-          const variant = product.variants.find((v) => v.id === variantId);
+          // Ensure variants array exists before calling find
+          const variants = product.ProductVariant || [];
+          const variant = variants.find((v) => v.id === variantId);
           unitPrice = variant?.discountPrice || variant?.price || product.price;
         } else {
           unitPrice = product.discountPrice || product.price;
         }
 
         // Check for flash sale
-        const activeFlashSale = product.flashSaleItems.find(
+        // Ensure flashSaleItems array exists before calling find
+        const flashSaleItems = product.flashSaleItems || [];
+        const activeFlashSale = flashSaleItems.find(
           (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
         );
 
@@ -150,7 +154,9 @@ export class PaymentsService {
                 vendorItemList.reduce((vendorTotal, item) => {
                   let unitPrice;
                   if (item.variantId) {
-                    const variant = item.product.variants.find(
+                    // Ensure variants array exists before calling find
+                    const variants = item.product.ProductVariant || [];
+                    const variant = variants.find(
                       (v) => v.id === item.variantId,
                     );
                     unitPrice =
@@ -162,7 +168,9 @@ export class PaymentsService {
                       item.product.discountPrice || item.product.price;
                   }
 
-                  const activeFlashSale = item.product.flashSaleItems.find(
+                  // Ensure flashSaleItems array exists before calling find
+                  const flashSaleItems = item.product.flashSaleItems || [];
+                  const activeFlashSale = flashSaleItems.find(
                     (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
                   );
 
@@ -178,7 +186,9 @@ export class PaymentsService {
             const vendorOrderValue = vendorItems.reduce((total, item) => {
               let unitPrice;
               if (item.variantId) {
-                const variant = item.product.variants.find(
+                // Ensure variants array exists before calling find
+                const variants = item.product.ProductVariant || [];
+                const variant = variants.find(
                   (v) => v.id === item.variantId,
                 );
                 unitPrice =
@@ -186,10 +196,13 @@ export class PaymentsService {
                   variant?.price ||
                   item.product.price;
               } else {
-                unitPrice = item.product.discountPrice || item.product.price;
+                unitPrice =
+                  item.product.discountPrice || item.product.price;
               }
 
-              const activeFlashSale = item.product.flashSaleItems.find(
+              // Ensure flashSaleItems array exists before calling find
+              const flashSaleItems = item.product.flashSaleItems || [];
+              const activeFlashSale = flashSaleItems.find(
                 (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
               );
 

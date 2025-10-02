@@ -22,23 +22,25 @@ RUN --mount=type=cache,target=/app/.npm \
     npm config set cache /app/.npm --global && \
     npm ci --loglevel verbose
 
-# Generate Prisma client
-RUN npx prisma generate
+# Copy entrypoint script early and make executable
+COPY docker-entrypoint.dev.sh ./
+RUN chmod +x docker-entrypoint.dev.sh
 
 # Copy full app code after deps to preserve cache
 COPY . .
 
 # Change ownership to non-root user
-RUN chown -R nodejs:nodejs .
+RUN chown -R nodejs:nodejs . && \
+    chmod +x docker-entrypoint.dev.sh
 
 # Switch to non-root user
 USER nodejs
 
-# Expose port (consistent with application configuration)
+# Expose port
 EXPOSE 4000
 
-# Start app in dev mode
-CMD ["npm", "run", "start:dev"]
+# Use entrypoint script instead of direct CMD
+ENTRYPOINT ["./docker-entrypoint.dev.sh"]
 
 # -------- Production Stage --------
 FROM base AS production
@@ -64,9 +66,5 @@ RUN npm run build
 USER nodejs
 
 EXPOSE 4000
-
-# Optional: Uncomment if you have a healthcheck script
-# HEALTHCHECK --interval=30s --timeout=10s --start-period=10s \
-#   CMD node healthcheck/healthcheck.js || exit 1
 
 CMD ["node", "dist/main"]

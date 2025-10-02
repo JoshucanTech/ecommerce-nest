@@ -1,18 +1,33 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe, ConsoleLogger } from "@nestjs/common";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { ConfigService } from "@nestjs/config";
-import { LoggingInterceptor } from './logging.interceptor';
-
+import { ValidationPipe, ConsoleLogger, LogLevel } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
+import { EnhancedLoggingInterceptor } from './interceptors/enhanced-logging.interceptor';
+import { DetailedExceptionFilter } from './exceptions/detailed-exception.filter';
+import { ValidationExceptionFilter } from './exceptions/validation-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Set log levels for more detailed logging
+  const app = await NestFactory.create(AppModule, {
+    logger: ['log', 'error', 'warn', 'debug', 'verbose'] as LogLevel[],
+  });
 
   const configService = app.get(ConfigService);
 
-  // Enable CORS
-  app.enableCors();
+  // Enable CORS with proper configuration for credentials
+  app.enableCors({
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:2000',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:2000',
+    ],
+    credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Accept, Authorization, x-anonymous-id',
+    exposedHeaders: 'Authorization, x-anonymous-id',
+  });
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -23,47 +38,52 @@ async function bootstrap() {
     }),
   );
 
+  // Use our exception filters
+  app.useGlobalFilters(
+    new ValidationExceptionFilter(), // Handle validation errors first
+    new DetailedExceptionFilter()    // Handle all other errors
+  );
+
+  // Use our enhanced logging interceptor
+  app.useGlobalInterceptors(new EnhancedLoggingInterceptor());
+
   // Set global prefix
-  app.setGlobalPrefix("api");
+  app.setGlobalPrefix('api');
 
   // Swagger documentation setup
   const config = new DocumentBuilder()
-    .setTitle("Multi-Vendor E-commerce API")
+    .setTitle('Multi-Vendor E-commerce API')
     .setDescription(
-      "API documentation for the Multi-Vendor E-commerce platform",
+      'API documentation for the Multi-Vendor E-commerce platform',
     )
-    .setVersion("1.0")
+    .setVersion('1.0')
     .addBearerAuth()
-    .addTag("auth", "Authentication endpoints")
-    .addTag("users", "User management endpoints")
-    .addTag("products", "Product management endpoints")
-    .addTag("categories", "Category management endpoints")
-    .addTag("vendors", "Vendor management endpoints")
-    .addTag("riders", "Rider management endpoints")
-    .addTag("orders", "Order management endpoints")
-    .addTag("deliveries", "Delivery management endpoints")
-    .addTag("payments", "Payment management endpoints")
-    .addTag("notifications", "Notification management endpoints")
-    .addTag("cart", "Shopping cart endpoints")
-    .addTag("wishlist", "Wishlist endpoints")
-    .addTag("reviews", "Product reviews endpoints")
-    .addTag("comments", "Product comments endpoints")
-    .addTag("flash-sales", "Flash sales endpoints")
-    .addTag("locations", "Location management endpoints")
+    .addTag('auth', 'Authentication endpoints')
+    .addTag('users', 'User management endpoints')
+    .addTag('products', 'Product management endpoints')
+    .addTag('categories', 'Category management endpoints')
+    .addTag('vendors', 'Vendor management endpoints')
+    .addTag('riders', 'Rider management endpoints')
+    .addTag('orders', 'Order management endpoints')
+    .addTag('deliveries', 'Delivery management endpoints')
+    .addTag('payments', 'Payment management endpoints')
+    .addTag('notifications', 'Notification management endpoints')
+    .addTag('cart', 'Shopping cart endpoints')
+    .addTag('wishlist', 'Wishlist endpoints')
+    .addTag('reviews', 'Product reviews endpoints')
+    .addTag('comments', 'Product comments endpoints')
+    .addTag('flash-sales', 'Flash sales endpoints')
+    .addTag('locations', 'Location management endpoints')
     .build();
 
-  app.useGlobalInterceptors(new LoggingInterceptor());
-
-
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("api/docs", app, document, {
+  SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
-    }
+    },
   });
 
-  
-  const port = configService.get<number>("PORT") || 3000;
+  const port = configService.get<number>('PORT') || 3000;
   await app.listen(port);
   // await app.listen(process.env.PORT ?? 3000);
   console.log(`Application is running on: http://localhost:${port}`);

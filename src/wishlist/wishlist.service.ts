@@ -62,7 +62,9 @@ export class WishlistService {
             ) / item.product.reviews.length
           : 0;
 
-      const activeFlashSale = item.product.flashSaleItems.find(
+      // Ensure flashSaleItems array exists before calling find
+      const _flashSaleItems = item.product.flashSaleItems || [];
+      const activeFlashSale = _flashSaleItems.find(
         (fsi) => fsi.flashSale !== null,
       );
       const price = item.product.discountPrice || item.product.price;

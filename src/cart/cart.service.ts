@@ -72,7 +72,9 @@ export class CartService {
         item.productVariant?.discountPrice ?? item.product.discountPrice;
       const price = discountPrice || basePrice;
 
-      const activeFlashSale = item.product.flashSaleItems.find(
+      // Ensure flashSaleItems array exists before calling find
+      const _flashSaleItems = item.product.flashSaleItems || [];
+      const activeFlashSale = _flashSaleItems.find(
         (fsi) => fsi.flashSale?.isActive,
       );
       const flashSalePrice = activeFlashSale

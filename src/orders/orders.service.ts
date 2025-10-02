@@ -362,21 +362,36 @@ export class OrdersService {
       // Find shipping zone for this vendor's items
       const shippingZone = itemsByVendor[vendorId][0]?.shippingZone;
 
+      if (!shippingZone && Object.keys(itemsByVendor).length > 1) {
+        throw new BadRequestException(
+          `No shipping zone found for vendor ${vendorId} address: ${address.country}, ${address.state}, ${address.city}`,
+        );
+      }
+
       // Get shipping price from zone and selected option
       let shippingPrice = 0;
 
-      if (shippingZone && shippingOptionId) {
-        const shippingOption = shippingZone.shipping.options.find(
-          (option) => option.id === shippingOptionId,
-        );
-
-        if (!shippingOption) {
-          throw new BadRequestException(
-            `Invalid shipping option ID: ${shippingOptionId} for vendor ${vendorId}`,
+      if (shippingZone && shippingOptionId && shippingZone.shipping) {
+        // Make sure options array exists on the shipping before accessing it
+        if (Array.isArray(shippingZone.shipping.options)) {
+          const shippingOption = shippingZone.shipping.options.find(
+            (option) => option.id === shippingOptionId,
           );
-        }
 
-        shippingPrice = shippingOption.price;
+          if (!shippingOption) {
+            throw new BadRequestException(
+              `Invalid shipping option ID: ${shippingOptionId} for vendor ${vendorId}`,
+            );
+          }
+
+          shippingPrice = shippingOption.price;
+        } else {
+          // If options is not an array or doesn't exist, use default shipping cost
+          console.warn(
+            `Shipping options not properly configured for shipping zone ${shippingZone.id} for vendor ${vendorId}. Using default shipping cost of 0.`,
+          );
+          shippingPrice = 0;
+        }
       } else if (!shippingZone && Object.keys(itemsByVendor).length > 1) {
         // Instead of throwing an error immediately, we log a warning and use default shipping
         console.warn(
@@ -431,11 +446,14 @@ export class OrdersService {
             : undefined,
           items: {
             create: orderItems.map((item) => ({
-              productId: item.productId,
+              // productId: item.productId,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               totalPrice: item.totalPrice,
-              ...(item.variantId && { variantId: item.variantId }),
+              ...(item.variantId && {
+                // variantId: item.variantId,
+                variant: { connect: { id: item.variantId } },
+              }),
               product: {
                 connect: { id: item.productId },
               },

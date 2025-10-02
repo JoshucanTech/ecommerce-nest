@@ -1,171 +1,138 @@
+# version: '3.8'
+
 services:
   backend:
-    container_name: ecommerce-backend
+    container_name: e-backend
     build:
       context: .
       dockerfile: Dockerfile
       target: dev
     image: ecommerce-backend:latest
     ports:
-      - '${BACKEND_PORT:-4000}:4000'
+      - "4000:4000"
     environment:
-      NODE_ENV: ${NODE_ENV}
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
-      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION}
-      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:secret2580@postgres:5432/ecommerce?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-cEVNBXuvqiPfH81BlmSZYcii/hnjqTibnbS6ye5vWgQ=}
+      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-7d}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-7d}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      HOST: 0.0.0.0 # Listen on all interfaces
+      HOST: 0.0.0.0
       PORT: 4000
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
       NODE_OPTIONS: --max-old-space-size=1024
     restart: unless-stopped
     networks:
-      - backend_network
-      - frontend_network
+      - ecommerce-network
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - .:/app # Sync code
-      - /app/node_modules # Prevent overwriting node_modules inside container
-    command:
-      [
-        '/bin/sh',
-        '-c',
-        'npx prisma generate && npx prisma migrate deploy && npm run start:dev',
-      ]
-    # healthcheck:
-    #   test: ['CMD', 'curl', '-f', 'http://localhost:4000/api/health']
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 5
-    #   start_period: 100s # Give app time to start before checking
+      - .:/app
+      - /app/node_modules
     healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "require('http').get('http://localhost:4000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))",
-        ]
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 40s
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-          cpus: '0.5'
+      start_period: 60s
 
   postgres:
-    container_name: ecommerce-postgres
+    container_name: e-postgres
     image: postgres:15-alpine
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - "5432:5432"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ecommerce
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret2580
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     networks:
-      - backend_network
+      - ecommerce-network
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
 
-  prisma-studio:
-    container_name: prisma-studio
+  redis:
+    container_name: e-redis
+    image: redis:alpine
+    restart: unless-stopped
+    networks:
+      - ecommerce-network
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  studio:
+    container_name: e-studio
     build:
       context: .
       dockerfile: Dockerfile
       target: dev
     image: ecommerce-backend:latest
     ports:
-      - '${PRISMA_STUDIO_PORT:-5555}:5555'
-    depends_on:
-      backend:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
+      - "5555:5555"
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      # DATABASE_URL: postgresql://postgres:secret2580@postgres:5432/ecommerce?schema=public
+      DATABASE_URL: postgresql://postgres:secret2580@localhost:5432/ecommerce?schema=public
+      CHOKIDAR_USEPOLLING: "true"
     working_dir: /app
     volumes:
       - .:/app
+      # sh -c "npx prisma generate && npx prisma studio --port 5555"  # This line is to replace the command below if you want to generate before starting studio
     command: >
-      sh -c "npx prisma generate && npx prisma studio --port 5555"
+      sh -c "npx prisma studio --port 5555"
     networks:
-      - backend_network
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.25'
+      - ecommerce-network
 
-  prisma-seed:
-    container_name: prisma-seed
+  seed:
+    container_name: e-seed
     build:
       context: .
       dockerfile: Dockerfile
       target: dev
     image: ecommerce-backend:latest
     depends_on:
-      backend:
-        condition: service_healthy
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://postgres:secret2580@postgres:5432/ecommerce?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     working_dir: /app
     volumes:
       - .:/app
     command: >
       sh -c "npx prisma generate && npx prisma db seed"
     networks:
-      - backend_network
-
-  redis:
-    container_name: ecommerce-redis
-    image: redis:alpine
-    restart: unless-stopped
-    networks:
-      - backend_network
-    ports:
-      - '${REDIS_PORT:-6379}:6379'
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.25'
+      - ecommerce-network
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  frontend_network:
-  backend_network:
+  ecommerce-network:
+    driver: bridge

@@ -36,6 +36,7 @@ async function main() {
   await prisma.review.deleteMany();
   await prisma.wishlistItem.deleteMany();
   await prisma.orderItem.deleteMany();
+  await prisma.orderShipping.deleteMany();
   await prisma.delivery.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.notification.deleteMany();
@@ -48,7 +49,10 @@ async function main() {
   await prisma.shippingZone.deleteMany();
   await prisma.shippingOption.deleteMany();
   await prisma.shippingPolicy.deleteMany();
+  await prisma.vendorShipping.deleteMany();
   await prisma.shipping.deleteMany();
+  await prisma.sharedAddress.deleteMany();
+  await prisma.shippingAddress.deleteMany();
   await prisma.productFeature.deleteMany();
   await prisma.productSpecification.deleteMany();
   await prisma.productInBox.deleteMany();
@@ -160,6 +164,100 @@ async function main() {
   });
   console.log('Created vendor user:', vendorUser.email);
 
+  // Create additional vendors for more realistic shipping scenarios
+  const additionalVendors = await Promise.all([
+    prisma.user.create({
+      data: {
+        email: 'vendor2@example.com',
+        password: await bcrypt.hash('vendor123', await bcrypt.genSalt(10)),
+        firstName: 'Tech',
+        lastName: 'Gadgets',
+        role: UserRole.VENDOR,
+        emailVerified: true,
+        addresses: {
+          create: [
+            {
+              street: '789 Tech Blvd',
+              city: 'San Francisco',
+              state: 'CA',
+              postalCode: '94102',
+              country: 'USA',
+              isDefault: true,
+            },
+          ],
+        },
+        settings: {
+          create: {},
+        },
+        vendor: {
+          create: {
+            businessName: 'Tech Gadgets Co.',
+            businessEmail: 'contact@techgadgets.com',
+            businessPhone: '+1234567891',
+            description: 'Latest tech gadgets and accessories.',
+            isVerified: true,
+            slug: 'tech-gadgets-co',
+            status: ApplicationStatus.APPROVED,
+            businessAddress: {
+              create: {
+                street: '789 Tech Blvd',
+                city: 'San Francisco',
+                state: 'CA',
+                postalCode: '94102',
+                country: 'USA',
+              },
+            },
+          },
+        },
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'vendor3@example.com',
+        password: await bcrypt.hash('vendor123', await bcrypt.genSalt(10)),
+        firstName: 'Fashion',
+        lastName: 'Style',
+        role: UserRole.VENDOR,
+        emailVerified: true,
+        addresses: {
+          create: [
+            {
+              street: '321 Fashion Ave',
+              city: 'New York',
+              state: 'NY',
+              postalCode: '10001',
+              country: 'USA',
+              isDefault: true,
+            },
+          ],
+        },
+        settings: {
+          create: {},
+        },
+        vendor: {
+          create: {
+            businessName: 'Fashion Style House',
+            businessEmail: 'contact@fashionstyle.com',
+            businessPhone: '+1234567892',
+            description: 'Trendy fashion for all seasons.',
+            isVerified: true,
+            slug: 'fashion-style-house',
+            status: ApplicationStatus.APPROVED,
+            businessAddress: {
+              create: {
+                street: '321 Fashion Ave',
+                city: 'New York',
+                state: 'NY',
+                postalCode: '10001',
+                country: 'USA',
+              },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
   // Create buyer user
   const buyerPassword = await bcrypt.hash('buyer123', salt);
   const buyer = await prisma.user.create({
@@ -233,6 +331,116 @@ async function main() {
   });
   console.log('Created rider user:', rider.email);
 
+  // Create additional shipping addresses for the buyer
+  const additionalShippingAddresses = await prisma.shippingAddress.createMany({
+    data: [
+      {
+        street: '456 Park Ave',
+        city: 'New York',
+        state: 'NY',
+        postalCode: '10022',
+        country: 'USA',
+        isDefault: false,
+        nickname: 'Work',
+        addressType: 'WORK',
+        userId: buyer.id,
+      },
+      {
+        street: '789 Beach St',
+        city: 'Miami',
+        state: 'FL',
+        postalCode: '33101',
+        country: 'USA',
+        isDefault: false,
+        nickname: 'Vacation Home',
+        addressType: 'OTHER',
+        userId: buyer.id,
+      },
+    ],
+  });
+
+  console.log('Created additional shipping addresses for buyer');
+
+  // Create shared shipping address
+  const sharedAddressOwner = await prisma.user.create({
+    data: {
+      email: 'shared@example.com',
+      password: await bcrypt.hash('shared123', await bcrypt.genSalt(10)),
+      firstName: 'Shared',
+      lastName: 'Address',
+      role: UserRole.BUYER,
+      emailVerified: true,
+      addresses: {
+        create: [
+          {
+            street: '101 Shared St',
+            city: 'Boston',
+            state: 'MA',
+            postalCode: '02101',
+            country: 'USA',
+            isDefault: true,
+          },
+        ],
+      },
+      settings: {
+        create: {},
+      },
+    },
+  });
+
+  const sharedShippingAddress = await prisma.shippingAddress.create({
+    data: {
+      street: '101 Shared St',
+      city: 'Boston',
+      state: 'MA',
+      postalCode: '02101',
+      country: 'USA',
+      isDefault: true,
+      nickname: 'Family Home',
+      addressType: 'HOME',
+      userId: sharedAddressOwner.id,
+    },
+  });
+
+  // Share the address with the buyer
+  await prisma.sharedAddress.create({
+    data: {
+      sharedById: sharedAddressOwner.id,
+      sharedWithId: buyer.id,
+      addressId: sharedShippingAddress.id,
+      canEdit: false,
+    },
+  });
+
+  console.log('Created shared shipping address');
+
+  // Get the shipping addresses for the buyer
+  const buyerShippingAddresses = await prisma.shippingAddress.findMany({
+    where: {
+      userId: buyer.id
+    }
+  });
+
+  // Get the first shipping address for the buyer (should be the default one)
+  const buyerShippingAddressId = buyerShippingAddresses[0]?.id;
+  
+  // If no shipping address found, create one
+  let shippingAddressId = buyerShippingAddressId;
+  if (!shippingAddressId) {
+    const newShippingAddress = await prisma.shippingAddress.create({
+      data: {
+        street: '123 Main St',
+        city: 'New York',
+        state: 'NY',
+        postalCode: '10001',
+        country: 'USA',
+        isDefault: true,
+        userId: buyer.id,
+      }
+    });
+    shippingAddressId = newShippingAddress.id;
+  }
+
   // Create categories
   const categories = await Promise.all([
     prisma.category.create({
@@ -293,10 +501,11 @@ async function main() {
     electronicsSubcategories.map((c) => c.name).join(', '),
   );
 
-  // Get vendor ID
-  const vendorId = (
-    await prisma.vendor.findFirst({ where: { userId: vendorUser.id } })
-  ).id;
+  // Get vendor IDs
+  const vendor = await prisma.vendor.findFirst({ where: { userId: vendorUser.id } });
+  const vendorId = vendor.id;
+  const vendor2Id = (await prisma.vendor.findFirst({ where: { userId: additionalVendors[0].id } })).id;
+  const vendor3Id = (await prisma.vendor.findFirst({ where: { userId: additionalVendors[1].id } })).id;
 
   // Seed Products with Faker
   const products = await Promise.all(
@@ -350,14 +559,14 @@ async function main() {
           sku: faker.string.alphanumeric(8).toUpperCase(),
           images: [faker.image.url(), faker.image.url()],
           isPublished: true,
-          vendorId,
+          vendorId: vendor2Id, // Different vendor
           category: {
             connect: [{ id: categories[0].id }], // many-to-many association
           },
           inventory: {
             create: {
               quantity: faker.number.int({ min: 10, max: 100 }),
-              vendorId,
+              vendorId: vendor2Id,
             },
           },
         },
@@ -383,7 +592,7 @@ async function main() {
           sku: faker.string.alphanumeric(8).toUpperCase(),
           images: [faker.image.url(), faker.image.url()],
           isPublished: true,
-          vendorId,
+          vendorId: vendor3Id, // Different vendor
           warrantyInfo: faker.lorem.sentence(),
           returnPolicy: faker.lorem.sentence(),
           soldCount: faker.number.int({ min: 50, max: 100 }),
@@ -394,7 +603,7 @@ async function main() {
           inventory: {
             create: {
               quantity: faker.number.int({ min: 10, max: 100 }),
-              vendorId,
+              vendorId: vendor3Id,
             },
           },
         },
@@ -472,15 +681,33 @@ async function main() {
     ]),
   );
 
-  // Seed Shipping Policy
-  const shippingPolicy = await prisma.shippingPolicy.create({
-    data: {
-      name: 'Standard Shipping Policy',
-      description: 'Ships within 1-2 business days',
-      processingTime: '1-2 business days',
-      vendorId,
-    },
-  });
+  // Seed Shipping Policies
+  const shippingPolicies = await Promise.all([
+    prisma.shippingPolicy.create({
+      data: {
+        name: 'Standard Shipping Policy',
+        description: 'Ships within 1-2 business days',
+        processingTime: '1-2 business days',
+        vendorId,
+      },
+    }),
+    prisma.shippingPolicy.create({
+      data: {
+        name: 'Express Shipping Policy',
+        description: 'Ships within 1 business day',
+        processingTime: '1 business day',
+        vendorId: vendor2Id,
+      },
+    }),
+    prisma.shippingPolicy.create({
+      data: {
+        name: 'Economy Shipping Policy',
+        description: 'Ships within 3-5 business days',
+        processingTime: '3-5 business days',
+        vendorId: vendor3Id,
+      },
+    }),
+  ]);
 
   // Seed Shipping Options for a few Products (e.g., first 3)
   await Promise.all(
@@ -506,105 +733,421 @@ async function main() {
       await prisma.product.update({
         where: { id: product.id },
         data: {
-          shippingPolicyId: shippingPolicy.id,
+          shippingPolicyId: shippingPolicies[2].id, // Economy policy for featured products
         },
       });
     }),
   );
 
-  // Seed Shipping
-  const shipping = await prisma.shipping.create({
-    data: {
-      name: 'Standard Shipping',
-      description: 'Delivers in 3-5 business days',
-      deliveryTime: '3-5 business days',
-      price: 10.0,
-      isActive: true,
-      Vendor: { connect: { id: vendorId } },
-    },
-  });
+  // Seed Shipping Methods
+  const shippingMethods = await Promise.all([
+    prisma.shipping.create({
+      data: {
+        name: 'Standard Shipping',
+        description: 'Delivers in 3-5 business days',
+        deliveryTime: '3-5 business days',
+        price: 5.99,
+        minDays: 3,
+        maxDays: 5,
+        isActive: true,
+        shippingType: 'STANDARD',
+      },
+    }),
+    prisma.shipping.create({
+      data: {
+        name: 'Express Shipping',
+        description: 'Delivers in 1-2 business days',
+        deliveryTime: '1-2 business days',
+        price: 12.99,
+        minDays: 1,
+        maxDays: 2,
+        isActive: true,
+        shippingType: 'EXPEDITED',
+      },
+    }),
+    prisma.shipping.create({
+      data: {
+        name: 'Overnight Shipping',
+        description: 'Delivers the next business day',
+        deliveryTime: '1 business day',
+        price: 24.99,
+        minDays: 1,
+        maxDays: 1,
+        isActive: true,
+        shippingType: 'ONE_DAY',
+      },
+    }),
+    prisma.shipping.create({
+      data: {
+        name: 'International Shipping',
+        description: 'Delivers in 7-14 business days',
+        deliveryTime: '7-14 business days',
+        price: 35.99,
+        minDays: 7,
+        maxDays: 14,
+        isActive: true,
+        shippingType: 'INTERNATIONAL',
+      },
+    }),
+  ]);
 
-  // Seed Shipping Zones
-  const shippingZones = await prisma.shippingZone.createMany({
-    data: [
-      {
+  console.log('Created shipping methods');
+
+  // Seed Shipping Zones with more detailed pricing
+  const shippingZones = await Promise.all([
+    // Standard Shipping Zones for Vendor 1 (Quality Products Inc.)
+    prisma.shippingZone.create({
+      data: {
         country: 'United States',
         region: 'California',
         postalCode: '90001',
-        shippingId: shipping.id,
+        price: 5.99,
+        minPrice: 50, // Free shipping for orders over $50
+        minWeight: 0,
+        maxWeight: 5,
+        shippingId: shippingMethods[0].id,
       },
-      {
-        country: 'Canada',
-        region: 'Ontario',
-        postalCode: 'M4B1B3',
-        shippingId: shipping.id,
+    }),
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'New York',
+        postalCode: '10001',
+        price: 7.99,
+        minWeight: 0,
+        maxWeight: 5,
+        shippingId: shippingMethods[0].id,
       },
-      {
+    }),
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'Florida',
+        postalCode: '33101',
+        price: 8.99,
+        minWeight: 0,
+        maxWeight: 5,
+        shippingId: shippingMethods[0].id,
+      },
+    }),
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'California',
+        postalCode: '90001',
+        price: 9.99,
+        minWeight: 5,
+        maxWeight: 10,
+        shippingId: shippingMethods[0].id,
+      },
+    }),
+    // Express Shipping Zones for Vendor 1
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'California',
+        postalCode: '90001',
+        price: 12.99,
+        minPrice: 75, // Free shipping for orders over $75
+        minWeight: 0,
+        maxWeight: 5,
+        shippingId: shippingMethods[1].id,
+      },
+    }),
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'New York',
+        postalCode: '10001',
+        price: 14.99,
+        minWeight: 0,
+        maxWeight: 5,
+        shippingId: shippingMethods[1].id,
+      },
+    }),
+    // Heavy items shipping for Vendor 1
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'California',
+        postalCode: '90001',
+        price: 25.99,
+        minWeight: 10,
+        maxWeight: 20,
+        shippingId: shippingMethods[1].id,
+      },
+    }),
+    // International Shipping Zones for Vendor 1
+    prisma.shippingZone.create({
+      data: {
         country: 'United Kingdom',
         region: 'England',
-        postalCode: 'E1 6AN',
-        shippingId: shipping.id,
+        price: 25.99,
+        minWeight: 0,
+        maxWeight: 5,
+        shippingId: shippingMethods[3].id,
       },
-    ],
-  });
+    }),
+    prisma.shippingZone.create({
+      data: {
+        country: 'Germany',
+        region: 'Berlin',
+        price: 29.99,
+        minWeight: 0,
+        maxWeight: 5,
+        shippingId: shippingMethods[3].id,
+      },
+    }),
+    // Standard Shipping Zones for Vendor 2 (Tech Gadgets Co.)
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'California',
+        postalCode: '94102',
+        price: 4.99,
+        minPrice: 40, // Free shipping for orders over $40
+        minWeight: 0,
+        maxWeight: 3,
+        shippingId: shippingMethods[0].id,
+      },
+    }),
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'New York',
+        postalCode: '10001',
+        price: 6.99,
+        minWeight: 0,
+        maxWeight: 3,
+        shippingId: shippingMethods[0].id,
+      },
+    }),
+    // Express Shipping Zones for Vendor 2
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'California',
+        postalCode: '94102',
+        price: 9.99,
+        minPrice: 60, // Free shipping for orders over $60
+        minWeight: 0,
+        maxWeight: 3,
+        shippingId: shippingMethods[1].id,
+      },
+    }),
+    // International Shipping Zones for Vendor 2
+    prisma.shippingZone.create({
+      data: {
+        country: 'United Kingdom',
+        region: 'England',
+        price: 20.99,
+        minWeight: 0,
+        maxWeight: 3,
+        shippingId: shippingMethods[3].id,
+      },
+    }),
+    // Standard Shipping Zones for Vendor 3 (Fashion Style House)
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'New York',
+        postalCode: '10001',
+        price: 3.99,
+        minPrice: 30, // Free shipping for orders over $30
+        minWeight: 0,
+        maxWeight: 2,
+        shippingId: shippingMethods[0].id,
+      },
+    }),
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'California',
+        postalCode: '90001',
+        price: 5.99,
+        minWeight: 0,
+        maxWeight: 2,
+        shippingId: shippingMethods[0].id,
+      },
+    }),
+    // Express Shipping Zones for Vendor 3
+    prisma.shippingZone.create({
+      data: {
+        country: 'United States',
+        region: 'New York',
+        postalCode: '10001',
+        price: 7.99,
+        minPrice: 50, // Free shipping for orders over $50
+        minWeight: 0,
+        maxWeight: 2,
+        shippingId: shippingMethods[1].id,
+      },
+    }),
+  ]);
 
-  // Add Review .
+  console.log('Created shipping zones with detailed pricing');
 
-  const reviews = await prisma.review.create({
-    data: {
-      rating: faker.number.int({ min: 1, max: 5 }),
-      comment: faker.lorem.sentences(2),
-      productId: products[0].id,
-      userId: buyer.id,
-    },
-  });
+  // Associate vendors with shipping methods with more varied pricing
+  const vendorShippings = await Promise.all([
+    // Main vendor (Quality Products Inc.) shipping associations
+    prisma.vendorShipping.create({
+      data: {
+        vendorId,
+        shippingId: shippingMethods[0].id,
+        priceOverride: 4.99, // Vendor-specific price - cheaper than default
+        isActive: true,
+        fulfillment: 'MERCHANT',
+      },
+    }),
+    prisma.vendorShipping.create({
+      data: {
+        vendorId,
+        shippingId: shippingMethods[1].id,
+        priceOverride: 9.99, // Vendor-specific price
+        isActive: true,
+        fulfillment: 'MERCHANT',
+      },
+    }),
+    prisma.vendorShipping.create({
+      data: {
+        vendorId,
+        shippingId: shippingMethods[2].id,
+        priceOverride: 19.99, // Vendor-specific overnight shipping
+        isActive: true,
+        fulfillment: 'MERCHANT',
+      },
+    }),
+    prisma.vendorShipping.create({
+      data: {
+        vendorId,
+        shippingId: shippingMethods[3].id,
+        priceOverride: 30.99, // Vendor-specific international shipping - cheaper than default
+        isActive: true,
+        fulfillment: 'MERCHANT',
+      },
+    }),
+    // Second vendor (Tech Gadgets Co.) shipping associations
+    prisma.vendorShipping.create({
+      data: {
+        vendorId: vendor2Id,
+        shippingId: shippingMethods[0].id,
+        priceOverride: 5.99, // Different pricing
+        isActive: true,
+        fulfillment: 'PLATFORM',
+      },
+    }),
+    prisma.vendorShipping.create({
+      data: {
+        vendorId: vendor2Id,
+        shippingId: shippingMethods[1].id,
+        priceOverride: 11.99, // Different pricing
+        isActive: true,
+        fulfillment: 'PLATFORM',
+      },
+    }),
+    prisma.vendorShipping.create({
+      data: {
+        vendorId: vendor2Id,
+        shippingId: shippingMethods[3].id,
+        priceOverride: 25.99, // Different international pricing
+        isActive: true,
+        fulfillment: 'PLATFORM',
+      },
+    }),
+    // Third vendor (Fashion Style House) shipping associations - cheapest shipping
+    prisma.vendorShipping.create({
+      data: {
+        vendorId: vendor3Id,
+        shippingId: shippingMethods[0].id,
+        priceOverride: 2.99, // Cheapest standard shipping
+        isActive: true,
+        fulfillment: 'PRIME',
+      },
+    }),
+    prisma.vendorShipping.create({
+      data: {
+        vendorId: vendor3Id,
+        shippingId: shippingMethods[1].id,
+        priceOverride: 6.99, // Cheapest express shipping
+        isActive: true,
+        fulfillment: 'PRIME',
+      },
+    }),
+    prisma.vendorShipping.create({
+      data: {
+        vendorId: vendor3Id,
+        shippingId: shippingMethods[2].id,
+        priceOverride: 15.99, // Cheapest overnight shipping
+        isActive: true,
+        fulfillment: 'PRIME',
+      },
+    }),
+    prisma.vendorShipping.create({
+      data: {
+        vendorId: vendor3Id,
+        shippingId: shippingMethods[3].id,
+        priceOverride: 20.99, // Cheapest international shipping
+        isActive: true,
+        fulfillment: 'PRIME',
+      },
+    }),
+  ]);
 
-  const reviews1 = await prisma.review.create({
-    data: {
-      rating: faker.number.int({ min: 1, max: 5 }),
-      comment: faker.lorem.sentences(2),
-      productId: products[0].id,
-      userId: buyer.id,
-    },
-  });
+  console.log('Created vendor shipping associations with varied pricing');
 
-  const reviews2 = await prisma.review.create({
-    data: {
-      rating: faker.number.int({ min: 1, max: 5 }),
-      comment: faker.lorem.sentences(2),
-      productId: products[0].id,
-      userId: buyer.id,
-    },
-  });
+  // Add Reviews
+  const reviews = await Promise.all([
+    prisma.review.create({
+      data: {
+        rating: faker.number.int({ min: 1, max: 5 }),
+        comment: faker.lorem.sentences(2),
+        productId: products[0].id,
+        userId: buyer.id,
+      },
+    }),
+    prisma.review.create({
+      data: {
+        rating: faker.number.int({ min: 1, max: 5 }),
+        comment: faker.lorem.sentences(2),
+        productId: products[0].id,
+        userId: buyer.id,
+      },
+    }),
+    prisma.review.create({
+      data: {
+        rating: faker.number.int({ min: 1, max: 5 }),
+        comment: faker.lorem.sentences(2),
+        productId: products[0].id,
+        userId: buyer.id,
+      },
+    }),
+    prisma.review.create({
+      data: {
+        rating: faker.number.int({ min: 1, max: 5 }),
+        comment: faker.lorem.sentences(2),
+        productId: products[0].id,
+        userId: buyer.id,
+      },
+    }),
+    prisma.review.create({
+      data: {
+        rating: faker.number.int({ min: 1, max: 5 }),
+        comment: faker.lorem.sentences(2),
+        productId: products[0].id,
+        userId: buyer.id,
+      },
+    }),
+    prisma.review.create({
+      data: {
+        rating: faker.number.int({ min: 1, max: 5 }),
+        comment: faker.lorem.sentences(2),
+        productId: products[0].id,
+        userId: buyer.id,
+      },
+    }),
+  ]);
 
-  const reviews3 = await prisma.review.create({
-    data: {
-      rating: faker.number.int({ min: 1, max: 5 }),
-      comment: faker.lorem.sentences(2),
-      productId: products[0].id,
-      userId: buyer.id,
-    },
-  });
-
-  const review4 = await prisma.review.create({
-    data: {
-      rating: faker.number.int({ min: 1, max: 5 }),
-      comment: faker.lorem.sentences(2),
-      productId: products[0].id,
-      userId: buyer.id,
-    },
-  });
-
-  const review5 = await prisma.review.create({
-    data: {
-      rating: faker.number.int({ min: 1, max: 5 }),
-      comment: faker.lorem.sentences(2),
-      productId: products[0].id,
-      userId: buyer.id,
-    },
-  });
-
-  console.log('Created reviews for buyer:', reviews);
+  console.log('Created reviews for buyer:', reviews.length);
 
   // Create cart
   const cart = await prisma.cart.create({
@@ -623,22 +1166,24 @@ async function main() {
   });
   console.log('Created wishlist for buyer:', buyer.email);
 
-  // Create order
+  // Create order with shipping information for Vendor 1 (Quality Products Inc.)
+  // Using standard shipping with vendor override price of $4.99
   const order = await prisma.order.create({
     data: {
       orderNumber: 'ORD-20231027-001',
       userId: buyer.id,
       vendorId,
       tax: 27.99,
-      shipping: 5.99,
+      shipping: 4.99, // Vendor-specific shipping price
       totalAmount: 313.95,
-      subtotal: 280.0,
+      subtotal: 281.96,
       total: 313.95,
-      shippingCost: 0,
+      shippingCost: 4.99,
       status: OrderStatus.PENDING,
       paymentStatus: PaymentStatus.PENDING,
       paymentMethod: PaymentMethod.CREDIT_CARD,
       addressId: buyer.addresses[0].id,
+      shippingAddressId: shippingAddressId,
       items: {
         create: [
           {
@@ -646,31 +1191,244 @@ async function main() {
             quantity: 3,
             unitPrice: products[0].price,
             totalPrice: products[0].price * 3,
+            shippingId: shippingMethods[0].id,
+            shippingStatus: 'PROCESSING',
           },
           {
             productId: products[1].id,
             quantity: 2,
             unitPrice: products[1].price,
             totalPrice: products[1].price * 2,
+            shippingId: shippingMethods[0].id,
+            shippingStatus: 'PROCESSING',
           },
         ],
       },
     },
   });
-  console.log('Created order:', order.orderNumber);
+  console.log('Created order for Vendor 1 (Quality Products Inc.):', order.orderNumber);
 
-  // Create delivery
+  // Create order shipping record for first order
+  const orderShipping = await prisma.orderShipping.create({
+    data: {
+      orderId: order.id,
+      shippingId: shippingMethods[0].id,
+      trackingCode: 'TRACK-V1-1234567890',
+      status: 'PROCESSING',
+      estimatedDelivery: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
+      vendorId: vendorId,
+    },
+  });
+  console.log('Created order shipping record for Vendor 1:', orderShipping.id);
+
+  // Create order with shipping information for Vendor 2 (Tech Gadgets Co.)
+  // Using express shipping with vendor override price of $11.99
+  const order2 = await prisma.order.create({
+    data: {
+      orderNumber: 'ORD-20231027-002',
+      userId: buyer.id,
+      vendorId: vendor2Id,
+      tax: 15.5,
+      shipping: 11.99, // Vendor-specific shipping price
+      totalAmount: 245.75,
+      subtotal: 218.26,
+      total: 245.75,
+      shippingCost: 11.99,
+      status: OrderStatus.CONFIRMED,
+      paymentStatus: PaymentStatus.COMPLETED,
+      paymentMethod: PaymentMethod.CREDIT_CARD,
+      addressId: buyer.addresses[0].id,
+      shippingAddressId: shippingAddressId,
+      items: {
+        create: [
+          {
+            productId: flashSaleProducts[0].id,
+            quantity: 1,
+            unitPrice: flashSaleProducts[0].price,
+            totalPrice: flashSaleProducts[0].price,
+            shippingId: shippingMethods[1].id,
+            shippingStatus: 'PACKED',
+          },
+        ],
+      },
+    },
+  });
+  console.log('Created order for Vendor 2 (Tech Gadgets Co.):', order2.orderNumber);
+
+  // Create order shipping record for second order
+  const orderShipping2 = await prisma.orderShipping.create({
+    data: {
+      orderId: order2.id,
+      shippingId: shippingMethods[1].id,
+      trackingCode: 'TRACK-V2-0987654321',
+      status: 'PACKED',
+      estimatedDelivery: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
+      vendorId: vendor2Id,
+    },
+  });
+  console.log('Created order shipping record for Vendor 2:', orderShipping2.id);
+
+  // Create order with shipping information for Vendor 3 (Fashion Style House)
+  // Using standard shipping with vendor override price of $2.99 (cheapest)
+  const order3 = await prisma.order.create({
+    data: {
+      orderNumber: 'ORD-20231027-003',
+      userId: buyer.id,
+      vendorId: vendor3Id,
+      tax: 8.25,
+      shipping: 2.99, // Vendor-specific shipping price (cheapest)
+      totalAmount: 125.24,
+      subtotal: 114.00,
+      total: 125.24,
+      shippingCost: 2.99,
+      status: OrderStatus.PROCESSING,
+      paymentStatus: PaymentStatus.PENDING,
+      paymentMethod: PaymentMethod.CREDIT_CARD,
+      addressId: buyer.addresses[0].id,
+      shippingAddressId: shippingAddressId,
+      items: {
+        create: [
+          {
+            productId: featuredProducts[0].id,
+            quantity: 1,
+            unitPrice: featuredProducts[0].price,
+            totalPrice: featuredProducts[0].price,
+            shippingId: shippingMethods[0].id,
+            shippingStatus: 'PROCESSING',
+          },
+          {
+            productId: featuredProducts[1].id,
+            quantity: 2,
+            unitPrice: featuredProducts[1].price,
+            totalPrice: featuredProducts[1].price * 2,
+            shippingId: shippingMethods[0].id,
+            shippingStatus: 'PROCESSING',
+          },
+        ],
+      },
+    },
+  });
+  console.log('Created order for Vendor 3 (Fashion Style House):', order3.orderNumber);
+
+  // Create order shipping record for third order
+  const orderShipping3 = await prisma.orderShipping.create({
+    data: {
+      orderId: order3.id,
+      shippingId: shippingMethods[0].id,
+      trackingCode: 'TRACK-V3-1122334455',
+      status: 'PROCESSING',
+      estimatedDelivery: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
+      vendorId: vendor3Id,
+    },
+  });
+  console.log('Created order shipping record for Vendor 3:', orderShipping3.id);
+
+  // Create international order for Vendor 1 with international shipping
+  // Using international shipping with vendor override price of $30.99
+  const order4 = await prisma.order.create({
+    data: {
+      orderNumber: 'ORD-20231027-004',
+      userId: buyer.id,
+      vendorId: vendorId,
+      tax: 42.75,
+      shipping: 30.99, // Vendor-specific international shipping price
+      totalAmount: 425.74,
+      subtotal: 352.00,
+      total: 425.74,
+      shippingCost: 30.99,
+      status: OrderStatus.PENDING,
+      paymentStatus: PaymentStatus.PENDING,
+      paymentMethod: PaymentMethod.CREDIT_CARD,
+      addressId: buyer.addresses[0].id,
+      shippingAddressId: shippingAddressId,
+      items: {
+        create: [
+          {
+            productId: products[2].id,
+            quantity: 1,
+            unitPrice: products[2].price,
+            totalPrice: products[2].price,
+            shippingId: shippingMethods[3].id,
+            shippingStatus: 'PROCESSING',
+          },
+          {
+            productId: products[3].id,
+            quantity: 1,
+            unitPrice: products[3].price,
+            totalPrice: products[3].price,
+            shippingId: shippingMethods[3].id,
+            shippingStatus: 'PROCESSING',
+          },
+        ],
+      },
+    },
+  });
+  console.log('Created international order for Vendor 1:', order4.orderNumber);
+
+  // Create order shipping record for international order
+  const orderShipping4 = await prisma.orderShipping.create({
+    data: {
+      orderId: order4.id,
+      shippingId: shippingMethods[3].id,
+      trackingCode: 'TRACK-V1-INT-5566778899',
+      status: 'PROCESSING',
+      estimatedDelivery: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000), // 12 days from now
+      vendorId: vendorId,
+    },
+  });
+  console.log('Created international order shipping record for Vendor 1:', orderShipping4.id);
+
+  // Create delivery for first order
   const delivery = await prisma.delivery.create({
     data: {
       orderId: order.id,
       riderId: rider.rider.id,
       status: DeliveryStatus.PENDING,
-      trackingNumber: 'TRACK-1234567890',
+      trackingNumber: 'TRACK-V1-1234567890',
       pickupAddress: 'TechStore Warehouse, 456 Tech Ave, New York, NY 10002',
       deliveryAddress: '123 Main St, Apt 4B, New York, NY 10001',
     },
   });
-  console.log('Created delivery:', delivery.id);
+  console.log('Created delivery for order 1:', delivery.id);
+
+  // Create delivery for second order
+  const delivery2 = await prisma.delivery.create({
+    data: {
+      orderId: order2.id,
+      riderId: rider.rider.id,
+      status: DeliveryStatus.PENDING,
+      trackingNumber: 'TRACK-V2-0987654321',
+      pickupAddress: 'Tech Gadgets Warehouse, 789 Tech Blvd, San Francisco, CA 94102',
+      deliveryAddress: '123 Main St, Apt 4B, New York, NY 10001',
+    },
+  });
+  console.log('Created delivery for order 2:', delivery2.id);
+
+  // Create delivery for third order
+  const delivery3 = await prisma.delivery.create({
+    data: {
+      orderId: order3.id,
+      riderId: rider.rider.id,
+      status: DeliveryStatus.PENDING,
+      trackingNumber: 'TRACK-V3-1122334455',
+      pickupAddress: 'Fashion Style House, 321 Fashion Ave, New York, NY 10001',
+      deliveryAddress: '123 Main St, Apt 4B, New York, NY 10001',
+    },
+  });
+  console.log('Created delivery for order 3:', delivery3.id);
+
+  // Create delivery for international order
+  const delivery4 = await prisma.delivery.create({
+    data: {
+      orderId: order4.id,
+      riderId: rider.rider.id,
+      status: DeliveryStatus.PENDING,
+      trackingNumber: 'TRACK-V1-INT-5566778899',
+      pickupAddress: 'TechStore Warehouse, 456 Tech Ave, New York, NY 10002',
+      deliveryAddress: '123 Main St, Apt 4B, New York, NY 10001',
+    },
+  });
+  console.log('Created delivery for international order:', delivery4.id);
 
   // Create payment
   const payment = await prisma.payment.create({
@@ -742,13 +1500,13 @@ async function main() {
     ),
   );
 
-  console.log('Created flashSaleItems:', flashSaleItems);
+  console.log('Created flashSaleItems:', flashSaleItems.length);
 
   // Seed Advertisement
   // Create Advertisements
   const ad1 = await prisma.advertisement.create({
     data: {
-      title: 'Amazing Faetured Product',
+      title: 'Amazing Featured Product',
       description: 'This is a fantastic banner ad!',
       type: AdType.FEATURED_PRODUCT,
       vendorId,
@@ -765,7 +1523,7 @@ async function main() {
   // Create Advertisements for featured vendor
   const ad2 = await prisma.advertisement.create({
     data: {
-      title: 'Amazing Faetured Vendor',
+      title: 'Amazing Featured Vendor',
       description: 'This is a fantastic vendor ad!',
       type: AdType.FEATURED_VENDOR,
       vendorId,
@@ -796,7 +1554,7 @@ async function main() {
     ),
   );
 
-  console.log('Created featuredProduct advert:', productAdvertisement);
+  console.log('Created featuredProduct advert:', productAdvertisement.length);
 
   // Create Ad Targeting
   await prisma.adTargeting.create({
