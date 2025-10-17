@@ -2,11 +2,13 @@ import { Module } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
 import { PrismaModule } from 'src/prisma/prisma.module';
-import { OrdersModule } from 'src/orders/orders.module';
+import { FlutterwaveService } from './flutterwave.service';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
-  imports: [PrismaModule, OrdersModule],
+  imports: [PrismaModule, ConfigModule],
   controllers: [PaymentsController],
-  providers: [PaymentsService],
+  providers: [PaymentsService, FlutterwaveService, ConfigService],
+  exports: [PaymentsService],
 })
 export class PaymentsModule {}

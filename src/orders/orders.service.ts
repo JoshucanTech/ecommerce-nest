@@ -9,10 +9,15 @@ import { CreateOrderDto, OrderItemDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
+import { PaymentsService } from '../payments/payments.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private paymentsService: PaymentsService,
+  ) {}
 
   async create(createOrderDto: CreateOrderDto, userId: string) {
     const {
@@ -149,24 +154,10 @@ export class OrdersService {
         itemsByVendor[vendorId] = [];
       }
 
-      // Find shipping zone based on address details
-      const shippingZone = await this.prisma.shippingZone.findFirst({
-        where: {
-          country: address.country,
-          OR: [
-            { postalCode: address.postalCode },
-            { city: address.city },
-            { region: address.state },
-          ],
-        },
-        include: { shipping: true },
-      });
-
       itemsByVendor[vendorId].push({
         product,
         quantity: item.quantity,
         variantId: item.variantId,
-        shippingZone,
       });
     }
 
@@ -178,49 +169,42 @@ export class OrdersService {
         where: { code: couponCode },
       });
 
-      if (!coupon) {
-        throw new BadRequestException('Invalid coupon code');
-      }
-
-      // Check if coupon is active
-      const now = new Date();
-      if (!coupon.isActive || coupon.startDate > now || coupon.endDate < now) {
-        throw new BadRequestException('Coupon is not active');
-      }
-
-      // Check if coupon has reached usage limit
-      if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
-        throw new BadRequestException('Coupon usage limit reached');
-      }
-
-      // Determine which vendors can use this coupon
-      if (coupon.vendorId) {
-        // Coupon is vendor-specific
-        vendorCoupons[coupon.vendorId] = coupon;
-      } else {
-        // Coupon is valid for all vendors
-        for (const vendorId in itemsByVendor) {
-          vendorCoupons[vendorId] = coupon;
+      if (coupon) {
+        // Check if coupon is active
+        const now = new Date();
+        if (
+          coupon.isActive &&
+          coupon.startDate <= now &&
+          coupon.endDate >= now
+        ) {
+          // Check if coupon has reached usage limit
+          if (!coupon.usageLimit || coupon.usageCount < coupon.usageLimit) {
+            // Determine which vendors can use this coupon
+            if (coupon.vendorId) {
+              // Coupon is vendor-specific
+              vendorCoupons[coupon.vendorId] = coupon;
+            } else {
+              // Coupon is valid for all vendors
+              for (const vendorId in itemsByVendor) {
+                vendorCoupons[vendorId] = coupon;
+              }
+            }
+          }
         }
       }
     }
 
-    // Create orders for each vendor
-    const orders = [];
-    const paymentIntents = []; // Track payment intents for each vendor order
-
+    // Calculate totals for each vendor
+    const vendorTotals = {};
+    let totalAmount = 0;
     for (const vendorId in itemsByVendor) {
       const vendorItems = itemsByVendor[vendorId];
-
-      // Calculate order total
-      let orderTotal = 0;
-      const orderItems: OrderItemDto[] = [];
+      let vendorTotal = 0;
 
       for (const { product, quantity, variantId } of vendorItems) {
         // Determine price based on variant or base product
         let unitPrice;
         if (variantId) {
-          // Ensure variants array exists before calling find
           const variants = product.ProductVariant || [];
           const variant = variants.find((v) => v.id === variantId);
           unitPrice = variant?.discountPrice || variant?.price || product.price;
@@ -229,7 +213,6 @@ export class OrdersService {
         }
 
         // Check for flash sale
-        // Ensure flashSaleItems array exists before calling find
         const flashSaleItems = product.flashSaleItems || [];
         const activeFlashSale = flashSaleItems.find(
           (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
@@ -239,16 +222,7 @@ export class OrdersService {
           ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
           : unitPrice;
 
-        const itemTotal = itemPrice * quantity;
-        orderTotal += itemTotal;
-
-        orderItems.push({
-          productId: product.id,
-          variantId,
-          quantity,
-          unitPrice: itemPrice,
-          totalPrice: itemTotal,
-        });
+        vendorTotal += itemPrice * quantity;
       }
 
       // Apply coupon discount if applicable
@@ -256,7 +230,7 @@ export class OrdersService {
       const vendorCoupon = vendorCoupons[vendorId];
       if (vendorCoupon) {
         if (vendorCoupon.discountType === 'PERCENTAGE') {
-          discountAmount = orderTotal * (vendorCoupon.discountValue / 100);
+          discountAmount = vendorTotal * (vendorCoupon.discountValue / 100);
           if (
             vendorCoupon.maxDiscount &&
             discountAmount > vendorCoupon.maxDiscount
@@ -271,13 +245,12 @@ export class OrdersService {
           if (!vendorCoupon.vendorId) {
             const totalOrderValueAcrossVendors: any = Object.values(
               itemsByVendor,
-            ).reduce((total, vendorItemList: any[]) => {
+            ).reduce((total, vendorItemList: any) => {
               return (
                 total +
                 vendorItemList.reduce((vendorTotal, item) => {
                   let unitPrice;
                   if (item.variantId) {
-                    // Ensure variants array exists before calling find
                     const variants = item.product.ProductVariant || [];
                     const variant = variants.find(
                       (v) => v.id === item.variantId,
@@ -291,7 +264,6 @@ export class OrdersService {
                       item.product.discountPrice || item.product.price;
                   }
 
-                  // Ensure flashSaleItems array exists before calling find
                   const flashSaleItems = item.product.flashSaleItems || [];
                   const activeFlashSale = flashSaleItems.find(
                     (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
@@ -309,18 +281,19 @@ export class OrdersService {
             const vendorOrderValue = vendorItems.reduce((total, item) => {
               let unitPrice;
               if (item.variantId) {
-                // Ensure variants array exists before calling find
                 const variants = item.product.ProductVariant || [];
-                const variant = variants.find((v) => v.id === item.variantId);
+                const variant = variants.find(
+                  (v) => v.id === item.variantId,
+                );
                 unitPrice =
                   variant?.discountPrice ||
                   variant?.price ||
                   item.product.price;
               } else {
-                unitPrice = item.product.discountPrice || item.product.price;
+                unitPrice =
+                  item.product.discountPrice || item.product.price;
               }
 
-              // Ensure flashSaleItems array exists before calling find
               const flashSaleItems = item.product.flashSaleItems || [];
               const activeFlashSale = flashSaleItems.find(
                 (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
@@ -336,211 +309,174 @@ export class OrdersService {
             // Distribute discount proportionally
             discountAmount =
               vendorCoupon.discountValue *
-              ((vendorOrderValue / totalOrderValueAcrossVendors) as number);
+              (vendorOrderValue / totalOrderValueAcrossVendors);
           }
         }
 
         // Check minimum purchase requirement
-        if (vendorCoupon.minPurchase && orderTotal < vendorCoupon.minPurchase) {
+        if (
+          vendorCoupon.minPurchase &&
+          vendorTotal < vendorCoupon.minPurchase
+        ) {
           discountAmount = 0;
         }
       }
 
       // Apply discount
-      orderTotal = Math.max(0, orderTotal - discountAmount);
+      vendorTotal = Math.max(0, vendorTotal - discountAmount);
 
-      // Get shipping selection for this vendor
+      // Add shipping cost
       const shippingOptionId = shippingSelections[vendorId];
-
-      // Skip shipping validation if there's only one vendor
-      if (!shippingOptionId && Object.keys(itemsByVendor).length > 1) {
-        throw new BadRequestException(
-          `Shipping selection required for vendor ${vendorId}`,
-        );
-      }
-
-      // Find shipping zone for this vendor's items
-      const shippingZone = itemsByVendor[vendorId][0]?.shippingZone;
-
-      if (!shippingZone && Object.keys(itemsByVendor).length > 1) {
-        throw new BadRequestException(
-          `No shipping zone found for vendor ${vendorId} address: ${address.country}, ${address.state}, ${address.city}`,
-        );
-      }
-
-      // Get shipping price from zone and selected option
-      let shippingPrice = 0;
-
-      if (shippingZone && shippingOptionId && shippingZone.shipping) {
-        // Make sure options array exists on the shipping before accessing it
-        if (Array.isArray(shippingZone.shipping.options)) {
-          const shippingOption = shippingZone.shipping.options.find(
-            (option) => option.id === shippingOptionId,
-          );
-
-          if (!shippingOption) {
-            throw new BadRequestException(
-              `Invalid shipping option ID: ${shippingOptionId} for vendor ${vendorId}`,
-            );
-          }
-
-          shippingPrice = shippingOption.price;
-        } else {
-          // If options is not an array or doesn't exist, use default shipping cost
-          console.warn(
-            `Shipping options not properly configured for shipping zone ${shippingZone.id} for vendor ${vendorId}. Using default shipping cost of 0.`,
-          );
-          shippingPrice = 0;
+      if (shippingOptionId) {
+        const shippingMethod = await this.prisma.shipping.findFirst({
+          where: { id: shippingOptionId, Vendor: { some: { id: vendorId } } },
+        });
+        if (shippingMethod) {
+          vendorTotal += shippingMethod.price;
         }
-      } else if (!shippingZone && Object.keys(itemsByVendor).length > 1) {
-        // Instead of throwing an error immediately, we log a warning and use default shipping
-        console.warn(
-          `No shipping zone found for vendor ${vendorId} address: ${address.country}, ${address.state}, ${address.city}. Using default shipping cost of 0.`,
-        );
-        // Use 0 as default shipping cost when no zone is found
-        shippingPrice = 0;
       }
 
-      // Add shipping price to the total
-      orderTotal += shippingPrice;
+      vendorTotals[vendorId] = vendorTotal;
+      totalAmount += vendorTotal;
+    }
+
+    // Create payment intent before creating orders
+    const paymentIntentDto = {
+      items: items.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        variantId: item.variantId,
+      })),
+      shippingSelections: shippingSelections || {},
+      couponCode,
+    };
+
+    const paymentIntent = await this.paymentsService.createPaymentIntent(
+      paymentIntentDto,
+      userId,
+    );
+
+    // Create orders for each vendor
+    const orders = [];
+    for (const vendorId in itemsByVendor) {
+      const vendorItems = itemsByVendor[vendorId];
+      
+      // Create order items
+      const orderItems = vendorItems.map((item) => {
+        const product = item.product;
+        let unitPrice;
+        if (item.variantId) {
+          const variants = product.ProductVariant || [];
+          const variant = variants.find((v) => v.id === item.variantId);
+          unitPrice = variant?.discountPrice || variant?.price || product.price;
+        } else {
+          unitPrice = product.discountPrice || product.price;
+        }
+
+        // Check for flash sale
+        const flashSaleItems = product.flashSaleItems || [];
+        const activeFlashSale = flashSaleItems.find(
+          (fsi) => fsi.flashSale !== null && fsi.flashSale.isActive,
+        );
+
+        const finalPrice = activeFlashSale
+          ? unitPrice * (1 - activeFlashSale.discountPercentage / 100)
+          : unitPrice;
+
+        return {
+          productId: product.id,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          unitPrice: finalPrice,
+          totalPrice: finalPrice * item.quantity,
+        };
+      });
+
+      // Calculate vendor total
+      const vendorTotal = orderItems.reduce(
+        (sum, item) => sum + item.totalPrice,
+        0,
+      );
+
+      // Add shipping cost to vendor total
+      const shippingOptionId = shippingSelections[vendorId];
+      let shippingCost = 0;
+      if (shippingOptionId) {
+        const shippingMethod = await this.prisma.shipping.findFirst({
+          where: { id: shippingOptionId, Vendor: { some: { id: vendorId } } },
+        });
+        if (shippingMethod) {
+          shippingCost = shippingMethod.price;
+        }
+      }
+
+      const orderTotal = vendorTotal + shippingCost;
 
       // Generate order number
-      const orderNumber = this.generateOrderNumber();
+      const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-      // Create order
-      const order = await this.prisma.order.create({
-        data: {
-          orderNumber,
-          user: {
-            connect: { id: userId },
-          },
-          vendor: {
-            connect: { id: vendorId },
-          },
-          totalAmount: orderTotal,
-          shipping: shippingPrice, // Set the shipping field
-          subtotal: orderTotal - shippingPrice, // Calculate subtotal
-          total: orderTotal, // Total including shipping
-          status: OrderStatus.PENDING,
-          paymentStatus: PaymentStatus.PENDING,
-          paymentMethod,
-          // Handle address creation for the order
-          address: useUserAddress
-            ? {
-                connect: { id: address.id },
-              }
-            : shippingAddress
-              ? {
-                  create: {
-                    ...shippingAddress,
-                    user: { connect: { id: userId } },
-                  },
-                }
-              : addressId
-                ? {
-                    connect: { id: addressId },
-                  }
-                : undefined,
-          coupon: vendorCoupon
-            ? { connect: { id: vendorCoupon.id } }
-            : undefined,
-          items: {
-            create: orderItems.map((item) => ({
-              // productId: item.productId,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              totalPrice: item.totalPrice,
-              ...(item.variantId && {
-                // variantId: item.variantId,
-                variant: { connect: { id: item.variantId } },
-              }),
-              product: {
-                connect: { id: item.productId },
-              },
-            })),
-          },
+      // Prepare order data with proper address handling
+      const orderData: any = {
+        orderNumber,
+        totalAmount: orderTotal,
+        status: OrderStatus.PENDING,
+        paymentStatus: PaymentStatus.PENDING,
+        paymentMethod,
+        notes: notes || '',
+        userId,
+        vendorId,
+        items: {
+          create: orderItems,
         },
+        paymentIntentId: paymentIntent.tx_ref, // Store Flutterwave transaction reference
+      };
+
+      // Add the appropriate address based on what was provided
+      if (useUserAddress && address.id) {
+        orderData.addressId = address.id;
+      } else if (shippingAddressId) {
+        orderData.shippingAddressId = shippingAddressId;
+      } else if (addressId) {
+        orderData.addressId = addressId;
+      } else if (shippingAddress) {
+        orderData.shippingAddress = address;
+      }
+
+      // Create the order
+      const order = await this.prisma.order.create({
+        data: orderData,
         include: {
           items: {
             include: {
               product: {
-                select: {
-                  id: true,
-                  name: true,
-                  slug: true,
-                  images: true,
+                include: {
+                  vendor: true,
                 },
               },
+              variant: true,
             },
           },
-          vendor: {
+          user: {
             select: {
               id: true,
-              businessName: true,
-              slug: true,
+              email: true,
+              firstName: true,
+              lastName: true,
             },
           },
+          vendor: true,
           address: true,
+          shippingAddress: true,
         },
       });
 
       orders.push(order);
-
-      // Create a payment intent for this vendor's order
-      paymentIntents.push({
-        orderId: order.id,
-        vendorId: order.vendorId,
-        amount: orderTotal,
-        currency: 'usd', // Assuming USD, could be dynamic based on region
-      });
-
-      // Update inventory
-      for (const { product, quantity, variantId } of vendorItems) {
-        if (variantId) {
-          // Update variant inventory
-          // Ensure variants array exists before calling find
-          const variants = product.ProductVariant || [];
-          const variant = variants.find((v) => v.id === variantId);
-          if (variant) {
-            await this.prisma.productVariant.update({
-              where: { id: variantId },
-              data: {
-                quantity: {
-                  decrement: quantity,
-                },
-              },
-            });
-          }
-        } else {
-          // Update base product inventory
-          await this.prisma.inventory.update({
-            where: { productId: product.id },
-            data: {
-              quantity: {
-                decrement: quantity,
-              },
-            },
-          });
-        }
-      }
-    }
-
-    // Update coupon usage if used
-    if (coupon) {
-      await this.prisma.coupon.update({
-        where: { id: coupon.id },
-        data: {
-          usageCount: {
-            increment: 1,
-          },
-        },
-      });
     }
 
     return {
-      message: 'Orders created successfully',
+      message: 'Orders created successfully. Please complete payment to confirm your order.',
       orders,
-      paymentIntents, // Return payment intents for frontend processing
+      paymentIntent,
     };
   }
 

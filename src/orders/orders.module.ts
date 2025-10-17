@@ -1,23 +1,13 @@
-import { Module, ValidationPipe } from "@nestjs/common";
-import { APP_PIPE } from "@nestjs/core";
-import { OrdersService } from "./orders.service";
-import { OrdersController } from "./orders.controller";
-import { PrismaModule } from "src/prisma/prisma.module";
-import { ProductsModule } from "src/products/products.module";
-import { ValidationExceptionFilter } from "../exceptions/validation-exception.filter";
-
+import { Module } from '@nestjs/common';
+import { OrdersService } from './orders.service';
+import { OrdersController } from './orders.controller';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { PaymentsModule } from 'src/payments/payments.module';
 
 @Module({
-  imports: [PrismaModule, ProductsModule],
+  imports: [PrismaModule, PaymentsModule],
   controllers: [OrdersController],
-  providers: [
-    OrdersService,
-    {
-      provide: APP_PIPE,
-      useClass: ValidationPipe,
-    },
-    ValidationExceptionFilter,
-  ],
+  providers: [OrdersService],
   exports: [OrdersService],
 })
 export class OrdersModule {}

@@ -63,6 +63,7 @@ model Order {
   delivery      Delivery[]
   Rider         Rider?         @relation(fields: [riderId], references: [id])
   riderId       String?
+  paymentIntentId   String?          // Add payment intent ID field
 
   @@map("orders")
 }
