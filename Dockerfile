@@ -1,70 +1,59 @@
-# syntax=docker/dockerfile:1.4
-
-# -------- Base Stage --------
-FROM node:22-alpine AS base
+# Stage 1: Build the app
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies only when package files change
+# Copy package files first for better caching
 COPY package*.json ./
-COPY prisma ./prisma/
-COPY prisma.config.ts ./
 
-# -------- Development Stage --------
-FROM base AS dev
+# Install all dependencies including dev dependencies for building
+RUN npm ci
 
-# Create non-root user for security
-RUN addgroup --g 1001 --system nodejs && \
-    adduser --uid 1001 --system nodejs --ingroup nodejs
+# Copy Prisma schema
+COPY prisma ./prisma
 
-# Leverage BuildKit caching for faster rebuilds
-RUN --mount=type=cache,target=/app/.npm \
-    npm config set cache /app/.npm --global && \
-    npm ci --loglevel verbose
+# Generate Prisma client
+RUN npx prisma generate
 
-# Copy entrypoint script early and make executable
-COPY docker-entrypoint.dev.sh ./
-RUN chmod +x docker-entrypoint.dev.sh
-
-# Copy full app code after deps to preserve cache
+# Copy all source files
 COPY . .
 
-# Change ownership to non-root user
-RUN chown -R nodejs:nodejs . && \
-    chmod +x docker-entrypoint.dev.sh
-
-# Switch to non-root user
-USER nodejs
-
-# Expose port
-EXPOSE 4000
-
-# Use entrypoint script instead of direct CMD
-ENTRYPOINT ["./docker-entrypoint.dev.sh"]
-
-# -------- Production Stage --------
-FROM base AS production
-
-ENV NODE_ENV=production
-
-# Create non-root user for security
-RUN addgroup --g 1001 --system nodejs && \
-    adduser --uid 1001 --system nodejs --ingroup nodejs
-
-# Install only production deps
-RUN --mount=type=cache,target=/app/.npm \
-    npm config set cache /app/.npm --global && \
-    npm ci --omit=dev
-
-# Copy app code with correct ownership
-COPY --chown=nodejs:nodejs . .
-
-# Compile NestJS app
+# Build the NestJS app
 RUN npm run build
 
-# Switch to non-root user for security
-USER nodejs
+# Stage 2: Production image
+FROM node:20-alpine AS runner
 
-EXPOSE 4000
+# Create app directory
+WORKDIR /app
 
-CMD ["node", "dist/main"]
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production
+
+# Copy built application from builder stage
+COPY --from=builder /app/dist ./dist
+
+# Copy Prisma files and generate client for production
+COPY --from=builder /app/prisma ./prisma
+RUN npx prisma generate
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
+
+# Change ownership of app directory to non-root user
+RUN chown -R nextjs:nodejs /app
+USER nextjs
+
+# Expose the port the app runs on
+EXPOSE 3000
+
+# Health check using the existing health endpoint
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node healthcheck.js
+
+# Start the application
+CMD ["node", "dist/main.js"]

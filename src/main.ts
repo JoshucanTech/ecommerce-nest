@@ -41,7 +41,7 @@ async function bootstrap() {
   // Use our exception filters
   app.useGlobalFilters(
     new ValidationExceptionFilter(), // Handle validation errors first
-    new DetailedExceptionFilter()    // Handle all other errors
+    new DetailedExceptionFilter(), // Handle all other errors
   );
 
   // Use our enhanced logging interceptor
