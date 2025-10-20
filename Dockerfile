@@ -55,5 +55,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node healthcheck.js
 
-# Start the application
-CMD ["node", "dist/main.js"]
+# Start the application with optional migrations
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
