@@ -12,6 +12,8 @@ RUN npm ci
 # Copy Prisma schema
 COPY prisma ./prisma
 
+COPY prisma.config.ts ./
+
 # Generate Prisma client
 RUN npx prisma generate
 
@@ -38,6 +40,7 @@ COPY --from=builder /app/dist ./dist
 
 # Copy Prisma files and generate client for production
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./
 RUN npx prisma generate
 
 # Create non-root user
@@ -55,5 +58,8 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node healthcheck.js
 
-# Start the application with optional migrations
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+# Copy the start script
+COPY --from=builder /app/start.js ./start.js
+
+# Start the application with the start script
+CMD ["node", "start.js"]
