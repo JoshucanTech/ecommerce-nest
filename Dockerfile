@@ -56,10 +56,7 @@ EXPOSE 3000
 
 # Health check using the existing health endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node healthcheck.js
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-# Copy the start script
-COPY --from=builder /app/start.js ./start.js
-
-# Start the application with the start script
-CMD ["node", "start.js"]
+# Start the application directly
+CMD ["node", "dist/src/main.js"]
