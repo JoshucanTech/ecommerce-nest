@@ -47,6 +47,8 @@ async function bootstrap() {
       'http://localhost:2000',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:2000',
+      // For Render deployment
+      /\.onrender\.com$/,
     ],
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
@@ -108,7 +110,8 @@ async function bootstrap() {
     },
   });
 
-  const port = configService.get<number>('PORT') || 3000;
+  // Use PORT environment variable provided by Render, with fallback to 4000
+  const port = parseInt(process.env.PORT, 10) || 4000;
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
   console.log(
