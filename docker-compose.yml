@@ -6,12 +6,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: dev
+      # target: dev
     image: ecommerce-backend:latest
     ports:
       - "4000:4000"
     environment:
       NODE_ENV: development
+      RUN_SEED: 0
+
       DATABASE_URL: postgresql://postgres:secret2580@postgres:5432/ecommerce?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-cEVNBXuvqiPfH81BlmSZYcii/hnjqTibnbS6ye5vWgQ=}
       JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-7d}

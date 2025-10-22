@@ -13,10 +13,8 @@ export class RedisService {
     const redisPort = parseInt(process.env.REDIS_PORT, 10) || 6379;
     const redisPassword = process.env.REDIS_PASSWORD || undefined;
     const redisUrl = process.env.REDIS_URL || undefined;
-
-    this.logger.log(
-      `Initializing Redis connection with: ${redisUrl ? 'REDIS_URL' : `host=${redisHost}, port=${redisPort}${redisPassword ? ', password=***' : ''}`}`,
-    );
+    
+    this.logger.log(`Initializing Redis connection with: ${redisUrl ? 'REDIS_URL' : `host=${redisHost}, port=${redisPort}${redisPassword ? ', password=***' : ''}`}`);
 
     const redisOptions = {
       retryStrategy: (times) => {
@@ -49,15 +47,17 @@ export class RedisService {
 
     this.client.on('connect', () => {
       this.logger.log(`Connected to Redis at ${redisHost}:${redisPort}`);
+    });
+
+    this.client.on('ready', () => {
+      this.logger.log('Redis client is ready');
       this.isConnected = true;
     });
 
     this.client.on('error', (err) => {
       this.logger.error('Redis error:', err.message);
       if (err.message.includes('AUTH')) {
-        this.logger.error(
-          'Redis authentication failed. Check your REDIS_PASSWORD.',
-        );
+        this.logger.error('Redis authentication failed. Check your REDIS_PASSWORD.');
       }
     });
 
@@ -69,22 +69,29 @@ export class RedisService {
     this.client.on('reconnecting', () => {
       this.logger.log('Redis reconnecting...');
     });
-
+    
     this.client.on('end', () => {
       this.logger.log('Redis connection ended');
       this.isConnected = false;
     });
-
-    // Connect after setting up all event handlers
-    this.connect();
+    
+    // Connect asynchronously without blocking
+    this.connectAsync();
   }
 
-  private async connect() {
+  private async connectAsync() {
     try {
-      await this.client.connect();
-      this.logger.log('Redis connection established');
+      // Don't block the application startup
+      setTimeout(async () => {
+        try {
+          await this.client.connect();
+          this.logger.log('Redis connection established');
+        } catch (error) {
+          this.logger.error('Failed to establish Redis connection:', error.message);
+        }
+      }, 0);
     } catch (error) {
-      this.logger.error('Failed to establish Redis connection:', error.message);
+      this.logger.error('Error initiating Redis connection:', error.message);
     }
   }
 
@@ -102,7 +109,7 @@ export class RedisService {
   getRedisInfo(): { host: string; port: number; connected: boolean } {
     const redisHost = process.env.REDIS_HOST || 'localhost';
     const redisPort = parseInt(process.env.REDIS_PORT, 10) || 6379;
-
+    
     return {
       host: redisHost,
       port: redisPort,
@@ -120,7 +127,7 @@ export class RedisService {
 
   async addViewer(productId: string, userId: string) {
     if (!this.checkConnection()) return;
-
+    
     try {
       await this.client.sadd(`product:${productId}:viewers`, userId);
       await this.client.expire(`product:${productId}:viewers`, 300); // auto-expire in 5 min
@@ -131,7 +138,7 @@ export class RedisService {
 
   async removeViewer(productId: string, userId: string) {
     if (!this.checkConnection()) return;
-
+    
     try {
       await this.client.srem(`product:${productId}:viewers`, userId);
     } catch (error) {
@@ -141,14 +148,11 @@ export class RedisService {
 
   async getViewerCount(productId: string): Promise<number> {
     if (!this.checkConnection()) return 0;
-
+    
     try {
       return await this.client.scard(`product:${productId}:viewers`);
     } catch (error) {
-      this.logger.error(
-        'Error getting viewer count from Redis:',
-        error.message,
-      );
+      this.logger.error('Error getting viewer count from Redis:', error.message);
       return 0;
     }
   }

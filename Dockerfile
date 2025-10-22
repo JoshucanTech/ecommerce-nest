@@ -58,7 +58,8 @@ ENV NODE_PORT 3000
 EXPOSE $NODE_PORT
 
 # Health check using the existing health endpoint
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# Give more time for the app to start
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:$NODE_PORT/api/health || exit 1
 
 # Start the application directly

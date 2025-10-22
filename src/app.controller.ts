@@ -18,11 +18,8 @@ export class AppController {
 
   @Get('health')
   @Public()
-  healthCheck(): { status: string; timestamp: number } {
-    return {
-      status: 'healthy',
-      timestamp: Date.now(),
-    };
+  healthCheck() {
+    return { status: 'healthy', timestamp: Date.now() };
   }
 
   // Endpoint to clear application cache (if any)

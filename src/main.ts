@@ -30,8 +30,12 @@ async function runMigrationsAndSeeding() {
 }
 
 async function bootstrap() {
-  // Run migrations and seeding before starting the application
-  await runMigrationsAndSeeding();
+  // Start migrations and seeding in background without blocking
+  runMigrationsAndSeeding().then(() => {
+    console.log('Migrations and seeding completed');
+  }).catch((error) => {
+    console.error('Error in background migrations/seeding:', error.message);
+  });
 
   // Set log levels for more detailed logging
   const app = await NestFactory.create(AppModule, {
