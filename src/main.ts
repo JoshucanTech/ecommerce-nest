@@ -17,7 +17,7 @@ async function runMigrationsAndSeeding() {
     console.log('Running database migrations...');
     const { execSync } = require('child_process');
     execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-    
+
     // Check if seeding should be run
     if (process.env.RUN_SEED === '1') {
       console.log('Running database seeding...');
@@ -68,7 +68,7 @@ async function bootstrap() {
   // Use our exception filters
   app.useGlobalFilters(
     new ValidationExceptionFilter(), // Handle validation errors first
-    new DetailedExceptionFilter()    // Handle all other errors
+    new DetailedExceptionFilter(), // Handle all other errors
   );
 
   // Use our enhanced logging interceptor
@@ -111,11 +111,12 @@ async function bootstrap() {
   });
 
   // Use PORT environment variable provided by Render, with fallback to 4000
-  const port = parseInt(process.env.PORT, 10) || 4000;
-  await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
+  const port = parseInt(process.env.PORT, 10) || 3000;
+  // Bind to all interfaces (0.0.0.0) instead of localhost only for Render compatibility
+  await app.listen(port, '0.0.0.0');
+  console.log(`Application is running on: http://0.0.0.0:${port}`);
   console.log(
-    `Swagger documentation available at: http://localhost:${port}/api/docs`,
+    `Swagger documentation available at: http://0.0.0.0:${port}/api/docs`,
   );
 }
 bootstrap();

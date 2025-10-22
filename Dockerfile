@@ -51,12 +51,15 @@ RUN adduser -S nextjs -u 1001
 RUN chown -R nextjs:nodejs /app
 USER nextjs
 
+# Set Node.js port
+ENV NODE_PORT 3000
+
 # Expose the port the app runs on
-EXPOSE 4000
+EXPOSE $NODE_PORT
 
 # Health check using the existing health endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:4000/api/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:$NODE_PORT/api/health || exit 1
 
 # Start the application directly
 CMD ["node", "dist/src/main.js"]
