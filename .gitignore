@@ -57,3 +57,5 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Thing i am ignoring
 dont-push*
+
+test-redis-detailed.js
