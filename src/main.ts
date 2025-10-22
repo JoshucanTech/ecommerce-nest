@@ -7,7 +7,32 @@ import { EnhancedLoggingInterceptor } from './interceptors/enhanced-logging.inte
 import { DetailedExceptionFilter } from './exceptions/detailed-exception.filter';
 import { ValidationExceptionFilter } from './exceptions/validation-exception.filter';
 
+async function runMigrationsAndSeeding() {
+  // Only run in production/development environments, not in test
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
+
+  try {
+    console.log('Running database migrations...');
+    const { execSync } = require('child_process');
+    execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+    
+    // Check if seeding should be run
+    if (process.env.RUN_SEED === '1') {
+      console.log('Running database seeding...');
+      execSync('npx prisma db seed', { stdio: 'inherit' });
+    }
+  } catch (error) {
+    console.error('Error during migrations/seeding:', error.message);
+    // Don't exit here, let the application decide whether to continue or not
+  }
+}
+
 async function bootstrap() {
+  // Run migrations and seeding before starting the application
+  await runMigrationsAndSeeding();
+
   // Set log levels for more detailed logging
   const app = await NestFactory.create(AppModule, {
     logger: ['log', 'error', 'warn', 'debug', 'verbose'] as LogLevel[],
@@ -85,7 +110,6 @@ async function bootstrap() {
 
   const port = configService.get<number>('PORT') || 3000;
   await app.listen(port);
-  // await app.listen(process.env.PORT ?? 3000);
   console.log(`Application is running on: http://localhost:${port}`);
   console.log(
     `Swagger documentation available at: http://localhost:${port}/api/docs`,
