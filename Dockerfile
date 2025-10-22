@@ -42,6 +42,10 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./
 RUN npx prisma generate
 
+# Copy start script and make it executable (BEFORE switching users)
+COPY --from=builder /app/start.sh ./start.sh
+RUN chmod +x ./start.sh
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
@@ -59,10 +63,6 @@ EXPOSE $PORT
 # Health check using the existing health endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:$PORT/api/health || exit 1
-
-# Copy start script
-COPY --from=builder /app/start.sh ./start.sh
-RUN chmod +x ./start.sh
 
 # Start the application with the start script
 CMD ["./start.sh"]
