@@ -11,26 +11,48 @@ export class RedisService {
   constructor() {
     const redisHost = process.env.REDIS_HOST || 'localhost';
     const redisPort = parseInt(process.env.REDIS_PORT, 10) || 6379;
+    const redisPassword = process.env.REDIS_PASSWORD || undefined;
+    const redisUrl = process.env.REDIS_URL || undefined;
     
-    this.client = new Redis({
-      host: redisHost,
-      port: redisPort,
+    this.logger.log(`Initializing Redis connection with: ${redisUrl ? 'REDIS_URL' : `host=${redisHost}, port=${redisPort}${redisPassword ? ', password=***' : ''}`}`);
+
+    const redisOptions = {
       retryStrategy: (times) => {
-        this.logger.error(`Redis connection attempt ${times} failed`);
-        // Retry after 2 seconds, with exponential backoff
-        return Math.min(times * 50, 2000);
+        this.logger.warn(`Redis connection attempt ${times} failed`);
+        // Exponential backoff, max 30 seconds
+        const delay = Math.min(times * 1000, 30000);
+        this.logger.log(`Retrying Redis connection in ${delay}ms`);
+        return delay;
       },
       connectTimeout: 10000,
-    });
+      maxRetriesPerRequest: 3,
+      lazyConnect: true, // Don't connect immediately
+    };
+
+    if (redisUrl) {
+      this.client = new Redis(redisUrl, redisOptions);
+    } else {
+      this.client = new Redis({
+        host: redisHost,
+        port: redisPort,
+        password: redisPassword,
+        ...redisOptions,
+      });
+    }
 
     this.client.on('connect', () => {
       this.logger.log(`Connected to Redis at ${redisHost}:${redisPort}`);
       this.isConnected = true;
     });
 
+    this.client.on('ready', () => {
+      this.logger.log('Redis client is ready');
+      this.isConnected = true;
+    });
+
     this.client.on('error', (err) => {
       this.logger.error('Redis error:', err.message);
-      this.isConnected = false;
+      // Don't set isConnected to false here, as the client might recover
     });
 
     this.client.on('close', () => {
@@ -41,6 +63,18 @@ export class RedisService {
     this.client.on('reconnecting', () => {
       this.logger.log('Redis reconnecting...');
     });
+    
+    // Connect after setting up all event handlers
+    this.connect();
+  }
+
+  private async connect() {
+    try {
+      await this.client.connect();
+      this.logger.log('Redis connection established');
+    } catch (error) {
+      this.logger.error('Failed to establish Redis connection:', error.message);
+    }
   }
 
   /**
