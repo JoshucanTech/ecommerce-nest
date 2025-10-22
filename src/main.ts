@@ -7,36 +7,7 @@ import { EnhancedLoggingInterceptor } from './interceptors/enhanced-logging.inte
 import { DetailedExceptionFilter } from './exceptions/detailed-exception.filter';
 import { ValidationExceptionFilter } from './exceptions/validation-exception.filter';
 
-async function runMigrationsAndSeeding() {
-  // Only run in production/development environments, not in test
-  if (process.env.NODE_ENV === 'test') {
-    return;
-  }
-
-  try {
-    console.log('Running database migrations...');
-    const { execSync } = require('child_process');
-    execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-
-    // Check if seeding should be run
-    if (process.env.RUN_SEED === '1') {
-      console.log('Running database seeding...');
-      execSync('npx prisma db seed', { stdio: 'inherit' });
-    }
-  } catch (error) {
-    console.error('Error during migrations/seeding:', error.message);
-    // Don't exit here, let the application decide whether to continue or not
-  }
-}
-
 async function bootstrap() {
-  // Start migrations and seeding in background without blocking
-  runMigrationsAndSeeding().then(() => {
-    console.log('Migrations and seeding completed');
-  }).catch((error) => {
-    console.error('Error in background migrations/seeding:', error.message);
-  });
-
   // Set log levels for more detailed logging
   const app = await NestFactory.create(AppModule, {
     logger: ['log', 'error', 'warn', 'debug', 'verbose'] as LogLevel[],
@@ -114,7 +85,7 @@ async function bootstrap() {
     },
   });
 
-  // Use PORT environment variable provided by Render, with fallback to 4000
+  // Use PORT environment variable provided by Render, with fallback to 3000
   const port = parseInt(process.env.PORT, 10) || 3000;
   // Bind to all interfaces (0.0.0.0) instead of localhost only for Render compatibility
   await app.listen(port, '0.0.0.0');
