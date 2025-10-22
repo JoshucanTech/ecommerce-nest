@@ -42,7 +42,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./
 RUN npx prisma generate
 
-# Copy start script and make it executable (BEFORE switching users)
+# Copy start script and make it executable
 COPY --from=builder /app/start.sh ./start.sh
 RUN chmod +x ./start.sh
 
