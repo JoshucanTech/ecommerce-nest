@@ -2,23 +2,20 @@
 set -e
 
 echo '=== Starting Application ==='
-echo 'Current directory:'
-pwd
-echo 'Directory contents:'
-ls -la
-echo 'Dist directory contents:'
-ls -la dist/ || echo 'No dist directory'
-echo 'Dist/src directory contents:'
-ls -la dist/src/ || echo 'No dist/src directory'
+echo "PORT: $PORT"
 
-echo 'Running database migrations...'
-npx prisma migrate deploy
-
-if [ "$RUN_SEED" = "1" ]; then
-  echo 'Running database seeding...'
-  npx prisma db seed
+# Only run migrations if explicitly set
+if [ "$RUN_MIGRATIONS" = "1" ]; then
+    echo 'Running database migrations...'
+    npx prisma migrate deploy
+    
+    if [ "$RUN_SEED" = "1" ]; then
+        echo 'Running database seeding...'
+        npx prisma db seed
+    fi
+else
+    echo 'Skipping migrations (set RUN_MIGRATIONS=1 to run them)'
 fi
 
-echo 'Starting application...'
-echo "Using PORT: $PORT"
+echo 'Starting NestJS application...'
 exec node dist/src/main.js
