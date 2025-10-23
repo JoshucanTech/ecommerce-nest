@@ -7,10 +7,11 @@
   "license": "UNLICENSED",
   "prisma": {
     "schema": "prisma/schema.prisma",
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "node dist/prisma/seed.js"
   },
   "scripts": {
-    "build": "nest build",
+    "build": "nest build && npx tsc prisma/seed.ts --outDir dist/prisma --target es2020 --module commonjs",
+    "db:seed": "node dist/prisma/seed.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
