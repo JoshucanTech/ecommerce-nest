@@ -7,11 +7,10 @@
   "license": "UNLICENSED",
   "prisma": {
     "schema": "prisma/schema.prisma",
-    "seed": "node dist/prisma/seed.js"
+    "seed": "tsx prisma/seed.ts"
   },
   "scripts": {
-    "build": "nest build && npx tsc prisma/seed.ts --outDir dist/prisma --target es2020 --module commonjs",
-    "db:seed": "node dist/prisma/seed.js",
+    "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -56,8 +55,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.1",
-    "uuid": "^11.1.0",
-    "@faker-js/faker": "^9.7.0"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
