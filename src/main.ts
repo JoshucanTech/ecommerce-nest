@@ -22,7 +22,7 @@ async function bootstrap() {
       'http://localhost:2000',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:2000',
-      'https://staging-mkthub.vercel.app/',
+      'https://staging-mkthub.vercel.app',
       // For Render deployment
       /\.onrender\.com$/,
     ],
