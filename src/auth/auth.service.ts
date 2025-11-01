@@ -385,16 +385,16 @@ export class AuthService {
   ) {
     // Calculate expiration date
     const refreshExpiresIn = this.configService.get('JWT_REFRESH_EXPIRATION');
-    const accessExpiresIn = this.configService.get('JWT_REFRESH_EXPIRATION');
+    const accessExpiresIn = this.configService.get('JWT_ACCESS_EXPIRATION') || refreshExpiresIn;
 
     const refreshExpiresAt = new Date();
     refreshExpiresAt.setTime(
-      refreshExpiresAt.getTime() + Number.parseInt(refreshExpiresIn) * 1000,
+      refreshExpiresAt.getTime() + this.parseExpirationTime(refreshExpiresIn) * 1000,
     );
 
     const accessExpiresAt = new Date();
-    refreshExpiresAt.setTime(
-      refreshExpiresAt.getTime() + Number.parseInt(accessExpiresIn) * 1000,
+    accessExpiresAt.setTime(
+      accessExpiresAt.getTime() + this.parseExpirationTime(accessExpiresIn) * 1000,
     );
 
     // Save refresh token
@@ -407,5 +407,44 @@ export class AuthService {
         accessExpiresAt,
       },
     });
+  }
+
+  /**
+   * Parse expiration time from various formats (e.g., '7d', '600s', '24h', '30m')
+   * @param expiration Expiration time string
+   * @returns Expiration time in seconds
+   */
+  private parseExpirationTime(expiration: string): number {
+    if (!expiration) return 0;
+    
+    // If it's a numeric value, return it as is
+    if (/^\d+$/.test(expiration)) {
+      return parseInt(expiration, 10);
+    }
+    
+    // Parse time units
+    const match = expiration.match(/^(\d+)([smhdw])$/);
+    if (!match) {
+      // If format is not recognized, try to parse as number
+      return parseInt(expiration, 10) || 0;
+    }
+    
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    
+    switch (unit) {
+      case 's': // seconds
+        return value;
+      case 'm': // minutes
+        return value * 60;
+      case 'h': // hours
+        return value * 3600;
+      case 'd': // days
+        return value * 86400;
+      case 'w': // weeks
+        return value * 604800;
+      default:
+        return value;
+    }
   }
 }
