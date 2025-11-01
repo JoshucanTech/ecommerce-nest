@@ -4,9 +4,10 @@ import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService {
-  private client: Redis;
+  private client: Redis | null = null;
   private readonly logger = new Logger(RedisService.name);
   private isConnected = false;
+  private isDevelopment = process.env.NODE_ENV === 'development';
 
   constructor() {
     const redisHost = process.env.REDIS_HOST || 'localhost';
@@ -15,6 +16,11 @@ export class RedisService {
     const redisUrl = process.env.REDIS_URL || undefined;
     
     this.logger.log(`Initializing Redis connection with: ${redisUrl ? 'REDIS_URL' : `host=${redisHost}, port=${redisPort}${redisPassword ? ', password=***' : ''}`}`);
+
+    // In development mode, allow the application to run even without Redis
+    if (this.isDevelopment) {
+      this.logger.log('Running in development mode - Redis connection is optional');
+    }
 
     const redisOptions = {
       retryStrategy: (times) => {
@@ -25,7 +31,7 @@ export class RedisService {
         return delay;
       },
       connectTimeout: 15000,
-      maxRetriesPerRequest: 5,
+      maxRetriesPerRequest: this.isDevelopment ? 2 : 5, // Fewer retries in development
       lazyConnect: true,
       keepAlive: 10000,
       reconnectOnError: (err) => {
@@ -34,52 +40,70 @@ export class RedisService {
       },
     };
 
-    if (redisUrl) {
-      this.client = new Redis(redisUrl, redisOptions);
-    } else {
-      this.client = new Redis({
-        host: redisHost,
-        port: redisPort,
-        password: redisPassword,
-        ...redisOptions,
-      });
-    }
-
-    this.client.on('connect', () => {
-      this.logger.log(`Connected to Redis at ${redisHost}:${redisPort}`);
-    });
-
-    this.client.on('ready', () => {
-      this.logger.log('Redis client is ready');
-      this.isConnected = true;
-    });
-
-    this.client.on('error', (err) => {
-      this.logger.error('Redis error:', err.message);
-      if (err.message.includes('AUTH')) {
-        this.logger.error('Redis authentication failed. Check your REDIS_PASSWORD.');
+    try {
+      if (redisUrl) {
+        this.client = new Redis(redisUrl, redisOptions);
+      } else {
+        this.client = new Redis({
+          host: redisHost,
+          port: redisPort,
+          password: redisPassword,
+          ...redisOptions,
+        });
       }
-    });
 
-    this.client.on('close', () => {
-      this.logger.warn('Redis connection closed');
-      this.isConnected = false;
-    });
+      this.client.on('connect', () => {
+        this.logger.log(`Connected to Redis at ${redisHost}:${redisPort}`);
+      });
 
-    this.client.on('reconnecting', () => {
-      this.logger.log('Redis reconnecting...');
-    });
-    
-    this.client.on('end', () => {
-      this.logger.log('Redis connection ended');
-      this.isConnected = false;
-    });
-    
-    // Connect asynchronously without blocking
-    this.connectAsync();
+      this.client.on('ready', () => {
+        this.logger.log('Redis client is ready');
+        this.isConnected = true;
+      });
+
+      this.client.on('error', (err) => {
+        this.logger.error('Redis error:', err.message);
+        if (err.message.includes('AUTH')) {
+          this.logger.error('Redis authentication failed. Check your REDIS_PASSWORD.');
+        }
+        
+        // In development, we don't want Redis errors to crash the app
+        if (this.isDevelopment) {
+          this.logger.log('Continuing without Redis in development mode');
+        }
+      });
+
+      this.client.on('close', () => {
+        this.logger.warn('Redis connection closed');
+        this.isConnected = false;
+      });
+
+      this.client.on('reconnecting', () => {
+        this.logger.log('Redis reconnecting...');
+      });
+      
+      this.client.on('end', () => {
+        this.logger.log('Redis connection ended');
+        this.isConnected = false;
+      });
+      
+      // Connect asynchronously without blocking
+      this.connectAsync();
+    } catch (error) {
+      this.logger.error('Failed to initialize Redis client:', error.message);
+      if (this.isDevelopment) {
+        this.logger.log('Redis disabled in development mode due to initialization error');
+        this.client = null;
+      }
+    }
   }
 
   private async connectAsync() {
+    // Skip connecting if we don't have a client (initialization failed)
+    if (!this.client) {
+      return;
+    }
+
     try {
       // Don't block the application startup
       setTimeout(async () => {
@@ -88,10 +112,16 @@ export class RedisService {
           this.logger.log('Redis connection established');
         } catch (error) {
           this.logger.error('Failed to establish Redis connection:', error.message);
+          if (this.isDevelopment) {
+            this.logger.log('Application will continue running without Redis');
+          }
         }
       }, 0);
     } catch (error) {
       this.logger.error('Error initiating Redis connection:', error.message);
+      if (this.isDevelopment) {
+        this.logger.log('Application will continue running without Redis');
+      }
     }
   }
 
@@ -118,8 +148,12 @@ export class RedisService {
   }
 
   private checkConnection(): boolean {
-    if (!this.isRedisConnected()) {
-      this.logger.warn('Redis is not connected. Operations will be skipped.');
+    if (!this.client || !this.isRedisConnected()) {
+      if (this.isDevelopment) {
+        this.logger.debug('Redis is not connected. Skipping operation in development mode.');
+      } else {
+        this.logger.warn('Redis is not connected. Operations will be skipped.');
+      }
       return false;
     }
     return true;
