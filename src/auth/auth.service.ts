@@ -155,7 +155,7 @@ export class AuthService {
     };
   }
 
-  async refreshToken(userTokenDto: UserTokenDto, user: any) {
+  async refreshToken(userTokenDto: UserTokenDto) {
     const { refreshToken } = userTokenDto;
 
     try {
@@ -175,12 +175,7 @@ export class AuthService {
       }
 
       // Check if user matches refresh token
-      // const token = await this.getToken();
-      // const decoded = this.jwtService.decode(token);
-
-      // if (decoded.sub !== storedToken.userId) {
-      if (user.id !== storedToken.userId) {
-        // console.log("decoded.sub !== storedToken.userId Does not match");
+      if (payload.sub !== storedToken.userId) {
         throw new UnauthorizedException('Invalid token. Pls Signin');
       }
 

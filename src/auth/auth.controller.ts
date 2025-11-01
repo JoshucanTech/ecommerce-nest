@@ -205,26 +205,28 @@ export class AuthController {
   }
 
   @Post('refresh-token')
+  @Public()
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: 'Refresh access token',
     description:
-      'Obtain a new access token using a valid refresh token. This extends the user session without requiring re-authentication.',
-  })
-  @ApiHeader({
-    name: 'Authorization',
-    description: 'Bearer token for authentication',
-    required: true,
-    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+      'Obtain a new access token by providing a valid refresh token. This endpoint does not require authentication as it is used to refresh expired sessions.',
   })
   @ApiBody({
-    description: 'Refresh token',
     type: UserTokenDto,
+    description: 'Refresh token object',
+    examples: {
+      default: {
+        value: {
+          refreshToken:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 200,
-    description: 'Token refreshed successfully',
+    description: 'Successfully refreshed tokens',
     content: {
       'application/json': {
         schema: {
@@ -247,8 +249,8 @@ export class AuthController {
     status: 401,
     description: 'Unauthorized - Invalid refresh token',
   })
-  refreshToken(@CurrentUser() user, @Body() userTokenDto: UserTokenDto) {
-    return this.authService.refreshToken(userTokenDto, user);
+  refreshToken(@Body() userTokenDto: UserTokenDto) {
+    return this.authService.refreshToken(userTokenDto);
   }
 
   @Get('me')
