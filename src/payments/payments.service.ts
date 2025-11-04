@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { GenericPaymentDto, PaymentPurpose } from './dto/generic-payment.dto';
@@ -245,35 +249,41 @@ export class PaymentsService {
       select: { email: true },
     });
 
+    console.log('User for payment:', { userId, userEmail: user?.email });
+
     if (!user || !user.email) {
-      throw new NotFoundException('User email not found for payment initiation.');
+      throw new NotFoundException(
+        'User email not found for payment initiation.',
+      );
     }
 
-    const tx_ref = `FLW-${uuidv4()}`;
-    const redirect_url = this.configService.get<string>('FLUTTERWAVE_REDIRECT_URL') || 'http://localhost:3000/checkout/payment-status'; // Placeholder
-    const currency = this.configService.get<string>('FLUTTERWAVE_CURRENCY') || 'USD'; // Placeholder
+    const tx_ref = `FLW-${uuidv4()}-${Date.now()}`;
+    const redirect_url =
+      this.configService.get<string>('FLUTTERWAVE_REDIRECT_URL') || ''; // Placeholder
+    const currency =
+      this.configService.get<string>('FLUTTERWAVE_CURRENCY') || 'USD'; // Placeholder
 
-    const flutterwaveResponse = await this.flutterwaveService.initiatePayment(
+    console.log('Payment intent data:', {
       totalAmount,
       currency,
-      user.email,
+      userEmail: user.email,
       tx_ref,
       redirect_url,
-      { userId, purpose: PaymentPurpose.ORDER }, // Metadata
-    );
+    });
 
-    if (!flutterwaveResponse || !flutterwaveResponse.data || !flutterwaveResponse.data.link) {
-      throw new BadRequestException('Failed to get Flutterwave checkout link.');
-    }
-
+    // Instead of immediately initiating payment, just return the payment data
+    // The frontend will handle the actual payment processing
+    // /checkout/payment?clientSecret=${data.paymentIntent.clientSecret}&paymentMethod=${paymentMethod}
     return {
-      clientSecret: flutterwaveResponse.data.link, // Flutterwave checkout URL
+      clientSecret: redirect_url, // This will be used by frontend to redirect to Flutterwave
       totalAmount: Math.round(totalAmount * 100), // Amount in cents
       vendorTotals: Object.keys(vendorTotals).reduce((acc, vendorId) => {
         acc[vendorId] = Math.round(vendorTotals[vendorId] * 100);
         return acc;
       }, {}),
       tx_ref, // Return transaction reference for frontend to store/use
+      email: user.email, // Include user email for frontend processing
+      currency, // Include currency for frontend processing
     };
   }
 
@@ -384,7 +394,9 @@ export class PaymentsService {
   }
 
   async handleFlutterwaveWebhook(body: any, signature: string) {
-    const secretHash = this.configService.get<string>('FLUTTERWAVE_SECRET_HASH');
+    const secretHash = this.configService.get<string>(
+      'FLUTTERWAVE_SECRET_HASH',
+    );
 
     if (!secretHash || signature !== secretHash) {
       throw new BadRequestException('Invalid Flutterwave webhook signature');
@@ -396,14 +408,19 @@ export class PaymentsService {
     const event = body.event;
     const transactionData = body.data;
 
-    if (event === 'charge.completed' && transactionData.status === 'successful') {
+    if (
+      event === 'charge.completed' &&
+      transactionData.status === 'successful'
+    ) {
       // Payment was successful
       await this.handleFlutterwavePaymentSuccess(transactionData);
     } else if (transactionData.status === 'failed') {
       // Payment failed
       await this.handleFlutterwavePaymentFailure(transactionData);
     } else {
-      console.log(`Unhandled Flutterwave event or status: ${event} - ${transactionData.status}`);
+      console.log(
+        `Unhandled Flutterwave event or status: ${event} - ${transactionData.status}`,
+      );
     }
 
     return { received: true };
@@ -413,9 +430,15 @@ export class PaymentsService {
     const tx_ref = transactionData.tx_ref;
     if (tx_ref) {
       // Verify the transaction with Flutterwave to be absolutely sure
-      const verificationResponse = await this.flutterwaveService.verifyPayment(transactionData.id);
+      const verificationResponse = await this.flutterwaveService.verifyPayment(
+        transactionData.id,
+      );
 
-      if (verificationResponse && verificationResponse.data && verificationResponse.data.status === 'successful') {
+      if (
+        verificationResponse &&
+        verificationResponse.data &&
+        verificationResponse.data.status === 'successful'
+      ) {
         // Update order status to confirmed and payment status to completed
         // We need to pass the tx_ref to the OrdersService to update the order(s)
         // associated with this transaction reference.
@@ -427,9 +450,13 @@ export class PaymentsService {
             paymentStatus: 'COMPLETED',
           },
         });
-        console.log(`Order(s) with tx_ref ${tx_ref} confirmed and payment marked as completed.`);
+        console.log(
+          `Order(s) with tx_ref ${tx_ref} confirmed and payment marked as completed.`,
+        );
       } else {
-        console.error(`Flutterwave payment verification failed for tx_ref: ${tx_ref}`);
+        console.error(
+          `Flutterwave payment verification failed for tx_ref: ${tx_ref}`,
+        );
         // Optionally, update order status to failed or pending review
         await this.prisma.order.updateMany({
           where: { paymentIntentId: tx_ref },
@@ -453,7 +480,9 @@ export class PaymentsService {
           paymentStatus: 'FAILED',
         },
       });
-      console.log(`Order(s) with tx_ref ${tx_ref} marked as cancelled due to payment failure.`);
+      console.log(
+        `Order(s) with tx_ref ${tx_ref} marked as cancelled due to payment failure.`,
+      );
     }
   }
 
@@ -554,5 +583,54 @@ export class PaymentsService {
       status: 'requires_confirmation',
       paymentType: 'general',
     };
+  }
+
+  async verifyPayment(tx_ref: string, userId: string) {
+    // Verify the payment using Flutterwave
+    const verificationResult =
+      await this.flutterwaveService.verifyPayment(tx_ref);
+
+    // Update order payment status based on verification result
+    if (
+      verificationResult &&
+      verificationResult.data?.status === 'successful'
+    ) {
+      // Find orders with this transaction reference and update their payment status
+      const orders = await this.prisma.order.updateMany({
+        where: {
+          paymentIntentId: tx_ref,
+          userId: userId,
+        },
+        data: {
+          paymentStatus: 'COMPLETED',
+          status: 'CONFIRMED',
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Payment verified successfully',
+        ordersUpdated: orders.count,
+        verificationResult,
+      };
+    } else {
+      // Update order payment status to failed
+      const orders = await this.prisma.order.updateMany({
+        where: {
+          paymentIntentId: tx_ref,
+          userId: userId,
+        },
+        data: {
+          paymentStatus: 'FAILED',
+        },
+      });
+
+      return {
+        success: false,
+        message: 'Payment verification failed',
+        ordersUpdated: orders.count,
+        verificationResult,
+      };
+    }
   }
 }
