@@ -1,7 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { AppController, TestController } from './app.controller';
 import { AppService } from './app.service';
-//
+import { ScheduleModule } from '@nestjs/schedule';
 //
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_FILTER, APP_PIPE } from '@nestjs/core';
@@ -31,6 +31,7 @@ import { ShippingModule } from './shipping/shipping.module';
 import { RealTimeModule } from './real-time/real-time.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { LocationsModule } from './locations/locations.module';
+import { HealthModule } from './health/health.module';
 import { RequestLoggerMiddleware } from './middleware/request-logger.middleware';
 import { ValidationExceptionFilter } from './exceptions/validation-exception.filter';
 //
@@ -38,6 +39,7 @@ import { ValidationExceptionFilter } from './exceptions/validation-exception.fil
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
@@ -61,6 +63,7 @@ import { ValidationExceptionFilter } from './exceptions/validation-exception.fil
     RealTimeModule,
     PromotionsModule,
     LocationsModule,
+    HealthModule,
   ],
   controllers: [AppController, TestController],
   providers: [
@@ -85,8 +88,6 @@ import { ValidationExceptionFilter } from './exceptions/validation-exception.fil
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(RequestLoggerMiddleware)
-      .forRoutes('*');
+    consumer.apply(RequestLoggerMiddleware).forRoutes('*');
   }
 }
