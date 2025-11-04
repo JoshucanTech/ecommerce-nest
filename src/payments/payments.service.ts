@@ -585,10 +585,14 @@ export class PaymentsService {
     };
   }
 
-  async verifyPayment(tx_ref: string, userId: string) {
+  async verifyPayment(tx_ref: string, transaction_id: string, userId: string) {
+    // Use transaction_id if available (it's numeric and works with Flutterwave API)
+    // Otherwise fall back to tx_ref
+    const verificationId = transaction_id || tx_ref;
+    
     // Verify the payment using Flutterwave
     const verificationResult =
-      await this.flutterwaveService.verifyPayment(tx_ref);
+      await this.flutterwaveService.verifyPayment(verificationId);
 
     // Update order payment status based on verification result
     if (

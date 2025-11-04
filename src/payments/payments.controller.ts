@@ -29,13 +29,15 @@ export class PaymentsController {
   @Get('verify-payment')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Verify a payment using transaction reference' })
+  @ApiOperation({ summary: 'Verify a payment using transaction reference or transaction ID' })
   verifyPayment(
     @Query('tx_ref') tx_ref: string,
+    @Query('transaction_id') transaction_id: string,
     @CurrentUser() user,
   ) {
     return this.paymentsService.verifyPayment(
       tx_ref,
+      transaction_id,
       user.id,
     );
   }
