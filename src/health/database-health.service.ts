@@ -10,25 +10,25 @@ export class DatabaseHealthService {
 
   constructor(
     private prisma: PrismaService,
-    private redisService: RedisService
+    private redisService: RedisService,
   ) {}
 
   // Run every 12 minutes
-  @Cron('*/12 * * * *')
+  @Cron('*/4 * * * *')
   async checkDatabaseHealthCron() {
     this.logger.log('Running scheduled database health check');
     const result = await this.performDatabaseHealthCheck();
     this.latestHealthCheck = result;
     return result;
   }
-  
+
   // Method that can be called by the route
   async checkDatabaseHealth() {
     const result = await this.performDatabaseHealthCheck();
     this.latestHealthCheck = result;
     return result;
   }
-  
+
   // Core logic for database health checking
   private async performDatabaseHealthCheck() {
     try {
@@ -39,7 +39,7 @@ export class DatabaseHealthService {
         productCount,
         recentOrders,
         recentUsers,
-        recentPayments
+        recentPayments,
       ] = await Promise.all([
         this.prisma.user.count(),
         this.prisma.order.count(),
@@ -67,11 +67,11 @@ export class DatabaseHealthService {
           },
         }),
       ]);
-      
+
       // Check Redis health
       const redisInfo = this.redisService.getRedisInfo();
       const isRedisConnected = this.redisService.isRedisConnected();
-      
+
       const healthStatus = {
         status: 'healthy',
         timestamp: new Date().toISOString(),
@@ -90,14 +90,14 @@ export class DatabaseHealthService {
             connected: isRedisConnected,
             host: redisInfo.host,
             port: redisInfo.port,
-          }
+          },
         },
       };
-      
+
       this.logger.log(
-        `Database health check successful - Users: ${userCount}, Orders: ${orderCount}, Products: ${productCount}, Redis: ${isRedisConnected ? 'Connected' : 'Disconnected'}`
+        `Database health check successful - Users: ${userCount}, Orders: ${orderCount}, Products: ${productCount}, Redis: ${isRedisConnected ? 'Connected' : 'Disconnected'}`,
       );
-      
+
       return healthStatus;
     } catch (error) {
       const errorStatus = {
@@ -105,16 +105,16 @@ export class DatabaseHealthService {
         timestamp: new Date().toISOString(),
         error: error.message,
       };
-      
+
       this.logger.error(
         `Database health check failed: ${error.message}`,
-        error.stack
+        error.stack,
       );
-      
+
       return errorStatus;
     }
   }
-  
+
   getLatestHealthCheck() {
     return this.latestHealthCheck;
   }
