@@ -439,7 +439,14 @@ export class OrdersService {
       } else if (addressId) {
         orderData.addressId = addressId;
       } else if (shippingAddress) {
-        orderData.shippingAddress = address;
+        // Create a new shipping address first, then reference it
+        const newShippingAddress = await this.prisma.shippingAddress.create({
+          data: {
+            ...shippingAddress,
+            userId: userId,
+          },
+        });
+        orderData.shippingAddressId = newShippingAddress.id;
       }
 
       // Create the order
