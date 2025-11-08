@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, Interval } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../real-time/redis.service';
 
@@ -14,7 +14,8 @@ export class DatabaseHealthService {
   ) {}
 
   // Run every 12 minutes
-  @Cron('*/4 * * * *')
+  // @Cron('*/4 * * * *')
+  @Interval(240000) // 240 seconds
   async checkDatabaseHealthCron() {
     this.logger.log('Running scheduled database health check');
     const result = await this.performDatabaseHealthCheck();
