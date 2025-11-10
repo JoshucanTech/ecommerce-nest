@@ -13,9 +13,6 @@ export class DatabaseHealthService {
     private redisService: RedisService,
   ) {}
 
-  // Run every 12 minutes
-  // @Cron('*/4 * * * *')
-  @Interval(240000) // 240 seconds
   async checkDatabaseHealthCron() {
     this.logger.log('Running scheduled database health check');
     const result = await this.performDatabaseHealthCheck();
