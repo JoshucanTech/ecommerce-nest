@@ -40,7 +40,7 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   findOne(@Param('id') id: string, @CurrentUser() user) {
-    return this.ordersService.findOne(id, user.id);
+    return this.ordersService.findOne(id, user);
   }
 
   @Patch(':id/status')

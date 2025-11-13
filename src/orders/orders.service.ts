@@ -282,16 +282,13 @@ export class OrdersService {
               let unitPrice;
               if (item.variantId) {
                 const variants = item.product.ProductVariant || [];
-                const variant = variants.find(
-                  (v) => v.id === item.variantId,
-                );
+                const variant = variants.find((v) => v.id === item.variantId);
                 unitPrice =
                   variant?.discountPrice ||
                   variant?.price ||
                   item.product.price;
               } else {
-                unitPrice =
-                  item.product.discountPrice || item.product.price;
+                unitPrice = item.product.discountPrice || item.product.price;
               }
 
               const flashSaleItems = item.product.flashSaleItems || [];
@@ -342,7 +339,7 @@ export class OrdersService {
 
     // Create payment intent before creating orders
     const paymentIntentDto = {
-      items: items.map(item => ({
+      items: items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
         variantId: item.variantId,
@@ -360,7 +357,7 @@ export class OrdersService {
     const orders = [];
     for (const vendorId in itemsByVendor) {
       const vendorItems = itemsByVendor[vendorId];
-      
+
       // Create order items
       const orderItems = vendorItems.map((item) => {
         const product = item.product;
@@ -481,7 +478,8 @@ export class OrdersService {
     }
 
     return {
-      message: 'Orders created successfully. Please complete payment to confirm your order.',
+      message:
+        'Orders created successfully. Please complete payment to confirm your order.',
       orders,
       paymentIntent,
     };
