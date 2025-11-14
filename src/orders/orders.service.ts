@@ -282,7 +282,9 @@ export class OrdersService {
               let unitPrice;
               if (item.variantId) {
                 const variants = item.product.ProductVariant || [];
-                const variant = variants.find((v) => v.id === item.variantId);
+                const variant = variants.find(
+                  (v) => v.id === item.variantId,
+                );
                 unitPrice =
                   variant?.discountPrice ||
                   variant?.price ||
@@ -698,6 +700,133 @@ export class OrdersService {
     };
   }
 
+  async findByTransactionRef(transactionRef: string, userId: string) {
+    const orders = await this.prisma.order.findMany({
+      where: {
+        transactionRef,
+        userId: userId,
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                vendor: true,
+              },
+            },
+            variant: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        vendor: true,
+        address: true,
+        shippingAddress: true,
+      },
+    });
+
+    if (!orders || orders.length === 0) {
+      throw new NotFoundException(
+        `No orders found with transaction reference ${transactionRef}`,
+      );
+    }
+
+    return orders;
+  }
+
+  async findGroupedByTransactionRef(
+    userId: string,
+    params: {
+      page: number;
+      limit: number;
+    },
+  ) {
+    const { page, limit } = params;
+    const skip = (page - 1) * limit;
+
+    // First, get distinct transaction references for this user
+    const transactionRefs = await this.prisma.order.groupBy({
+      by: ['transactionRef'],
+      where: {
+        userId,
+      },
+      orderBy: {
+        _max: {
+          createdAt: 'desc',
+        },
+      },
+      skip,
+      take: limit,
+    });
+
+    // Get the actual order data for these transaction references
+    const transactionRefsArray = transactionRefs.map(tr => tr.transactionRef);
+    
+    const orders = await this.prisma.order.findMany({
+      where: {
+        userId,
+        transactionRef: {
+          in: transactionRefsArray,
+        },
+      },
+      orderBy: [
+        { transactionRef: 'asc' },
+        { createdAt: 'desc' }
+      ],
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            businessName: true,
+            slug: true,
+          },
+        },
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                images: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Group orders by transactionRef
+    const groupedOrders = orders.reduce((acc, order) => {
+      if (!acc[order.transactionRef]) {
+        acc[order.transactionRef] = [];
+      }
+      acc[order.transactionRef].push(order);
+      return acc;
+    }, {});
+
+    // Get total count of distinct transaction references
+    const totalCountResult = await this.prisma.$queryRaw`SELECT COUNT(DISTINCT "transactionRef") as count FROM "Order" WHERE "userId" = ${userId}` as Array<{ count: bigint }>;
+
+    const totalCount = Number(totalCountResult[0]?.count || 0);
+
+    return {
+      data: groupedOrders,
+      meta: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
+  }
+
   async findOne(id: string, user: any) {
     const order = await this.prisma.order.findUnique({
       where: { id },
@@ -769,46 +898,6 @@ export class OrdersService {
     }
 
     return order;
-  }
-
-  async findByTransactionRef(transactionRef: string, userId: string) {
-    const orders = await this.prisma.order.findMany({
-      where: {
-        transactionRef,
-        userId: userId,
-      },
-      include: {
-        items: {
-          include: {
-            product: {
-              include: {
-                vendor: true,
-              },
-            },
-            variant: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        vendor: true,
-        address: true,
-        shippingAddress: true,
-      },
-    });
-
-    if (!orders || orders.length === 0) {
-      throw new NotFoundException(
-        `No orders found with transaction reference ${transactionRef}`,
-      );
-    }
-
-    return orders;
   }
 
   async updateStatus(

@@ -93,6 +93,26 @@ export class OrdersController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('me/grouped')
+  @ApiOperation({ summary: 'Get all orders for the authenticated user grouped by transaction reference' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiResponse({
+    status: 200,
+    description: 'Return all orders for the authenticated user grouped by transaction reference.',
+  })
+  async findMyOrdersGrouped(
+    @CurrentUser() user,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    return this.ordersService.findGroupedByTransactionRef(user.id, {
+      page: Number(page),
+      limit: Number(limit),
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('transaction/:transactionRef')
   @ApiOperation({ summary: 'Get all orders by transaction reference' })
   @ApiResponse({
