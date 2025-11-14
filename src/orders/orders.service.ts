@@ -353,6 +353,9 @@ export class OrdersService {
       userId,
     );
 
+    // Generate a transaction reference to group all orders created together
+    const transactionRef = `TXN-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
     // Create orders for each vendor
     const orders = [];
     for (const vendorId in itemsByVendor) {
@@ -422,6 +425,7 @@ export class OrdersService {
         notes: notes || '',
         userId,
         vendorId,
+        transactionRef, // Add transaction reference to group related orders
         items: {
           create: orderItems,
         },
@@ -482,6 +486,7 @@ export class OrdersService {
         'Orders created successfully. Please complete payment to confirm your order.',
       orders,
       paymentIntent,
+      transactionRef, // Include transaction reference in response
     };
   }
 
@@ -764,6 +769,46 @@ export class OrdersService {
     }
 
     return order;
+  }
+
+  async findByTransactionRef(transactionRef: string, userId: string) {
+    const orders = await this.prisma.order.findMany({
+      where: {
+        transactionRef,
+        userId: userId,
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                vendor: true,
+              },
+            },
+            variant: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        vendor: true,
+        address: true,
+        shippingAddress: true,
+      },
+    });
+
+    if (!orders || orders.length === 0) {
+      throw new NotFoundException(
+        `No orders found with transaction reference ${transactionRef}`,
+      );
+    }
+
+    return orders;
   }
 
   async updateStatus(
