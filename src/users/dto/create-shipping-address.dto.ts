@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsBoolean, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsEnum,
+  MinLength,
+  Min,
+  IsNumber,
+} from 'class-validator';
 
 // Import AddressType enum
 import { AddressType } from '../enums/address-type.enum';
@@ -12,6 +20,16 @@ export class CreateShippingAddressDto {
   })
   @IsString()
   street: string;
+
+  @ApiProperty({ description: 'First name', example: 'John' })
+  @IsString()
+  @MinLength(2)
+  firstName: string;
+
+  @ApiProperty({ description: 'Last name', example: 'Doe' })
+  @IsString()
+  @MinLength(2)
+  lastName: string;
 
   @ApiProperty({
     description: 'City name',
@@ -98,4 +116,10 @@ export class CreateShippingAddressDto {
   })
   @IsOptional()
   expiresAt?: Date;
+
+  @ApiProperty({ description: 'Phone / Call Number', example: 2347012345678 })
+  @IsNumber()
+  @IsOptional()
+  @Min(5)
+  phone?: number;
 }

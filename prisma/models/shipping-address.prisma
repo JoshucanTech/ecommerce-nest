@@ -2,6 +2,8 @@
 
 model ShippingAddress {
   id           String            @id @default(uuid())
+  firstName    String            @default("")
+  lastName     String            @default("")
   street       String
   city         String
   state        String
@@ -17,6 +19,7 @@ model ShippingAddress {
   updatedAt    DateTime          @updatedAt
   lastUsed     DateTime? // Track when address was last used
   useCount     Int               @default(0) // Track how many times address has been used
+  phone        Int               @default(0) // Track how many times address has been used
   sharedWith   SharedAddress[] // Users this address is shared with
   sharedFromId String? // If this is a shared copy, reference to original
   sharedFrom   ShippingAddress?  @relation("SharedAddressRelation", fields: [sharedFromId], references: [id])
