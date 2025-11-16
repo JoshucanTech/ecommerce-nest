@@ -766,8 +766,10 @@ export class OrdersService {
     });
 
     // Get the actual order data for these transaction references
-    const transactionRefsArray = transactionRefs.map(tr => tr.transactionRef);
-    
+    const transactionRefsArray = transactionRefs
+      .map((tr) => tr.transactionRef)
+      .filter((tr): tr is string => tr !== null && typeof tr === 'string'); // Type-safe filter for non-null strings
+
     const orders = await this.prisma.order.findMany({
       where: {
         userId,
@@ -775,10 +777,7 @@ export class OrdersService {
           in: transactionRefsArray,
         },
       },
-      orderBy: [
-        { transactionRef: 'asc' },
-        { createdAt: 'desc' }
-      ],
+      orderBy: [{ transactionRef: 'asc' }, { createdAt: 'desc' }],
       include: {
         vendor: {
           select: {
@@ -787,6 +786,8 @@ export class OrdersService {
             slug: true,
           },
         },
+        address: true,
+        shippingAddress: true,
         items: {
           include: {
             product: {
@@ -812,7 +813,10 @@ export class OrdersService {
     }, {});
 
     // Get total count of distinct transaction references
-    const totalCountResult = await this.prisma.$queryRaw`SELECT COUNT(DISTINCT "transactionRef") as count FROM "Order" WHERE "userId" = ${userId}` as Array<{ count: bigint }>;
+    const totalCountResult = (await this.prisma
+      .$queryRaw`SELECT COUNT(DISTINCT "transactionRef") as count FROM "orders" WHERE "userId" = ${userId}`) as Array<{
+      count: bigint;
+    }>;
 
     const totalCount = Number(totalCountResult[0]?.count || 0);
 
