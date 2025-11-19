@@ -394,7 +394,7 @@ export class OrdersService {
         };
       });
 
-      // Calculate vendor total
+      // Calculate vendor total (subtotal)
       const vendorTotal = orderItems.reduce(
         (sum, item) => sum + item.totalPrice,
         0,
@@ -409,9 +409,19 @@ export class OrdersService {
         });
         if (shippingMethod) {
           shippingCost = shippingMethod.price;
+        } else {
+          // Check vendorShipping model as fallback
+          const vendorShippingMethod = await this.prisma.vendorShipping.findFirst({
+            where: { shippingId: shippingOptionId, vendorId: vendorId },
+          });
+          if (vendorShippingMethod) {
+            shippingCost = vendorShippingMethod.priceOverride;
+          }
         }
       }
 
+      // Subtotal is the sum of all items before shipping
+      const subtotal = vendorTotal;
       const orderTotal = vendorTotal + shippingCost;
 
       // Generate order number
@@ -421,6 +431,7 @@ export class OrdersService {
       const orderData: any = {
         orderNumber,
         totalAmount: orderTotal,
+        subtotal: subtotal, // Add the subtotal to the order data
         status: OrderStatus.PENDING,
         paymentStatus: PaymentStatus.PENDING,
         paymentMethod,
@@ -428,6 +439,7 @@ export class OrdersService {
         userId,
         vendorId,
         transactionRef, // Add transaction reference to group related orders
+        shippingCost, // Add the shipping cost to the order data
         items: {
           create: orderItems,
         },
