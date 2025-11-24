@@ -1,6 +1,6 @@
 // redis.service.ts
 import { Injectable, Logger } from '@nestjs/common';
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 
 @Injectable()
 export class RedisService {
@@ -188,6 +188,158 @@ export class RedisService {
     } catch (error) {
       this.logger.error('Error getting viewer count from Redis:', error.message);
       return 0;
+    }
+  }
+
+  // Added methods for CacheService to use
+  async get(key: string): Promise<string | null> {
+    if (!this.checkConnection()) return null;
+    
+    try {
+      return await this.client.get(key);
+    } catch (error) {
+      this.logger.error(`Error getting key ${key} from Redis:`, error.message);
+      return null;
+    }
+  }
+
+  async setex(key: string, ttl: number, value: string): Promise<void> {
+    if (!this.checkConnection()) return;
+    
+    try {
+      await this.client.setex(key, ttl, value);
+    } catch (error) {
+      this.logger.error(`Error setting key ${key} in Redis:`, error.message);
+    }
+  }
+
+  async del(...keys: string[]): Promise<void> {
+    if (!this.checkConnection()) return;
+    
+    try {
+      await this.client.del(...keys);
+    } catch (error) {
+      this.logger.error(`Error deleting keys from Redis:`, error.message);
+    }
+  }
+
+  async keys(pattern: string): Promise<string[]> {
+    if (!this.checkConnection()) return [];
+    
+    try {
+      return await this.client.keys(pattern);
+    } catch (error) {
+      this.logger.error(`Error getting keys with pattern ${pattern} from Redis:`, error.message);
+      return [];
+    }
+  }
+
+  // Cache methods
+  /**
+   * Get a value from cache
+   * @param key Cache key
+   * @returns Parsed value or null if not found
+   */
+  async getCache<T>(key: string): Promise<T | null> {
+    if (!this.checkConnection()) {
+      return null;
+    }
+
+    try {
+      const value = await this.client.get(key);
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      this.logger.error(`Error getting cache key ${key}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get a raw string value from cache
+   * @param key Cache key
+   * @returns String value or null if not found
+   */
+  async getCacheRaw(key: string): Promise<string | null> {
+    if (!this.checkConnection()) {
+      return null;
+    }
+
+    try {
+      return await this.client.get(key);
+    } catch (error) {
+      this.logger.error(`Error getting raw cache key ${key}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Set a value in cache
+   * @param key Cache key
+   * @param value Value to cache
+   * @param ttl Time to live in seconds (default: 300 seconds / 5 minutes)
+   */
+  async setCache<T>(key: string, value: T, ttl: number = 300): Promise<void> {
+    if (!this.checkConnection()) {
+      return;
+    }
+
+    try {
+      await this.client.setex(key, ttl, JSON.stringify(value));
+    } catch (error) {
+      this.logger.error(`Error setting cache key ${key}:`, error.message);
+    }
+  }
+
+  /**
+   * Set a raw string value in cache
+   * @param key Cache key
+   * @param value Raw string value to cache
+   * @param ttl Time to live in seconds (default: 300 seconds / 5 minutes)
+   */
+  async setCacheRaw(key: string, value: string, ttl: number = 300): Promise<void> {
+    if (!this.checkConnection()) {
+      return;
+    }
+
+    try {
+      await this.client.setex(key, ttl, value);
+    } catch (error) {
+      this.logger.error(`Error setting raw cache key ${key}:`, error.message);
+    }
+  }
+
+  /**
+   * Delete a value from cache
+   * @param key Cache key
+   */
+  async delCache(key: string): Promise<void> {
+    if (!this.checkConnection()) {
+      return;
+    }
+
+    try {
+      await this.client.del(key);
+    } catch (error) {
+      this.logger.error(`Error deleting cache key ${key}:`, error.message);
+    }
+  }
+
+  /**
+   * Invalidate cache entries by pattern
+   * @param pattern Pattern to match keys (e.g., 'order:*')
+   */
+  async invalidateCachePattern(pattern: string): Promise<void> {
+    if (!this.checkConnection()) {
+      return;
+    }
+
+    try {
+      const keys = await this.client.keys(`${pattern}*`);
+      if (keys.length > 0) {
+        await this.client.del(...keys);
+      }
+    } catch (error) {
+      this.logger.error(`Error invalidating cache pattern ${pattern}:`, error.message);
     }
   }
 }

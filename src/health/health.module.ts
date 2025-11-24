@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { DatabaseHealthService } from './database-health.service';
 import { HealthController } from './health.controller';
+import { DatabaseHealthService } from './database-health.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { RealTimeModule } from '../real-time/real-time.module';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
-  imports: [PrismaModule, RealTimeModule],
+  imports: [PrismaModule, RedisModule],
   controllers: [HealthController],
   providers: [DatabaseHealthService],
   exports: [DatabaseHealthService],

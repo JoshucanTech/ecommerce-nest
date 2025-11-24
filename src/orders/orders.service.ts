@@ -11,14 +11,19 @@ import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { PaymentsService } from '../payments/payments.service';
+import { RedisService } from '../redis/redis.service';
+import { Cacheable } from '../redis/cache.decorator';
+import { CacheInvalidate } from '../redis/cache-invalidate.decorator';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private paymentsService: PaymentsService,
+    private redisService: RedisService,
   ) {}
 
+  @CacheInvalidate('order:', 'user-orders:')
   async create(createOrderDto: CreateOrderDto, userId: string) {
     const {
       items,
@@ -504,6 +509,7 @@ export class OrdersService {
     };
   }
 
+  @Cacheable(300, 'user-orders')
   async findAll(
     userId: string,
     params: {
@@ -567,6 +573,7 @@ export class OrdersService {
     };
   }
 
+  @Cacheable(300, 'admin-orders')
   async findAllAdmin(params: {
     page: number;
     limit: number;
@@ -638,6 +645,7 @@ export class OrdersService {
     };
   }
 
+  @Cacheable(300, 'vendor-orders')
   async findVendorOrders(
     userId: string,
     params: {
@@ -712,6 +720,7 @@ export class OrdersService {
     };
   }
 
+  @Cacheable(300, 'transaction-orders')
   async findByTransactionRef(transactionRef: string, userId: string) {
     const orders = await this.prisma.order.findMany({
       where: {
@@ -762,34 +771,19 @@ export class OrdersService {
     const { page, limit } = params;
     const skip = (page - 1) * limit;
 
-    // First, get distinct transaction references for this user
-    const transactionRefs = await this.prisma.order.groupBy({
-      by: ['transactionRef'],
-      where: {
-        userId,
-      },
-      orderBy: {
-        _max: {
-          createdAt: 'desc',
-        },
-      },
-      skip,
-      take: limit,
-    });
-
-    // Get the actual order data for these transaction references
-    const transactionRefsArray = transactionRefs
-      .map((tr) => tr.transactionRef)
-      .filter((tr): tr is string => tr !== null && typeof tr === 'string'); // Type-safe filter for non-null strings
-
+    // Get all the order data in a single query with proper ordering
     const orders = await this.prisma.order.findMany({
       where: {
         userId,
-        transactionRef: {
-          in: transactionRefsArray,
-        },
       },
-      orderBy: [{ transactionRef: 'asc' }, { createdAt: 'desc' }],
+      orderBy: [
+        // Order by max createdAt per transactionRef in descending order (newest first)
+        // This is a simplification - true group-wise ordering would require a more complex query
+        { createdAt: 'desc' },
+        // Then order by transactionRef and createdAt within each group
+        { transactionRef: 'asc' }, 
+        { createdAt: 'desc' }
+      ],
       include: {
         vendor: {
           select: {
@@ -824,25 +818,50 @@ export class OrdersService {
       return acc;
     }, {});
 
-    // Get total count of distinct transaction references
-    const totalCountResult = (await this.prisma
-      .$queryRaw`SELECT COUNT(DISTINCT "transactionRef") as count FROM "orders" WHERE "userId" = ${userId}`) as Array<{
-      count: bigint;
-    }>;
+    // Extract unique transaction references while maintaining order
+    const uniqueTransactionRefs = Array.from(
+      new Set(orders.map(order => order.transactionRef))
+    );
+    
+    // Apply pagination to the grouped results
+    const paginatedRefs = uniqueTransactionRefs.slice(skip, skip + limit);
+    
+    // Create a new object with only the paginated groups
+    const paginatedGroupedOrders = {};
+    for (const ref of paginatedRefs) {
+      paginatedGroupedOrders[ref] = groupedOrders[ref];
+    }
 
-    const totalCount = Number(totalCountResult[0]?.count || 0);
+    // Calculate counts from the already fetched data
+    const totalCount = uniqueTransactionRefs.length;
+    
+    // Calculate recent orders (within last 7 days) from already fetched data
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    const recentTransactionRefs = Array.from(
+      new Set(
+        orders
+          .filter(order => order.createdAt >= oneWeekAgo)
+          .map(order => order.transactionRef)
+      )
+    );
+    
+    const recentCount = recentTransactionRefs.length;
 
     return {
-      data: groupedOrders,
+      data: paginatedGroupedOrders,
       meta: {
         total: totalCount,
         page,
         limit,
         totalPages: Math.ceil(totalCount / limit),
+        recent_orders: recentCount,
       },
     };
   }
 
+  @Cacheable(600, 'order')
   async findOne(id: string, user: any) {
     const order = await this.prisma.order.findUnique({
       where: { id },
@@ -916,6 +935,7 @@ export class OrdersService {
     return order;
   }
 
+  @CacheInvalidate('order:', 'user-orders:', 'vendor-orders:', 'admin-orders:')
   async updateStatus(
     id: string,
     updateOrderStatusDto: UpdateOrderStatusDto,
@@ -973,6 +993,7 @@ export class OrdersService {
     return updatedOrder;
   }
 
+  @CacheInvalidate('order:', 'user-orders:', 'vendor-orders:', 'admin-orders:')
   async updatePaymentStatus(
     id: string,
     updatePaymentStatusDto: UpdatePaymentStatusDto,
@@ -1014,6 +1035,7 @@ export class OrdersService {
     return updatedOrder;
   }
 
+  @CacheInvalidate('order:', 'user-orders:', 'vendor-orders:', 'admin-orders:')
   async cancelOrder(id: string, user: any) {
     // Check if order exists
     const order = await this.prisma.order.findUnique({

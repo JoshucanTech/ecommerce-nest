@@ -33,7 +33,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { Session } from '../auth/decorators/session-id.decorator';
-import { RedisService } from 'src/real-time/redis.service';
+import { RedisService } from 'src/redis/redis.service';
 
 @ApiTags('products')
 @Controller('products')
