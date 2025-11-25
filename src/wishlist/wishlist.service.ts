@@ -18,6 +18,7 @@ export class WishlistService {
             id: true,
             name: true,
             slug: true,
+            quantity: true,
             price: true,
             discountPrice: true,
             images: true,
