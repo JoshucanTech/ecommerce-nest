@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { CreateRealTimeDto } from './dto/create-real-time.dto';
 import { UpdateRealTimeDto } from './dto/update-real-time.dto';
+import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class RealTimeService {
-  constructor() {}
+  constructor(private readonly redisService: RedisService) {}
 
   create(createRealTimeDto: CreateRealTimeDto) {
     return 'This action adds a new realTime';
@@ -30,4 +31,10 @@ export class RealTimeService {
     return 'Real-time service is running';
   }
 
+  getRedisStatus() {
+    return {
+      connected: this.redisService.isRedisConnected(),
+      info: this.redisService.getRedisInfo(),
+    };
+  }
 }

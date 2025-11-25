@@ -7,13 +7,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { generateSlug } from '../utils/slug-generator';
-import { ShippingCalculationService } from '../shipping/shipping-calculation.service';
+import { ProductValidationService } from './product-validation.service';
+import { ProductCalculatorService } from './product-calculator.service';
 
 @Injectable()
 export class ProductsService {
   constructor(
     private prisma: PrismaService,
-    private shippingCalculationService: ShippingCalculationService,
+    private productValidationService: ProductValidationService,
+    private productCalculatorService: ProductCalculatorService,
   ) {}
 
   async create(createProductDto: CreateProductDto, userId: string) {
@@ -162,17 +164,13 @@ export class ProductsService {
 
     // Calculate average rating for each product
     const productsWithRating = products.map((product) => {
-      const avgRating =
-        product.reviews.length > 0
-          ? product.reviews.reduce((sum, review) => sum + review.rating, 0) /
-            product.reviews.length
-          : 0;
-
+      const { avgRating, reviewCount } = this.productCalculatorService.calculateProductRatings(product.reviews);
       const { reviews, ...rest } = product;
+      
       return {
         ...rest,
         avgRating,
-        reviewCount: product.reviews.length,
+        reviewCount,
       };
     });
 
@@ -255,75 +253,17 @@ export class ProductsService {
       );
     }
 
-    // Calculate average rating
-    const avgRating =
-      product.reviews.length > 0
-        ? product.reviews.reduce((sum, review) => sum + review.rating, 0) /
-          product.reviews.length
-        : 0;
-
-    // Calculate rating distribution
-    const ratingDistribution = {
-      '1': 0,
-      '2': 0,
-      '3': 0,
-      '4': 0,
-      '5': 0,
-    };
-    for (const review of product.reviews) {
-      ratingDistribution[review.rating]++;
-    }
-
-    // Check if product is in an active flash sale
-    // Ensure flashSaleItems array exists before calling find
-    const flashSaleItems = product.flashSaleItems || [];
-    const activeFlashSale = flashSaleItems.find(
-      (item) => item.flashSale !== null,
-    );
-    const flashSalePrice = activeFlashSale
-      ? product.price * (1 - activeFlashSale.discountPercentage / 100)
-      : null;
-
+    // Calculate product ratings
+    const { avgRating, reviewCount, ratingDistribution } = this.productCalculatorService.calculateProductRatings(product.reviews);
+    
+    // Calculate flash sale price
+    const { flashSalePrice, activeFlashSale } = this.productCalculatorService.calculateFlashSalePrice(product);
+    
     // Generate short description
-    const shortDescription =
-      product.description.length > 150
-        ? product.description.substring(0, 147) + '...'
-        : product.description;
-
-    // Get shipping information for display
-    let shippingInfo = null;
-    if (product.vendor.Shipping && product.vendor.Shipping.length > 0) {
-      // Get the fastest/cheapest shipping option
-      const fastestShipping = product.vendor.Shipping
-        .filter(s => s.isActive)
-        .sort((a, b) => a.price - b.price)[0];
-      
-      if (fastestShipping) {
-        // Get processing time from vendor's shipping policy
-        let processingTime = "1-2 business days"; // Default processing time
-        if (product.vendor.ShippingPolicy && product.vendor.ShippingPolicy.length > 0) {
-          processingTime = product.vendor.ShippingPolicy[0].processingTime;
-        }
-        
-        const deliveryDateInfo = this.shippingCalculationService.calculateDeliveryDate(
-          fastestShipping,
-          undefined, // No ZIP code yet
-          processingTime
-        );
-        
-        // Check if shipping method is Prime eligible (based on name or price)
-        const isPrimeEligible = fastestShipping.price === 0 || 
-          (fastestShipping.name && fastestShipping.name.toLowerCase().includes('prime')) ||
-          (fastestShipping.name && fastestShipping.name.toLowerCase().includes('free'));
-        
-        shippingInfo = {
-          method: fastestShipping,
-          deliveryDateInfo,
-          isFree: fastestShipping.price === 0,
-          isPrimeEligible: isPrimeEligible
-        };
-      }
-    }
+    const shortDescription = this.productCalculatorService.generateShortDescription(product.description);
+    
+    // Get shipping information
+    const shippingInfo = this.productCalculatorService.calculateShippingInfo(product.vendor);
 
     return {
       ...product,
@@ -334,10 +274,10 @@ export class ProductsService {
       shortDescription,
       activeFlashSale: activeFlashSale
         ? {
-            id: activeFlashSale.flashSaleId,
-            name: activeFlashSale.flashSale.name,
+            id: activeFlashSale.id,
+            name: activeFlashSale.name,
             discountPercentage: activeFlashSale.discountPercentage,
-            endDate: activeFlashSale.flashSale.endDate,
+            endDate: activeFlashSale.endDate,
           }
         : null,
       shippingInfo, // Add shipping information for display

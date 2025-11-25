@@ -5,10 +5,16 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OnEvent } from '@nestjs/event-emitter';
+import { CartItemService } from './cart-item.service';
+import { CartCalculatorService } from './cart-calculator.service';
 
 @Injectable()
 export class CartService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cartItemService: CartItemService,
+    private cartCalculatorService: CartCalculatorService,
+  ) {}
 
   private getCartWhereClause(userId?: string, sessionId?: string) {
     if (userId) return { userId };
@@ -66,56 +72,12 @@ export class CartService {
       };
     }
 
-    const items = cart.items.map((item) => {
-      const basePrice = item.productVariant?.price ?? item.product.price;
-      const discountPrice =
-        item.productVariant?.discountPrice ?? item.product.discountPrice;
-      const price = discountPrice || basePrice;
-
-      // Ensure flashSaleItems array exists before calling find
-      const _flashSaleItems = item.product.flashSaleItems || [];
-      const activeFlashSale = _flashSaleItems.find(
-        (fsi) => fsi.flashSale?.isActive,
-      );
-      const flashSalePrice = activeFlashSale
-        ? price * (1 - activeFlashSale.discountPercentage / 100)
-        : null;
-
-      const finalPrice = flashSalePrice ?? price;
-
-      return {
-        id: item.id,
-        quantity: item.quantity,
-        product: {
-          id: item.product.id,
-          name: item.product.name,
-          slug: item.product.slug,
-          images: item.product.images,
-          vendor: item.product.vendor,
-        },
-        variant: item.productVariant
-          ? {
-              id: item.productVariant.id,
-              color: item.productVariant.color,
-              size: item.productVariant.size,
-              price: item.productVariant.price,
-              discountPrice: item.productVariant.discountPrice,
-            }
-          : null,
-        finalPrice,
-      };
-    });
-
-    // Calculate subtotal based on final prices
-    const subtotal = items.reduce(
-      (sum, item) => sum + item.finalPrice * item.quantity,
-      0,
-    );
+    const { items, subtotal, itemCount } = this.cartCalculatorService.calculateCartTotals(cart.items);
 
     return {
       id: cart.id,
       items,
-      itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
+      itemCount,
       subtotal,
     };
   }
@@ -137,79 +99,18 @@ export class CartService {
   }) {
     const where = this.getCartWhereClause(userId, sessionId);
 
-    const product = await this.prisma.product.findUnique({
-      where: { id: productId },
-    });
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${productId} not found`);
-    }
-
-    if (variantId) {
-      const variant = await this.prisma.productVariant.findUnique({
-        where: { id: variantId },
-      });
-      if (!variant || variant.productId !== productId) {
-        throw new NotFoundException(
-          `Variant with ID ${variantId} not found for this product`,
-        );
-      }
-      if (variant.quantity < quantity) {
-        throw new BadRequestException(
-          'Variant is out of stock or has insufficient quantity',
-        );
-      }
-    } else {
-      // This logic assumes products without variants have their quantity on the main product record
-      if (product.quantity < quantity) {
-        throw new BadRequestException(
-          'Product is out of stock or has insufficient quantity',
-        );
-      }
-    }
-
-    if (shippingId) {
-      const shippingMethod = await this.prisma.shipping.findFirst({
-        where: { id: shippingId, Vendor: { some: { id: product.vendorId } } },
-      });
-      if (!shippingMethod) {
-        throw new BadRequestException(
-          "Invalid shipping method for this product's vendor.",
-        );
-      }
-    }
-
     const cart = await this.prisma.cart.upsert({
       where,
       create: where,
       update: {},
     });
 
-    const existingCartItem = await this.prisma.cartItem.findFirst({
-      where: {
-        cartId: cart.id,
-        productId,
-        productVariantId: variantId, // This will be null for products without variants
-      },
-    });
-
-    if (existingCartItem) {
-      return this.prisma.cartItem.update({
-        where: { id: existingCartItem.id },
-        data: {
-          quantity: existingCartItem.quantity + quantity,
-          shippingId: shippingId ?? existingCartItem.shippingId,
-        },
-      });
-    }
-
-    return this.prisma.cartItem.create({
-      data: {
-        cartId: cart.id,
-        productId,
-        productVariantId: variantId,
-        quantity,
-        shippingId,
-      },
+    return this.cartItemService.validateAndAddItem({
+      cartId: cart.id,
+      productId,
+      variantId,
+      quantity,
+      shippingId,
     });
   }
 
@@ -225,31 +126,23 @@ export class CartService {
     quantity: number;
   }) {
     const where = this.getCartWhereClause(userId, sessionId);
-    const cartItem = await this.prisma.cartItem.findFirst({
-      where: {
-        id: itemId,
-        cart: where,
-      },
-      include: { product: true, productVariant: true },
-    });
+    const cart = await this.prisma.cart.findUnique({ where });
 
-    if (!cartItem) {
-      throw new NotFoundException(`Cart item with ID ${itemId} not found`);
+    if (!cart) {
+      throw new NotFoundException('Cart not found');
     }
 
     if (quantity <= 0) {
-      return this.removeFromCart({ userId, sessionId, itemId });
+      return this.cartItemService.removeItem({
+        cartId: cart.id,
+        itemId,
+      });
     }
 
-    const stockQuantity =
-      cartItem.productVariant?.quantity ?? cartItem.product.quantity;
-    if (stockQuantity < quantity) {
-      throw new BadRequestException('Insufficient stock');
-    }
-
-    return this.prisma.cartItem.update({
-      where: { id: itemId },
-      data: { quantity },
+    return this.cartItemService.updateQuantity({
+      cartId: cart.id,
+      itemId,
+      quantity,
     });
   }
 
@@ -263,20 +156,16 @@ export class CartService {
     itemId: string;
   }) {
     const where = this.getCartWhereClause(userId, sessionId);
-    const cartItem = await this.prisma.cartItem.findFirst({
-      where: {
-        id: itemId,
-        cart: where,
-      },
-    });
+    const cart = await this.prisma.cart.findUnique({ where });
 
-    if (!cartItem) {
-      // To prevent errors, just confirm success if item is already gone
-      return { message: 'Item already removed from cart' };
+    if (!cart) {
+      throw new NotFoundException('Cart not found');
     }
 
-    await this.prisma.cartItem.delete({ where: { id: itemId } });
-    return { message: 'Item removed from cart successfully' };
+    return this.cartItemService.removeItem({
+      cartId: cart.id,
+      itemId,
+    });
   }
 
   async clearCart({
