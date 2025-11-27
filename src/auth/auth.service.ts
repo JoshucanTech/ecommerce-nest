@@ -18,6 +18,7 @@ import { UserRole } from '@prisma/client';
 // import { Profile } from "@prisma/client";
 import { REQUEST } from '@nestjs/core';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { UsersService } from '../users/users.service';
 
 @Injectable({ scope: Scope.REQUEST })
 export class AuthService {
@@ -26,6 +27,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private eventEmitter: EventEmitter2,
+    private usersService: UsersService,
     @Inject(REQUEST) private readonly request: Request,
   ) {}
 
@@ -215,41 +217,7 @@ export class AuthService {
   }
 
   async getProfile(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        profile: true,
-        wishlistItems: true,
-        addresses: {
-          where: { isDefault: true },
-        },
-        vendor: {
-          select: {
-            id: true,
-            businessName: true,
-            slug: true,
-            isVerified: true,
-          },
-        },
-        rider: {
-          select: {
-            id: true,
-            isVerified: true,
-            isAvailable: true,
-          },
-        },
-        settings: true,
-      },
-    });
-    // console.log(user.vendor);
-
-    if (!user) {
-      throw new BadRequestException('User not found. Pls Signin');
-    }
-
-    // Remove password from response
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return this.usersService.findOne(userId);
   }
 
   async validateUser(email: string, pass: string): Promise<any> {

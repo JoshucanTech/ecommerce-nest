@@ -9,6 +9,7 @@ import { LocalStrategy } from "./strategies/local.strategy";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { PrismaModule } from "../prisma/prisma.module";
 import { UsersModule } from "../users/users.module";
+import { UsersService } from 'src/users/users.service';
 
 @Module({
   imports: [
@@ -19,15 +20,21 @@ import { UsersModule } from "../users/users.module";
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get("JWT_ACCESS_SECRET"),
+        secret: configService.get('JWT_ACCESS_SECRET'),
         signOptions: {
-          expiresIn: configService.get("JWT_ACCESS_EXPIRATION"),
+          expiresIn: configService.get('JWT_ACCESS_EXPIRATION'),
         },
       }),
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, LocalStrategy, GoogleStrategy],
+  providers: [
+    AuthService,
+    UsersService,
+    JwtStrategy,
+    LocalStrategy,
+    GoogleStrategy,
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}
