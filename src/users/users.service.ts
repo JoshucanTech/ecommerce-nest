@@ -176,6 +176,34 @@ export class UsersService {
     }
   }
 
+  async getSettings(userId: string) {
+    let settings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+    });
+
+    // If no settings exist, create default settings
+    if (!settings) {
+      settings = await this.prisma.userSettings.create({
+        data: {
+          userId,
+          language: 'en',
+          currency: 'USD',
+          darkMode: false,
+          emailNotifications: true,
+          pushNotifications: true,
+          smsNotifications: false,
+          marketingEmails: true,
+          newProductEmails: false,
+          accountActivityEmails: true,
+          chatNotifications: true,
+          promotionNotifications: false,
+        },
+      });
+    }
+
+    return settings;
+  }
+
   async updateSettings(userId: string, updateSettingsDto: UpdateSettingsDto) {
     // Check if settings exist
     const settings = await this.prisma.userSettings.findUnique({

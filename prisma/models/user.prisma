@@ -123,6 +123,10 @@ model UserSettings {
   pushNotifications  Boolean  @default(true)
   smsNotifications   Boolean  @default(false)
   marketingEmails    Boolean  @default(true)
+  newProductEmails   Boolean  @default(false)
+  accountActivityEmails Boolean @default(true)
+  chatNotifications  Boolean  @default(true)
+  promotionNotifications Boolean @default(false)
   adPreferences      Json? // Store ad preferences as  JSON
   privacySettings    Json? // Store privacy settings as JSON
   createdAt          DateTime @default(now())

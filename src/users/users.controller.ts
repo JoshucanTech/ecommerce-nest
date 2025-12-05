@@ -198,6 +198,27 @@ export class UsersController {
     return this.usersService.updateProfile(user.id, updateProfileDto);
   }
 
+  @Get('settings')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get user settings',
+    description: 'Get the settings/preferences of the currently authenticated user',
+  })
+  @ApiHeader({
+    name: 'Authorization',
+    description: 'Bearer token for authentication',
+    required: true,
+    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
+  @ApiResponse({ status: 200, description: 'User settings retrieved successfully' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Missing or invalid authentication token',
+  })
+  getSettings(@CurrentUser() user) {
+    return this.usersService.getSettings(user.id);
+  }
+
   @Patch('settings')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({

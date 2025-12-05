@@ -55,4 +55,49 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   smsNotifications?: boolean;
+
+  @ApiPropertyOptional({ 
+    description: "Enable or disable marketing emails",
+    example: true,
+    type: Boolean
+  })
+  @IsOptional()
+  @IsBoolean()
+  marketingEmails?: boolean;
+
+  @ApiPropertyOptional({ 
+    description: "Enable or disable new product emails",
+    example: false,
+    type: Boolean
+  })
+  @IsOptional()
+  @IsBoolean()
+  newProductEmails?: boolean;
+
+  @ApiPropertyOptional({ 
+    description: "Enable or disable account activity emails",
+    example: true,
+    type: Boolean
+  })
+  @IsOptional()
+  @IsBoolean()
+  accountActivityEmails?: boolean;
+
+  @ApiPropertyOptional({ 
+    description: "Enable or disable chat notifications",
+    example: true,
+    type: Boolean
+  })
+  @IsOptional()
+  @IsBoolean()
+  chatNotifications?: boolean;
+
+  @ApiPropertyOptional({ 
+    description: "Enable or disable promotion notifications",
+    example: false,
+    type: Boolean
+  })
+  @IsOptional()
+  @IsBoolean()
+  promotionNotifications?: boolean;
 }
