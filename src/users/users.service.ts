@@ -101,6 +101,7 @@ export class UsersService {
         vendor: true,
         rider: true,
         settings: true,
+        shippingAddresses: true,
       },
     });
 
