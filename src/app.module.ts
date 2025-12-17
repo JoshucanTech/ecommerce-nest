@@ -32,6 +32,7 @@ import { RealTimeModule } from './real-time/real-time.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { LocationsModule } from './locations/locations.module';
 import { HealthModule } from './health/health.module';
+import { MessagesModule } from './messages/messages.module';
 import { RequestLoggerMiddleware } from './middleware/request-logger.middleware';
 import { ValidationExceptionFilter } from './exceptions/validation-exception.filter';
 //
@@ -64,6 +65,7 @@ import { ValidationExceptionFilter } from './exceptions/validation-exception.fil
     PromotionsModule,
     LocationsModule,
     HealthModule,
+    MessagesModule,
   ],
   controllers: [AppController, TestController],
   providers: [

@@ -25,6 +25,9 @@ const prisma = new PrismaClient();
 
 async function main() {
   // Clean database
+  await prisma.messageReaction.deleteMany();
+  await prisma.message.deleteMany();
+  await prisma.conversation.deleteMany();
   await prisma.adUserInteraction.deleteMany();
   await prisma.adAnalytics.deleteMany();
   await prisma.adPayment.deleteMany();
@@ -1719,6 +1722,262 @@ async function main() {
     }),
   ]);
   console.log('Created FAQs:', faqs.length);
+
+  // Create support users
+  const supportUsers = await Promise.all([
+    prisma.user.create({
+      data: {
+        email: 'support@example.com',
+        password: await bcrypt.hash('support123', await bcrypt.genSalt(10)),
+        firstName: 'Customer',
+        lastName: 'Support',
+        role: UserRole.ADMIN,
+        emailVerified: true,
+        profile: {
+          create: {
+            bio: 'Customer Support Representative',
+          },
+        },
+        settings: {
+          create: {},
+        },
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'billing@example.com',
+        password: await bcrypt.hash('billing123', await bcrypt.genSalt(10)),
+        firstName: 'Billing',
+        lastName: 'Department',
+        role: UserRole.ADMIN,
+        emailVerified: true,
+        profile: {
+          create: {
+            bio: 'Billing Department Representative',
+          },
+        },
+        settings: {
+          create: {},
+        },
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'shipping@example.com',
+        password: await bcrypt.hash('shipping123', await bcrypt.genSalt(10)),
+        firstName: 'Shipping',
+        lastName: 'Support',
+        role: UserRole.ADMIN,
+        emailVerified: true,
+        profile: {
+          create: {
+            bio: 'Shipping Support Representative',
+          },
+        },
+        settings: {
+          create: {},
+        },
+      },
+    }),
+  ]);
+  console.log('Created support users');
+
+  // Create conversations and messages
+  const conversations = await Promise.all([
+    // Conversation with Customer Support
+    prisma.conversation.create({
+      data: {
+        participants: [buyer.id, supportUsers[0].id],
+        lastMessage: 'Thank you for contacting us. How can we help you today?',
+        lastMessageAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+        messages: {
+          create: [
+            {
+              senderId: buyer.id,
+              content: 'Hi, I have an issue with my recent order. The product seems to be damaged.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3 hours ago
+            },
+            {
+              senderId: supportUsers[0].id,
+              content: 'I\'m sorry to hear about the damaged product. Can you please provide your order number?',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 2.5 * 60 * 60 * 1000), // 2.5 hours ago
+            },
+            {
+              senderId: buyer.id,
+              content: `My order number is ${order.orderNumber}. The package arrived yesterday but the item was cracked.`,
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 2.2 * 60 * 60 * 1000), // 2.2 hours ago
+            },
+            {
+              senderId: supportUsers[0].id,
+              content: 'Thank you for providing the order details. I\'ve initiated a replacement process for you. You should receive a new item within 3-5 business days.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+            },
+          ],
+        },
+      },
+    }),
+    // Conversation with Vendor
+    prisma.conversation.create({
+      data: {
+        participants: [buyer.id, vendorUser.id],
+        lastMessage: 'The product will be restocked next week. I\'ll notify you when it\'s available.',
+        lastMessageAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
+        messages: {
+          create: [
+            {
+              senderId: buyer.id,
+              content: 'Hello! I\'m interested in purchasing your smartphone but it shows out of stock. When will it be available?',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000), // 25 hours ago
+            },
+            {
+              senderId: vendorUser.id,
+              content: 'Hi! Thank you for your interest. We\'re expecting a new shipment early next week.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 24.5 * 60 * 60 * 1000), // 24.5 hours ago
+            },
+            {
+              senderId: buyer.id,
+              content: 'That\'s great! Can you let me know the exact date? I need it for a business trip.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 24.2 * 60 * 60 * 1000), // 24.2 hours ago
+            },
+            {
+              senderId: vendorUser.id,
+              content: 'The product will be restocked next week. I\'ll notify you when it\'s available.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 24 hours ago
+            },
+          ],
+        },
+      },
+    }),
+    // Conversation with Billing Department
+    prisma.conversation.create({
+      data: {
+        participants: [buyer.id, supportUsers[1].id],
+        lastMessage: 'Your refund has been processed and should appear in your account within 3-5 business days.',
+        lastMessageAt: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
+        messages: {
+          create: [
+            {
+              senderId: buyer.id,
+              content: 'Hi, I was charged twice for the same order. Can you help me with this?',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000), // 8 hours ago
+            },
+            {
+              senderId: supportUsers[1].id,
+              content: 'I can help you with that. Can you please provide the transaction details?',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 7.5 * 60 * 60 * 1000), // 7.5 hours ago
+            },
+            {
+              senderId: buyer.id,
+              content: 'The transaction reference is TRANS-9876543210. I see two charges of $313.95 each.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 7 * 60 * 60 * 1000), // 7 hours ago
+            },
+            {
+              senderId: supportUsers[1].id,
+              content: 'I\'ve reviewed your account and confirmed the duplicate charge. I\'ve initiated a refund for the extra amount.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 6.5 * 60 * 60 * 1000), // 6.5 hours ago
+            },
+            {
+              senderId: supportUsers[1].id,
+              content: 'Your refund has been processed and should appear in your account within 3-5 business days.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
+            },
+          ],
+        },
+      },
+    }),
+    // Conversation with Shipping Support
+    prisma.conversation.create({
+      data: {
+        participants: [buyer.id, supportUsers[2].id],
+        lastMessage: 'Your package is currently in transit and should arrive tomorrow by 5 PM.',
+        lastMessageAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+        messages: {
+          create: [
+            {
+              senderId: buyer.id,
+              content: 'Hello, I haven\'t received any updates on my shipment. The tracking shows it\'s been in transit for 3 days.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+            },
+            {
+              senderId: supportUsers[2].id,
+              content: 'Let me check the status of your shipment. Can you provide the tracking number?',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000), // 1.5 hours ago
+            },
+            {
+              senderId: buyer.id,
+              content: 'The tracking number is TRACK-V1-1234567890',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 1.2 * 60 * 60 * 1000), // 1.2 hours ago
+            },
+            {
+              senderId: supportUsers[2].id,
+              content: 'I\'ve checked with our logistics partner. There was a slight delay due to weather conditions, but your package is now moving.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
+            },
+            {
+              senderId: supportUsers[2].id,
+              content: 'Your package is currently in transit and should arrive tomorrow by 5 PM.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+            },
+          ],
+        },
+      },
+    }),
+    // Conversation with another vendor (Tech Gadgets)
+    prisma.conversation.create({
+      data: {
+        participants: [buyer.id, additionalVendors[0].id],
+        lastMessage: 'Perfect! I\'ll prepare a custom bundle for you with a 15% discount.',
+        lastMessageAt: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+        messages: {
+          create: [
+            {
+              senderId: buyer.id,
+              content: 'Hi! I\'m interested in buying multiple tech accessories. Do you offer bulk discounts?',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
+            },
+            {
+              senderId: additionalVendors[0].id,
+              content: 'Hello! Yes, we do offer bulk discounts. What items are you looking to purchase?',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 4.5 * 60 * 60 * 1000), // 4.5 hours ago
+            },
+            {
+              senderId: buyer.id,
+              content: 'I need 5 wireless chargers, 3 phone cases, and 2 bluetooth speakers for my office.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 4.2 * 60 * 60 * 1000), // 4.2 hours ago
+            },
+            {
+              senderId: additionalVendors[0].id,
+              content: 'Perfect! I\'ll prepare a custom bundle for you with a 15% discount.',
+              messageType: 'TEXT',
+              createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+            },
+          ],
+        },
+      },
+    }),
+  ]);
+  console.log('Created conversations and messages');
 
   console.log('Database seeded successfully!');
   console.log('Seed completed \ud83c\udf31');

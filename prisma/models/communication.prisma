@@ -14,17 +14,59 @@ model Notification {
   @@map("notifications")
 }
 
+model Conversation {
+  id           String    @id @default(uuid())
+  participants String[]  // Array of user IDs
+  lastMessage  String?
+  lastMessageAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  messages     Message[]
+
+  @@map("conversations")
+}
+
 model Message {
-  id         String   @id @default(uuid())
-  senderId   String
-  receiverId String
-  content    String
-  isRead     Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  receiver   User?    @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: SetNull)
-  sender     User?    @relation("UserMessages", fields: [senderId], references: [id], onDelete: SetNull)
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  messageType    MessageType  @default(TEXT)
+  attachments    String[]     @default([])
+  isRead         Boolean      @default(false)
+  isEdited       Boolean      @default(false)
+  editedAt       DateTime?
+  replyToId      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo        Message?     @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies        Message[]    @relation("MessageReplies")
+  reactions      MessageReaction[]
 
   @@map("messages")
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation("MessageReactions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@map("message_reactions")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  VOICE
+  VIDEO
 }
 
 enum NotificationType {

@@ -26,8 +26,8 @@ model User {
   cart              Cart?
   Category          Category[]
   comments          Comment[]
-  receivedMessages  Message[]          @relation("ReceivedMessages")
-  messages          Message[]          @relation("UserMessages")
+  sentMessages      Message[]          @relation("SentMessages")
+  messageReactions  MessageReaction[]  @relation("MessageReactions")
   notifications     Notification[]
   orders            Order[]            @relation("UserOrders")
   payments          Payment[]
