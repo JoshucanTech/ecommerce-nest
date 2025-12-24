@@ -17,7 +17,7 @@ import { MessageReactionDto } from './dto/update-message.dto';
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:2000',
+    origin: ['http://localhost:2000', 'http://localhost:3000'],
     credentials: true,
   },
   namespace: '/messages',
@@ -37,19 +37,23 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth.token;
+      
+      if (!token) {
+        client.disconnect();
+        return;
+      }
+      
       const payload = this.jwtService.verify(token);
       const userId = payload.sub;
       
       client.data.userId = userId;
       this.connectedUsers.set(userId, client.id);
       
-      // Join user to their conversation rooms
       const conversations = await this.messagesService.getUserConversations(userId);
       conversations.forEach(conv => {
         client.join(`conversation:${conv.id}`);
       });
 
-      // Notify user is online
       client.broadcast.emit('user:online', { userId });
     } catch (error) {
       client.disconnect();

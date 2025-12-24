@@ -19,7 +19,6 @@ export class MessagesService {
     const existing = await this.prisma.conversation.findFirst({
       where: {
         participants: {
-          hasEvery: participants,
           equals: participants,
         },
       },
