@@ -7,6 +7,7 @@ import {
   OnGatewayDisconnect,
   WebSocketServer,
 } from '@nestjs/websockets';
+import { OnEvent } from '@nestjs/event-emitter';
 import { Server, Socket } from 'socket.io';
 import { UseGuards } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -85,10 +86,7 @@ export class MessagesGateway
       const userId = client.data.userId;
       const message = await this.messagesService.createMessage(userId, data);
 
-      // Emit to conversation room
-      this.server
-        .to(`conversation:${data.conversationId}`)
-        .emit('message:new', message);
+      // Emission is handled by event listener 'message.created'
 
       return { success: true, message };
     } catch (error) {
@@ -213,5 +211,28 @@ export class MessagesGateway
     } catch (error) {
       return { success: false, error: error.message };
     }
+  }
+  @OnEvent('message.created')
+  handleMessageCreated(message: any) {
+    this.server
+      .to(`conversation:${message.conversationId}`)
+      .emit('message:new', message);
+  }
+
+  @OnEvent('conversation.created')
+  handleConversationCreated(conversation: any) {
+    // Notify participants about the new conversation
+    conversation.participants.forEach((participantId) => {
+      // If user is connected, join them to the room
+      const socketId = this.connectedUsers.get(participantId);
+      if (socketId) {
+        const socket = this.server.sockets.sockets.get(socketId);
+        if (socket) {
+          socket.join(`conversation:${conversation.id}`);
+          // Also emit an event so the frontend knows a new conversation appeared
+          socket.emit('conversation:new', conversation);
+        }
+      }
+    });
   }
 }

@@ -1,11 +1,23 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateMessageDto, CreateConversationDto } from './dto/create-message.dto';
+import {
+  CreateMessageDto,
+  CreateConversationDto,
+} from './dto/create-message.dto';
 import { UpdateMessageDto, MessageReactionDto } from './dto/update-message.dto';
 
 @Injectable()
 export class MessagesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   async createConversation(
     userId: string,
@@ -23,13 +35,13 @@ export class MessagesService {
     });
 
     const existing = possible.find(
-      (conv) => conv.participants.length === participants.length
+      (conv) => conv.participants.length === participants.length,
     );
 
     if (existing) return existing;
 
-    return this.prisma.$transaction(async (tx) => {
-      const conversation = await tx.conversation.create({
+    const conversation = await this.prisma.$transaction(async (tx) => {
+      const newConversation = await tx.conversation.create({
         data: {
           participants,
           lastMessage: null,
@@ -56,13 +68,17 @@ export class MessagesService {
 
       if (createConversationDto.initialMessage) {
         await this.createMessage(userId, {
-          conversationId: conversation.id,
+          conversationId: newConversation.id,
           content: createConversationDto.initialMessage,
         });
       }
 
-      return conversation;
+      return newConversation;
     });
+
+    this.eventEmitter.emit('conversation.created', conversation);
+
+    return conversation;
   }
 
   async getUserConversations(userId: string) {
@@ -139,8 +155,8 @@ export class MessagesService {
       throw new ForbiddenException('Access denied to this conversation');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const message = await tx.message.create({
+    const message = await this.prisma.$transaction(async (tx) => {
+      const newMessage = await tx.message.create({
         data: {
           ...dto,
           senderId: userId,
@@ -167,8 +183,13 @@ export class MessagesService {
         },
       });
 
-      return message;
+      // Emit event for real-time updates
+      this.eventEmitter.emit('message.created', newMessage);
+
+      return newMessage;
     });
+
+    return message;
   }
 
   async updateMessage(
@@ -316,7 +337,10 @@ export class MessagesService {
     });
   }
 
-  async hasConversationAccess(userId: string, conversationId: string): Promise<boolean> {
+  async hasConversationAccess(
+    userId: string,
+    conversationId: string,
+  ): Promise<boolean> {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       select: { participants: true },

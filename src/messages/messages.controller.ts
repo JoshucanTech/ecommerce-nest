@@ -10,10 +10,18 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MessagesService } from './messages.service';
-import { CreateMessageDto, CreateConversationDto } from './dto/create-message.dto';
+import {
+  CreateMessageDto,
+  CreateConversationDto,
+} from './dto/create-message.dto';
 import { UpdateMessageDto, MessageReactionDto } from './dto/update-message.dto';
 
 @ApiTags('Messages')
@@ -25,8 +33,14 @@ export class MessagesController {
 
   @Post('conversations')
   @ApiOperation({ summary: 'Create a new conversation' })
-  @ApiResponse({ status: 201, description: 'Conversation created successfully' })
-  async createConversation(@Request() req, @Body() createConversationDto: CreateConversationDto) {
+  @ApiResponse({
+    status: 201,
+    description: 'Conversation created successfully',
+  })
+  async createConversation(
+    @Request() req,
+    @Body() createConversationDto: CreateConversationDto,
+  ) {
     return this.messagesService.createConversation(
       req.user.id,
       createConversationDto,
@@ -35,7 +49,10 @@ export class MessagesController {
 
   @Get('conversations')
   @ApiOperation({ summary: 'Get user conversations' })
-  @ApiResponse({ status: 200, description: 'Conversations retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversations retrieved successfully',
+  })
   async getUserConversations(@Request() req) {
     return this.messagesService.getUserConversations(req.user.id);
   }
@@ -51,7 +68,7 @@ export class MessagesController {
   ) {
     const pageNum = page && !isNaN(parseInt(page)) ? parseInt(page) : 1;
     const limitNum = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : 50;
-    
+
     return this.messagesService.getConversationMessages(
       req.user.id,
       conversationId,
