@@ -9,7 +9,12 @@ import { PrismaModule } from '../prisma/prisma.module';
   imports: [
     PrismaModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your-secret-key',
+      secret: (() => {
+        if (!process.env.JWT_ACCESS_SECRET) {
+          throw new Error('JWT_SECRET environment variable is not defined');
+        }
+        return process.env.JWT_ACCESS_SECRET;
+      })(),
       signOptions: { expiresIn: '24h' },
     }),
   ],

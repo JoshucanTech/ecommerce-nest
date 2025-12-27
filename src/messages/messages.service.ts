@@ -16,49 +16,53 @@ export class MessagesService {
     ];
 
     // Check if conversation already exists
-    const existing = await this.prisma.conversation.findFirst({
+    const possible = await this.prisma.conversation.findMany({
       where: {
-        participants: {
-          equals: participants,
-        },
+        participants: { hasEvery: participants },
       },
     });
+
+    const existing = possible.find(
+      (conv) => conv.participants.length === participants.length
+    );
 
     if (existing) return existing;
 
-    const conversation = await this.prisma.conversation.create({
-      data: {
-        participants,
-        lastMessage: createConversationDto.initialMessage,
-        lastMessageAt: createConversationDto.initialMessage ? new Date() : null,
-      },
-      include: {
-        messages: {
-          include: {
-            sender: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                avatar: true,
-              },
-            },
-            reactions: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
+    return this.prisma.$transaction(async (tx) => {
+      const conversation = await tx.conversation.create({
+        data: {
+          participants,
+          lastMessage: null,
+          lastMessageAt: null,
         },
-      },
-    });
-
-    if (createConversationDto.initialMessage) {
-      await this.createMessage(userId, {
-        conversationId: conversation.id,
-        content: createConversationDto.initialMessage,
+        include: {
+          messages: {
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  avatar: true,
+                },
+              },
+              reactions: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
       });
-    }
 
-    return conversation;
+      if (createConversationDto.initialMessage) {
+        await this.createMessage(userId, {
+          conversationId: conversation.id,
+          content: createConversationDto.initialMessage,
+        });
+      }
+
+      return conversation;
+    });
   }
 
   async getUserConversations(userId: string) {
@@ -97,7 +101,7 @@ export class MessagesService {
       where: { id: conversationId },
     });
 
-    if (!conversation || !conversation.participants.includes(userId)) {
+    if (!conversation?.participants.includes(userId)) {
       throw new ForbiddenException('Access denied to this conversation');
     }
 
@@ -131,38 +135,40 @@ export class MessagesService {
       where: { id: dto.conversationId },
     });
 
-    if (!conversation || !conversation.participants.includes(userId)) {
+    if (!conversation?.participants.includes(userId)) {
       throw new ForbiddenException('Access denied to this conversation');
     }
 
-    const message = await this.prisma.message.create({
-      data: {
-        ...dto,
-        senderId: userId,
-      },
-      include: {
-        sender: {
-          select: { id: true, firstName: true, lastName: true, avatar: true },
+    return this.prisma.$transaction(async (tx) => {
+      const message = await tx.message.create({
+        data: {
+          ...dto,
+          senderId: userId,
         },
-        replyTo: {
-          include: {
-            sender: { select: { id: true, firstName: true, lastName: true } },
+        include: {
+          sender: {
+            select: { id: true, firstName: true, lastName: true, avatar: true },
           },
+          replyTo: {
+            include: {
+              sender: { select: { id: true, firstName: true, lastName: true } },
+            },
+          },
+          reactions: true,
         },
-        reactions: true,
-      },
-    });
+      });
 
-    // Update conversation
-    await this.prisma.conversation.update({
-      where: { id: dto.conversationId },
-      data: {
-        lastMessage: dto.content,
-        lastMessageAt: new Date(),
-      },
-    });
+      // Update conversation
+      await tx.conversation.update({
+        where: { id: dto.conversationId },
+        data: {
+          lastMessage: dto.content,
+          lastMessageAt: new Date(),
+        },
+      });
 
-    return message;
+      return message;
+    });
   }
 
   async updateMessage(
@@ -186,8 +192,8 @@ export class MessagesService {
       where: { id: messageId },
       data: {
         ...dto,
-        isEdited: dto.content ? true : message.isEdited,
-        editedAt: dto.content ? new Date() : message.editedAt,
+        isEdited: true,
+        editedAt: new Date(),
       },
       include: {
         sender: {
@@ -199,6 +205,24 @@ export class MessagesService {
   }
 
   async toggleReaction(userId: string, dto: MessageReactionDto) {
+    // Validate message exists and user has access
+    const message = await this.prisma.message.findUnique({
+      where: { id: dto.messageId },
+      include: {
+        conversation: {
+          select: { id: true, participants: true },
+        },
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    if (!message.conversation.participants.includes(userId)) {
+      throw new ForbiddenException('Access denied to this conversation');
+    }
+
     const existing = await this.prisma.messageReaction.findUnique({
       where: {
         messageId_userId_emoji: {
@@ -213,7 +237,7 @@ export class MessagesService {
       await this.prisma.messageReaction.delete({
         where: { id: existing.id },
       });
-      return { action: 'removed' };
+      return { action: 'removed', conversationId: message.conversation.id };
     }
 
     await this.prisma.messageReaction.create({
@@ -224,7 +248,7 @@ export class MessagesService {
       },
     });
 
-    return { action: 'added' };
+    return { action: 'added', conversationId: message.conversation.id };
   }
 
   async markAsRead(userId: string, conversationId: string) {
@@ -232,7 +256,7 @@ export class MessagesService {
       where: { id: conversationId },
     });
 
-    if (!conversation || !conversation.participants.includes(userId)) {
+    if (!conversation?.participants.includes(userId)) {
       throw new ForbiddenException('Access denied to this conversation');
     }
 
@@ -251,6 +275,11 @@ export class MessagesService {
   async deleteMessage(userId: string, messageId: string) {
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
+      include: {
+        conversation: {
+          select: { id: true, lastMessage: true },
+        },
+      },
     });
 
     if (!message) {
@@ -261,10 +290,38 @@ export class MessagesService {
       throw new ForbiddenException('Can only delete your own messages');
     }
 
-    await this.prisma.message.delete({
-      where: { id: messageId },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.message.delete({
+        where: { id: messageId },
+      });
+
+      // Update conversation if this was the last message
+      if (message.conversation.lastMessage === message.content) {
+        const lastMessage = await tx.message.findFirst({
+          where: { conversationId: message.conversation.id },
+          orderBy: { createdAt: 'desc' },
+          select: { content: true, createdAt: true },
+        });
+
+        await tx.conversation.update({
+          where: { id: message.conversation.id },
+          data: {
+            lastMessage: lastMessage?.content || null,
+            lastMessageAt: lastMessage?.createdAt || null,
+          },
+        });
+      }
+
+      return { success: true };
+    });
+  }
+
+  async hasConversationAccess(userId: string, conversationId: string): Promise<boolean> {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { participants: true },
     });
 
-    return { success: true };
+    return conversation?.participants.includes(userId) || false;
   }
 }

@@ -17,12 +17,14 @@ import { MessageReactionDto } from './dto/update-message.dto';
 
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:2000', 'http://localhost:3000'],
+    origin: process.env.FRONTEND_URL?.split(','),
     credentials: true,
   },
   namespace: '/messages',
 })
-export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class MessagesGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -37,25 +39,31 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth.token;
-      
+
       if (!token) {
         client.disconnect();
         return;
       }
-      
+
       const payload = this.jwtService.verify(token);
+      if (!payload?.sub) {
+        client.disconnect();
+        return;
+      }
       const userId = payload.sub;
-      
+
       client.data.userId = userId;
       this.connectedUsers.set(userId, client.id);
-      
-      const conversations = await this.messagesService.getUserConversations(userId);
-      conversations.forEach(conv => {
+
+      const conversations =
+        await this.messagesService.getUserConversations(userId);
+      conversations.forEach((conv) => {
         client.join(`conversation:${conv.id}`);
       });
 
       client.broadcast.emit('user:online', { userId });
     } catch (error) {
+      console.error('WebSocket connection error:', error.message);
       client.disconnect();
     }
   }
@@ -76,10 +84,12 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     try {
       const userId = client.data.userId;
       const message = await this.messagesService.createMessage(userId, data);
-      
+
       // Emit to conversation room
-      this.server.to(`conversation:${data.conversationId}`).emit('message:new', message);
-      
+      this.server
+        .to(`conversation:${data.conversationId}`)
+        .emit('message:new', message);
+
       return { success: true, message };
     } catch (error) {
       return { success: false, error: error.message };
@@ -94,22 +104,18 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     try {
       const userId = client.data.userId;
       const result = await this.messagesService.toggleReaction(userId, data);
-      
-      // Get conversation ID from message
-      const message = await this.prismaService.message.findUnique({
-        where: { id: data.messageId },
-        select: { conversationId: true },
-      });
-      
-      if (message) {
-        this.server.to(`conversation:${message.conversationId}`).emit('message:reaction', {
-          messageId: data.messageId,
-          userId,
-          emoji: data.emoji,
-          action: result.action,
-        });
+
+      if (result.conversationId) {
+        this.server
+          .to(`conversation:${result.conversationId}`)
+          .emit('message:reaction', {
+            messageId: data.messageId,
+            userId,
+            emoji: data.emoji,
+            action: result.action,
+          });
       }
-      
+
       return { success: true, result };
     } catch (error) {
       return { success: false, error: error.message };
@@ -117,27 +123,35 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   @SubscribeMessage('typing:start')
-  async handleTypingStart(
+  handleTypingStart(
     @MessageBody() data: { conversationId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const userId = client.data.userId;
-    client.to(`conversation:${data.conversationId}`).emit('typing:start', {
-      userId,
-      conversationId: data.conversationId,
-    });
+    try {
+      const userId = client.data.userId;
+      client.to(`conversation:${data.conversationId}`).emit('typing:start', {
+        userId,
+        conversationId: data.conversationId,
+      });
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   }
 
   @SubscribeMessage('typing:stop')
-  async handleTypingStop(
+  handleTypingStop(
     @MessageBody() data: { conversationId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const userId = client.data.userId;
-    client.to(`conversation:${data.conversationId}`).emit('typing:stop', {
-      userId,
-      conversationId: data.conversationId,
-    });
+    try {
+      const userId = client.data.userId;
+      client.to(`conversation:${data.conversationId}`).emit('typing:stop', {
+        userId,
+        conversationId: data.conversationId,
+      });
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   }
 
   @SubscribeMessage('conversation:join')
@@ -145,8 +159,22 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     @MessageBody() data: { conversationId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    client.join(`conversation:${data.conversationId}`);
-    return { success: true };
+    try {
+      const userId = client.data.userId;
+      const hasAccess = await this.messagesService.hasConversationAccess(
+        userId,
+        data.conversationId,
+      );
+
+      if (!hasAccess) {
+        return { success: false, error: 'Access denied' };
+      }
+
+      client.join(`conversation:${data.conversationId}`);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   }
 
   @SubscribeMessage('conversation:leave')
@@ -165,13 +193,22 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   ) {
     try {
       const userId = client.data.userId;
+      const hasAccess = await this.messagesService.hasConversationAccess(
+        userId,
+        data.conversationId,
+      );
+
+      if (!hasAccess) {
+        return { success: false, error: 'Access denied' };
+      }
+
       await this.messagesService.markAsRead(userId, data.conversationId);
-      
+
       client.to(`conversation:${data.conversationId}`).emit('message:read', {
         userId,
         conversationId: data.conversationId,
       });
-      
+
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };

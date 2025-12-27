@@ -49,11 +49,14 @@ export class MessagesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    const pageNum = page && !isNaN(parseInt(page)) ? parseInt(page) : 1;
+    const limitNum = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : 50;
+    
     return this.messagesService.getConversationMessages(
       req.user.id,
       conversationId,
-      page ? parseInt(page) : 1,
-      limit ? parseInt(limit) : 50,
+      pageNum,
+      limitNum,
     );
   }
 
