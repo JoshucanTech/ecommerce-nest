@@ -1,5 +1,5 @@
 // backend/src/auth/decorators/current-user.decorator.ts
-import { createParamDecorator, type ExecutionContext } from "@nestjs/common";
+import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
 
 export const CurrentUser = createParamDecorator(
   (data: unknown, ctx: ExecutionContext) => {

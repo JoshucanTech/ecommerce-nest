@@ -1,43 +1,60 @@
-import { Controller, Get, Post, Body, Patch, Param, UseGuards, Query, HttpStatus } from "@nestjs/common"
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth, ApiQuery } from "@nestjs/swagger"
-import { AdPaymentsService } from "./ad-payments.service"
-import { CreateAdPaymentDto } from "./dto/create-ad-payment.dto"
-import { UpdateAdPaymentDto } from "./dto/update-ad-payment.dto"
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard"
-import { RolesGuard } from "../auth/guards/roles.guard"
-import { Roles } from "../auth/decorators/roles.decorator"
-import { CurrentUser } from "../auth/decorators/current-user.decorator"
-import { PaymentStatus } from "@prisma/client"
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  UseGuards,
+  Query,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
+import { AdPaymentsService } from './ad-payments.service';
+import { CreateAdPaymentDto } from './dto/create-ad-payment.dto';
+import { UpdateAdPaymentDto } from './dto/update-ad-payment.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { PaymentStatus } from '@prisma/client';
 
-@ApiTags("ad-payments")
-@Controller("ad-payments")
+@ApiTags('ad-payments')
+@Controller('ad-payments')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class AdPaymentsController {
   constructor(private readonly adPaymentsService: AdPaymentsService) {}
 
   @Post()
-  @Roles("VENDOR", "ADMIN")
-  @ApiOperation({ summary: "Create a new ad payment" })
+  @Roles('VENDOR', 'ADMIN')
+  @ApiOperation({ summary: 'Create a new ad payment' })
   @ApiResponse({
     status: HttpStatus.CREATED,
-    description: "The ad payment has been successfully created.",
+    description: 'The ad payment has been successfully created.',
   })
   create(@Body() createAdPaymentDto: CreateAdPaymentDto, @CurrentUser() user) {
-    return this.adPaymentsService.create(createAdPaymentDto)
+    return this.adPaymentsService.create(createAdPaymentDto);
   }
 
   @Get()
-  @Roles("VENDOR", "ADMIN")
-  @ApiOperation({ summary: "Get all ad payments" })
+  @Roles('VENDOR', 'ADMIN')
+  @ApiOperation({ summary: 'Get all ad payments' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: "Return all ad payments.",
+    description: 'Return all ad payments.',
   })
-  @ApiQuery({ name: "page", required: false, type: Number })
-  @ApiQuery({ name: "limit", required: false, type: Number })
-  @ApiQuery({ name: "status", required: false, enum: PaymentStatus })
-  @ApiQuery({ name: "advertisementId", required: false })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'status', required: false, enum: PaymentStatus })
+  @ApiQuery({ name: 'advertisementId', required: false })
   findAll(
     @Param('vendorId') vendorId: string,
     @Query('page') page = 1,
@@ -47,37 +64,41 @@ export class AdPaymentsController {
     // @CurrentUser() user,
   ) {
     return this.adPaymentsService.findAll(
-      vendorId
+      vendorId,
       // +page
       // +limit,
       // status,
       // advertisementId,
       // user,
-    )
+    );
   }
 
-  @Get(":id")
-  @Roles("VENDOR", "ADMIN")
-  @ApiOperation({ summary: "Get ad payment by ID" })
+  @Get(':id')
+  @Roles('VENDOR', 'ADMIN')
+  @ApiOperation({ summary: 'Get ad payment by ID' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: "Return the ad payment.",
+    description: 'Return the ad payment.',
   })
-  @ApiParam({ name: "id", description: "Ad Payment ID" })
+  @ApiParam({ name: 'id', description: 'Ad Payment ID' })
   findOne(@Param('id') id: string, @CurrentUser() user) {
-    return this.adPaymentsService.findOne(id)
+    return this.adPaymentsService.findOne(id);
   }
 
-  @Patch(":id")
-  @Roles("ADMIN")
-  @ApiOperation({ summary: "Update ad payment" })
+  @Patch(':id')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Update ad payment' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: "The ad payment has been successfully updated.",
+    description: 'The ad payment has been successfully updated.',
   })
-  @ApiParam({ name: "id", description: "Ad Payment ID" })
-  update(@Param('id') id: string, @Body() updateAdPaymentDto: UpdateAdPaymentDto, @CurrentUser() user) {
-    return this.adPaymentsService.update(id, updateAdPaymentDto)
+  @ApiParam({ name: 'id', description: 'Ad Payment ID' })
+  update(
+    @Param('id') id: string,
+    @Body() updateAdPaymentDto: UpdateAdPaymentDto,
+    @CurrentUser() user,
+  ) {
+    return this.adPaymentsService.update(id, updateAdPaymentDto);
   }
 
   // @Post(":id/process")

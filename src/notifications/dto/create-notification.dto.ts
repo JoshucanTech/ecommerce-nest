@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEnum,
   IsJSON,
@@ -6,33 +6,33 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-} from "class-validator";
-import { NotificationType } from "@prisma/client";
+} from 'class-validator';
+import { NotificationType } from '@prisma/client';
 
 export class CreateNotificationDto {
-  @ApiProperty({ description: "User ID to send notification to" })
+  @ApiProperty({ description: 'User ID to send notification to' })
   @IsUUID()
   @IsNotEmpty()
   userId: string;
 
   @ApiProperty({
-    description: "Notification title",
-    example: "Order Confirmed",
+    description: 'Notification title',
+    example: 'Order Confirmed',
   })
   @IsString()
   @IsNotEmpty()
   title: string;
 
   @ApiProperty({
-    description: "Notification message",
-    example: "Your order #12345 has been confirmed",
+    description: 'Notification message',
+    example: 'Your order #12345 has been confirmed',
   })
   @IsString()
   @IsNotEmpty()
   message: string;
 
   @ApiProperty({
-    description: "Notification type",
+    description: 'Notification type',
     enum: NotificationType,
     example: NotificationType.ORDER_STATUS,
   })
@@ -41,7 +41,7 @@ export class CreateNotificationDto {
   type: NotificationType;
 
   @ApiProperty({
-    description: "Related entity ID (order, product, etc.)",
+    description: 'Related entity ID (order, product, etc.)',
     required: false,
   })
   @IsUUID()
@@ -49,7 +49,7 @@ export class CreateNotificationDto {
   entityId?: string;
 
   @ApiProperty({
-    description: "Related entity ID (order, product, etc.)",
+    description: 'Related entity ID (order, product, etc.)',
     required: false,
   })
   @IsJSON()
@@ -57,7 +57,7 @@ export class CreateNotificationDto {
   data?: string;
 
   @ApiProperty({
-    description: "URL to redirect when notification is clicked",
+    description: 'URL to redirect when notification is clicked',
     required: false,
   })
   @IsString()

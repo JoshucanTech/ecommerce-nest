@@ -64,7 +64,7 @@ export class PaymentsService {
 
     // Apply coupon if provided
     let coupon = null;
-    let vendorCoupons = {}; // Track which vendors can use the coupon
+    const vendorCoupons = {}; // Track which vendors can use the coupon
     if (couponCode) {
       coupon = await this.prisma.coupon.findUnique({
         where: { code: couponCode },
@@ -589,7 +589,7 @@ export class PaymentsService {
     // Use transaction_id if available (it's numeric and works with Flutterwave API)
     // Otherwise fall back to tx_ref
     const verificationId = transaction_id || tx_ref;
-    
+
     // Verify the payment using Flutterwave
     const verificationResult =
       await this.flutterwaveService.verifyPayment(verificationId);

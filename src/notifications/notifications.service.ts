@@ -2,10 +2,10 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-} from "@nestjs/common";
-import { CreateNotificationDto } from "./dto/create-notification.dto";
-import { UpdateNotificationDto } from "./dto/update-notification.dto";
-import  { PrismaService } from "../prisma/prisma.service";
+} from '@nestjs/common';
+import { CreateNotificationDto } from './dto/create-notification.dto';
+import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class NotificationsService {
@@ -44,7 +44,7 @@ export class NotificationsService {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.notification.count(),
     ]);
@@ -78,7 +78,7 @@ export class NotificationsService {
         where: whereClause,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.notification.count({ where: whereClause }),
     ]);
@@ -116,7 +116,7 @@ export class NotificationsService {
 
     // Check if the notification belongs to the user
     if (notification.userId !== userId) {
-      throw new ForbiddenException("You can only view your own notifications");
+      throw new ForbiddenException('You can only view your own notifications');
     }
 
     return notification;
@@ -138,7 +138,7 @@ export class NotificationsService {
 
     if (notification.userId !== userId) {
       throw new ForbiddenException(
-        "You can only update your own notifications",
+        'You can only update your own notifications',
       );
     }
 
@@ -160,7 +160,7 @@ export class NotificationsService {
       },
     });
 
-    return { success: true, message: "All notifications marked as read" };
+    return { success: true, message: 'All notifications marked as read' };
   }
 
   async remove(id: string, userId: string) {
@@ -175,7 +175,7 @@ export class NotificationsService {
 
     if (notification.userId !== userId) {
       throw new ForbiddenException(
-        "You can only delete your own notifications",
+        'You can only delete your own notifications',
       );
     }
 

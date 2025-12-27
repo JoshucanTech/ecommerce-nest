@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, IsObject, ValidateNested, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsObject,
+  ValidateNested,
+  IsEnum,
+} from 'class-validator';
 
 export enum PaymentPurpose {
   ORDER = 'ORDER',
@@ -15,7 +22,10 @@ export class PaymentItemDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ description: 'Amount for this item in the smallest currency unit (e.g., cents)' })
+  @ApiProperty({
+    description:
+      'Amount for this item in the smallest currency unit (e.g., cents)',
+  })
   @IsNumber()
   amount: number;
 
@@ -39,7 +49,10 @@ export class GenericPaymentDto {
   @IsString()
   currency: string;
 
-  @ApiProperty({ description: 'Total amount in the smallest currency unit (e.g., cents)', example: 1000 })
+  @ApiProperty({
+    description: 'Total amount in the smallest currency unit (e.g., cents)',
+    example: 1000,
+  })
   @IsNumber()
   amount: number;
 

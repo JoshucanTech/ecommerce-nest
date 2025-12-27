@@ -164,9 +164,10 @@ export class ProductsService {
 
     // Calculate average rating for each product
     const productsWithRating = products.map((product) => {
-      const { avgRating, reviewCount } = this.productCalculatorService.calculateProductRatings(product.reviews);
+      const { avgRating, reviewCount } =
+        this.productCalculatorService.calculateProductRatings(product.reviews);
       const { reviews, ...rest } = product;
-      
+
       return {
         ...rest,
         avgRating,
@@ -254,16 +255,23 @@ export class ProductsService {
     }
 
     // Calculate product ratings
-    const { avgRating, reviewCount, ratingDistribution } = this.productCalculatorService.calculateProductRatings(product.reviews);
-    
+    const { avgRating, reviewCount, ratingDistribution } =
+      this.productCalculatorService.calculateProductRatings(product.reviews);
+
     // Calculate flash sale price
-    const { flashSalePrice, activeFlashSale } = this.productCalculatorService.calculateFlashSalePrice(product);
-    
+    const { flashSalePrice, activeFlashSale } =
+      this.productCalculatorService.calculateFlashSalePrice(product);
+
     // Generate short description
-    const shortDescription = this.productCalculatorService.generateShortDescription(product.description);
-    
+    const shortDescription =
+      this.productCalculatorService.generateShortDescription(
+        product.description,
+      );
+
     // Get shipping information
-    const shippingInfo = this.productCalculatorService.calculateShippingInfo(product.vendor);
+    const shippingInfo = this.productCalculatorService.calculateShippingInfo(
+      product.vendor,
+    );
 
     return {
       ...product,

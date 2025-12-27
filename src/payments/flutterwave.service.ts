@@ -45,9 +45,9 @@ export class FlutterwaveService {
       // Try to initialize again
       this.initializeFlutterwave();
       // Wait a bit for initialization
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    
+
     if (!this.flw) {
       throw new InternalServerErrorException(
         'Flutterwave SDK is not initialized',
@@ -59,7 +59,7 @@ export class FlutterwaveService {
       if (!this.flw.Transaction) {
         throw new Error('Flutterwave Transaction module is not available');
       }
-      
+
       const response = await this.flw.Transaction.verify({
         id: transaction_id,
       });
@@ -68,14 +68,14 @@ export class FlutterwaveService {
       console.error('Flutterwave verification error:', {
         error,
         message: error.message,
-        stack: error.stack
+        stack: error.stack,
       });
       throw new InternalServerErrorException(
         'Failed to verify Flutterwave payment: ' + (error.message || error),
       );
     }
   }
-  
+
   // Simple method to check if service is ready
   isReady(): boolean {
     return !!this.flw;

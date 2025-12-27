@@ -37,15 +37,16 @@ export class VendorsController {
   @Post('apply')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Apply to become a vendor',
-    description: 'Submit a vendor application to become a seller on the platform. Users can only have one application at a time.'
+    description:
+      'Submit a vendor application to become a seller on the platform. Users can only have one application at a time.',
   })
   @ApiHeader({
     name: 'Authorization',
     description: 'Bearer token for authentication',
     required: true,
-    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   @ApiBody({
     description: 'Vendor application data',
@@ -63,34 +64,52 @@ export class VendorsController {
             city: 'New York',
             state: 'NY',
             postalCode: '10001',
-            country: 'USA'
+            country: 'USA',
           },
           businessLogo: 'https://example.com/logo.jpg',
-          description: 'We sell high-quality tech gadgets and accessories.'
-        }
-      }
-    }
+          description: 'We sell high-quality tech gadgets and accessories.',
+        },
+      },
+    },
   })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Application submitted successfully',
     content: {
       'application/json': {
         schema: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-            userId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+            id: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174000',
+            },
+            userId: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174001',
+            },
             businessName: { type: 'string', example: 'Tech Gadgets Store' },
-            businessEmail: { type: 'string', example: 'contact@techgadgets.com' },
+            businessEmail: {
+              type: 'string',
+              example: 'contact@techgadgets.com',
+            },
             businessPhone: { type: 'string', example: '+1234567890' },
-            businessLogo: { type: 'string', example: 'https://example.com/logo.jpg' },
-            description: { type: 'string', example: 'We sell high-quality tech gadgets and accessories.' },
+            businessLogo: {
+              type: 'string',
+              example: 'https://example.com/logo.jpg',
+            },
+            description: {
+              type: 'string',
+              example: 'We sell high-quality tech gadgets and accessories.',
+            },
             status: { type: 'string', example: 'PENDING' },
-            documents: { 
-              type: 'array', 
+            documents: {
+              type: 'array',
               items: { type: 'string' },
-              example: ['https://example.com/doc1.pdf', 'https://example.com/doc2.pdf']
+              example: [
+                'https://example.com/doc1.pdf',
+                'https://example.com/doc2.pdf',
+              ],
             },
             businessAddress: {
               type: 'object',
@@ -99,18 +118,29 @@ export class VendorsController {
                 city: { type: 'string', example: 'New York' },
                 state: { type: 'string', example: 'NY' },
                 postalCode: { type: 'string', example: '10001' },
-                country: { type: 'string', example: 'USA' }
-              }
+                country: { type: 'string', example: 'USA' },
+              },
             },
-            createdAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
-            updatedAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' }
-          }
-        }
-      }
-    }
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2023-01-01T00:00:00Z',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2023-01-01T00:00:00Z',
+            },
+          },
+        },
+      },
+    },
   })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid input data' })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Missing or invalid authentication token' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Missing or invalid authentication token',
+  })
   @ApiResponse({
     status: 409,
     description: 'Conflict - User already has an application or is a vendor',
@@ -120,12 +150,15 @@ export class VendorsController {
           type: 'object',
           properties: {
             statusCode: { type: 'number', example: 409 },
-            message: { type: 'string', example: 'User already has a vendor application' },
-            error: { type: 'string', example: 'Conflict' }
-          }
-        }
-      }
-    }
+            message: {
+              type: 'string',
+              example: 'User already has a vendor application',
+            },
+            error: { type: 'string', example: 'Conflict' },
+          },
+        },
+      },
+    },
   })
   apply(
     @Body() createVendorApplicationDto: CreateVendorApplicationDto,
@@ -138,39 +171,40 @@ export class VendorsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get all vendor applications (admin only)',
-    description: 'Retrieve a paginated list of vendor applications. Only accessible by administrators.'
+    description:
+      'Retrieve a paginated list of vendor applications. Only accessible by administrators.',
   })
   @ApiHeader({
     name: 'Authorization',
     description: 'Bearer token for authentication',
     required: true,
-    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   @ApiQuery({
     name: 'page',
     required: false,
     type: Number,
     description: 'Page number for pagination',
-    example: 1
+    example: 1,
   })
   @ApiQuery({
     name: 'limit',
     required: false,
     type: Number,
     description: 'Number of items per page',
-    example: 10
+    example: 10,
   })
   @ApiQuery({
     name: 'status',
     required: false,
     type: String,
     description: 'Filter applications by status (PENDING, APPROVED, REJECTED)',
-    example: 'PENDING'
+    example: 'PENDING',
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Returns paginated vendor applications',
     content: {
       'application/json': {
@@ -182,18 +216,40 @@ export class VendorsController {
               items: {
                 type: 'object',
                 properties: {
-                  id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-                  userId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
-                  businessName: { type: 'string', example: 'Tech Gadgets Store' },
-                  businessEmail: { type: 'string', example: 'contact@techgadgets.com' },
+                  id: {
+                    type: 'string',
+                    example: '123e4567-e89b-12d3-a456-426614174000',
+                  },
+                  userId: {
+                    type: 'string',
+                    example: '123e4567-e89b-12d3-a456-426614174001',
+                  },
+                  businessName: {
+                    type: 'string',
+                    example: 'Tech Gadgets Store',
+                  },
+                  businessEmail: {
+                    type: 'string',
+                    example: 'contact@techgadgets.com',
+                  },
                   businessPhone: { type: 'string', example: '+1234567890' },
-                  businessLogo: { type: 'string', example: 'https://example.com/logo.jpg' },
-                  description: { type: 'string', example: 'We sell high-quality tech gadgets and accessories.' },
+                  businessLogo: {
+                    type: 'string',
+                    example: 'https://example.com/logo.jpg',
+                  },
+                  description: {
+                    type: 'string',
+                    example:
+                      'We sell high-quality tech gadgets and accessories.',
+                  },
                   status: { type: 'string', example: 'PENDING' },
-                  documents: { 
-                    type: 'array', 
+                  documents: {
+                    type: 'array',
                     items: { type: 'string' },
-                    example: ['https://example.com/doc1.pdf', 'https://example.com/doc2.pdf']
+                    example: [
+                      'https://example.com/doc1.pdf',
+                      'https://example.com/doc2.pdf',
+                    ],
                   },
                   businessAddress: {
                     type: 'object',
@@ -202,40 +258,57 @@ export class VendorsController {
                       city: { type: 'string', example: 'New York' },
                       state: { type: 'string', example: 'NY' },
                       postalCode: { type: 'string', example: '10001' },
-                      country: { type: 'string', example: 'USA' }
-                    }
+                      country: { type: 'string', example: 'USA' },
+                    },
                   },
-                  createdAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
-                  updatedAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
+                  createdAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    example: '2023-01-01T00:00:00Z',
+                  },
+                  updatedAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    example: '2023-01-01T00:00:00Z',
+                  },
                   user: {
                     type: 'object',
                     properties: {
-                      id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+                      id: {
+                        type: 'string',
+                        example: '123e4567-e89b-12d3-a456-426614174001',
+                      },
                       firstName: { type: 'string', example: 'John' },
                       lastName: { type: 'string', example: 'Doe' },
-                      email: { type: 'string', example: 'john.doe@example.com' }
-                    }
-                  }
-                }
-              }
+                      email: {
+                        type: 'string',
+                        example: 'john.doe@example.com',
+                      },
+                    },
+                  },
+                },
+              },
             },
             meta: {
               type: 'object',
               properties: {
                 page: { type: 'number', example: 1 },
                 limit: { type: 'number', example: 10 },
-                total: { type: 'number', example: 100 }
-              }
-            }
-          }
-        }
-      }
-    }
+                total: { type: 'number', example: 100 },
+              },
+            },
+          },
+        },
+      },
+    },
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Missing or invalid authentication token' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Missing or invalid authentication token',
+  })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Insufficient permissions (admin role required)'
+    description: 'Forbidden - Insufficient permissions (admin role required)',
   })
   getApplications(
     @Query('page') page?: number,
@@ -252,36 +325,55 @@ export class VendorsController {
   @Get('applications/my')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: "Get current user's vendor application",
-    description: "Retrieve the vendor application submitted by the currently authenticated user."
+    description:
+      'Retrieve the vendor application submitted by the currently authenticated user.',
   })
   @ApiHeader({
     name: 'Authorization',
     description: 'Bearer token for authentication',
     required: true,
-    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: "Returns the user's vendor application",
     content: {
       'application/json': {
         schema: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-            userId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+            id: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174000',
+            },
+            userId: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174001',
+            },
             businessName: { type: 'string', example: 'Tech Gadgets Store' },
-            businessEmail: { type: 'string', example: 'contact@techgadgets.com' },
+            businessEmail: {
+              type: 'string',
+              example: 'contact@techgadgets.com',
+            },
             businessPhone: { type: 'string', example: '+1234567890' },
-            businessLogo: { type: 'string', example: 'https://example.com/logo.jpg' },
-            description: { type: 'string', example: 'We sell high-quality tech gadgets and accessories.' },
+            businessLogo: {
+              type: 'string',
+              example: 'https://example.com/logo.jpg',
+            },
+            description: {
+              type: 'string',
+              example: 'We sell high-quality tech gadgets and accessories.',
+            },
             status: { type: 'string', example: 'PENDING' },
-            documents: { 
-              type: 'array', 
+            documents: {
+              type: 'array',
               items: { type: 'string' },
-              example: ['https://example.com/doc1.pdf', 'https://example.com/doc2.pdf']
+              example: [
+                'https://example.com/doc1.pdf',
+                'https://example.com/doc2.pdf',
+              ],
             },
             businessAddress: {
               type: 'object',
@@ -290,17 +382,28 @@ export class VendorsController {
                 city: { type: 'string', example: 'New York' },
                 state: { type: 'string', example: 'NY' },
                 postalCode: { type: 'string', example: '10001' },
-                country: { type: 'string', example: 'USA' }
-              }
+                country: { type: 'string', example: 'USA' },
+              },
             },
-            createdAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
-            updatedAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' }
-          }
-        }
-      }
-    }
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2023-01-01T00:00:00Z',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2023-01-01T00:00:00Z',
+            },
+          },
+        },
+      },
+    },
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Missing or invalid authentication token' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Missing or invalid authentication token',
+  })
   @ApiResponse({ status: 404, description: 'Application not found' })
   getMyApplication(@CurrentUser() user) {
     return this.vendorsService.getApplicationByUserId(user.id);
@@ -310,41 +413,60 @@ export class VendorsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get a vendor application by ID (admin only)',
-    description: 'Retrieve detailed information about a specific vendor application by its ID. Only accessible by administrators.'
+    description:
+      'Retrieve detailed information about a specific vendor application by its ID. Only accessible by administrators.',
   })
   @ApiHeader({
     name: 'Authorization',
     description: 'Bearer token for authentication',
     required: true,
-    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'Unique identifier of the vendor application',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Returns the vendor application',
     content: {
       'application/json': {
         schema: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-            userId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+            id: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174000',
+            },
+            userId: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174001',
+            },
             businessName: { type: 'string', example: 'Tech Gadgets Store' },
-            businessEmail: { type: 'string', example: 'contact@techgadgets.com' },
+            businessEmail: {
+              type: 'string',
+              example: 'contact@techgadgets.com',
+            },
             businessPhone: { type: 'string', example: '+1234567890' },
-            businessLogo: { type: 'string', example: 'https://example.com/logo.jpg' },
-            description: { type: 'string', example: 'We sell high-quality tech gadgets and accessories.' },
+            businessLogo: {
+              type: 'string',
+              example: 'https://example.com/logo.jpg',
+            },
+            description: {
+              type: 'string',
+              example: 'We sell high-quality tech gadgets and accessories.',
+            },
             status: { type: 'string', example: 'PENDING' },
-            documents: { 
-              type: 'array', 
+            documents: {
+              type: 'array',
               items: { type: 'string' },
-              example: ['https://example.com/doc1.pdf', 'https://example.com/doc2.pdf']
+              example: [
+                'https://example.com/doc1.pdf',
+                'https://example.com/doc2.pdf',
+              ],
             },
             businessAddress: {
               type: 'object',
@@ -353,29 +475,43 @@ export class VendorsController {
                 city: { type: 'string', example: 'New York' },
                 state: { type: 'string', example: 'NY' },
                 postalCode: { type: 'string', example: '10001' },
-                country: { type: 'string', example: 'USA' }
-              }
+                country: { type: 'string', example: 'USA' },
+              },
             },
-            createdAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
-            updatedAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2023-01-01T00:00:00Z',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2023-01-01T00:00:00Z',
+            },
             user: {
               type: 'object',
               properties: {
-                id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+                id: {
+                  type: 'string',
+                  example: '123e4567-e89b-12d3-a456-426614174001',
+                },
                 firstName: { type: 'string', example: 'John' },
                 lastName: { type: 'string', example: 'Doe' },
-                email: { type: 'string', example: 'john.doe@example.com' }
-              }
-            }
-          }
-        }
-      }
-    }
+                email: { type: 'string', example: 'john.doe@example.com' },
+              },
+            },
+          },
+        },
+      },
+    },
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Missing or invalid authentication token' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Missing or invalid authentication token',
+  })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Insufficient permissions (admin role required)'
+    description: 'Forbidden - Insufficient permissions (admin role required)',
   })
   @ApiResponse({ status: 404, description: 'Application not found' })
   getApplication(@Param('id') id: string) {

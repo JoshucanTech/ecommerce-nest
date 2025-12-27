@@ -1,10 +1,10 @@
-import { Injectable, Logger } from "@nestjs/common"
-import { PrismaService } from "../../prisma/prisma.service"
-import { ConfigService } from "@nestjs/config"
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class TwitterAdService {
-  private readonly logger = new Logger(TwitterAdService.name)
+  private readonly logger = new Logger(TwitterAdService.name);
 
   constructor(
     private prisma: PrismaService,
@@ -13,7 +13,9 @@ export class TwitterAdService {
 
   async createTwitterAd(advertisementId: string, adData: any) {
     try {
-      this.logger.log(`Creating Twitter ad for advertisement ID: ${advertisementId}`)
+      this.logger.log(
+        `Creating Twitter ad for advertisement ID: ${advertisementId}`,
+      );
 
       // In a real implementation, this would use the Twitter Ads API
       // For now, we'll simulate the API call
@@ -24,57 +26,64 @@ export class TwitterAdService {
         include: {
           targeting: true,
         },
-      })
+      });
 
       if (!advertisement) {
-        throw new Error(`Advertisement with ID ${advertisementId} not found`)
+        throw new Error(`Advertisement with ID ${advertisementId} not found`);
       }
 
       // Simulate Twitter API call
-      const twitterAdId = `tw_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+      const twitterAdId = `tw_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
       // Store the external ad reference
       await this.prisma.adPlatformReference.create({
         data: {
           advertisementId,
-          platform: "TWITTER",
+          platform: 'TWITTER',
           externalId: twitterAdId,
-          status: "ACTIVE",
+          status: 'ACTIVE',
           metadata: {
-            accountId: adData.accountId || "default_account",
+            accountId: adData.accountId || 'default_account',
             campaignId: adData.campaignId || `campaign_${Date.now()}`,
             lineItemId: adData.lineItemId || `lineitem_${Date.now()}`,
             promotedTweetId: adData.promotedTweetId || `tweet_${Date.now()}`,
           },
         },
-      })
+      });
 
       return {
         success: true,
-        platform: "TWITTER",
+        platform: 'TWITTER',
         externalId: twitterAdId,
-        status: "ACTIVE",
-      }
+        status: 'ACTIVE',
+      };
     } catch (error) {
-      this.logger.error(`Error creating Twitter ad: ${error.message}`, error.stack)
-      throw error
+      this.logger.error(
+        `Error creating Twitter ad: ${error.message}`,
+        error.stack,
+      );
+      throw error;
     }
   }
 
   async updateTwitterAd(advertisementId: string, adData: any) {
     try {
-      this.logger.log(`Updating Twitter ad for advertisement ID: ${advertisementId}`)
+      this.logger.log(
+        `Updating Twitter ad for advertisement ID: ${advertisementId}`,
+      );
 
       // Get the platform reference
       const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
-          platform: "TWITTER",
+          platform: 'TWITTER',
         },
-      })
+      });
 
       if (!platformRef) {
-        throw new Error(`Twitter ad reference for advertisement ID ${advertisementId} not found`)
+        throw new Error(
+          `Twitter ad reference for advertisement ID ${advertisementId} not found`,
+        );
       }
 
       // In a real implementation, this would use the Twitter Ads API
@@ -86,39 +95,46 @@ export class TwitterAdService {
         data: {
           status: adData.status || platformRef.status,
           metadata: {
-            ...platformRef.metadata as Record<string, any>,
+            ...(platformRef.metadata as Record<string, any>),
             ...adData.metadata,
             lastUpdated: new Date().toISOString(),
           },
         },
-      })
+      });
 
       return {
         success: true,
-        platform: "TWITTER",
+        platform: 'TWITTER',
         externalId: platformRef.externalId,
         status: adData.status || platformRef.status,
-      }
+      };
     } catch (error) {
-      this.logger.error(`Error updating Twitter ad: ${error.message}`, error.stack)
-      throw error
+      this.logger.error(
+        `Error updating Twitter ad: ${error.message}`,
+        error.stack,
+      );
+      throw error;
     }
   }
 
   async deleteTwitterAd(advertisementId: string) {
     try {
-      this.logger.log(`Deleting Twitter ad for advertisement ID: ${advertisementId}`)
+      this.logger.log(
+        `Deleting Twitter ad for advertisement ID: ${advertisementId}`,
+      );
 
       // Get the platform reference
       const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
-          platform: "TWITTER",
+          platform: 'TWITTER',
         },
-      })
+      });
 
       if (!platformRef) {
-        throw new Error(`Twitter ad reference for advertisement ID ${advertisementId} not found`)
+        throw new Error(
+          `Twitter ad reference for advertisement ID ${advertisementId} not found`,
+        );
       }
 
       // In a real implementation, this would use the Twitter Ads API
@@ -128,53 +144,60 @@ export class TwitterAdService {
       await this.prisma.adPlatformReference.update({
         where: { id: platformRef.id },
         data: {
-          status: "DELETED",
+          status: 'DELETED',
           metadata: {
-            ...platformRef.metadata as Record<string, any>,
+            ...(platformRef.metadata as Record<string, any>),
             deletedAt: new Date().toISOString(),
           },
         },
-      })
+      });
 
       return {
         success: true,
-        platform: "TWITTER",
+        platform: 'TWITTER',
         externalId: platformRef.externalId,
-        status: "DELETED",
-      }
+        status: 'DELETED',
+      };
     } catch (error) {
-      this.logger.error(`Error deleting Twitter ad: ${error.message}`, error.stack)
-      throw error
+      this.logger.error(
+        `Error deleting Twitter ad: ${error.message}`,
+        error.stack,
+      );
+      throw error;
     }
   }
 
   async getTwitterAdStats(advertisementId: string) {
     try {
-      this.logger.log(`Getting Twitter ad stats for advertisement ID: ${advertisementId}`)
+      this.logger.log(
+        `Getting Twitter ad stats for advertisement ID: ${advertisementId}`,
+      );
 
       // Get the platform reference
       const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
-          platform: "TWITTER",
+          platform: 'TWITTER',
         },
-      })
+      });
 
       if (!platformRef) {
-        throw new Error(`Twitter ad reference for advertisement ID ${advertisementId} not found`)
+        throw new Error(
+          `Twitter ad reference for advertisement ID ${advertisementId} not found`,
+        );
       }
 
       // In a real implementation, this would use the Twitter Ads API
       // For now, we'll simulate the API response
 
       // Generate random stats for demonstration
-      const impressions = Math.floor(Math.random() * 12000)
-      const clicks = Math.floor(impressions * (Math.random() * 0.07)) // CTR up to 7%
-      const conversions = Math.floor(clicks * (Math.random() * 0.12)) // Conversion rate up to 12%
-      const spend = Number.parseFloat((clicks * 0.55).toFixed(2)) // $0.55 per click
+      const impressions = Math.floor(Math.random() * 12000);
+      const clicks = Math.floor(impressions * (Math.random() * 0.07)); // CTR up to 7%
+      const conversions = Math.floor(clicks * (Math.random() * 0.12)); // Conversion rate up to 12%
+      const spend = Number.parseFloat((clicks * 0.55).toFixed(2)); // $0.55 per click
 
       return {
-        platform: "TWITTER",
+        platform: 'TWITTER',
         externalId: platformRef.externalId,
         stats: {
           impressions,
@@ -182,7 +205,9 @@ export class TwitterAdService {
           conversions,
           spend,
           ctr: Number.parseFloat(((clicks / impressions) * 100).toFixed(2)),
-          conversionRate: Number.parseFloat(((conversions / clicks) * 100).toFixed(2)),
+          conversionRate: Number.parseFloat(
+            ((conversions / clicks) * 100).toFixed(2),
+          ),
           cpc: Number.parseFloat((spend / clicks).toFixed(2)),
           cpa: Number.parseFloat((spend / conversions).toFixed(2)),
           engagement: {
@@ -192,27 +217,34 @@ export class TwitterAdService {
             follows: Math.floor(impressions * (Math.random() * 0.002)),
           },
         },
-      }
+      };
     } catch (error) {
-      this.logger.error(`Error getting Twitter ad stats: ${error.message}`, error.stack)
-      throw error
+      this.logger.error(
+        `Error getting Twitter ad stats: ${error.message}`,
+        error.stack,
+      );
+      throw error;
     }
   }
 
   async syncAd(advertisementId: string) {
     try {
-      this.logger.log(`Syncing Twitter ad for advertisement ID: ${advertisementId}`)
+      this.logger.log(
+        `Syncing Twitter ad for advertisement ID: ${advertisementId}`,
+      );
 
       // Get the platform reference
       const platformRef = await this.prisma.adPlatformReference.findFirst({
         where: {
           advertisementId,
-          platform: "TWITTER",
+          platform: 'TWITTER',
         },
-      })
+      });
 
       if (!platformRef) {
-        throw new Error(`Twitter ad reference for advertisement ID ${advertisementId} not found`)
+        throw new Error(
+          `Twitter ad reference for advertisement ID ${advertisementId} not found`,
+        );
       }
 
       // In a real implementation, this would fetch the latest ad data from Twitter Ads API
@@ -221,14 +253,14 @@ export class TwitterAdService {
       // Get the advertisement details
       const advertisement = await this.prisma.advertisement.findUnique({
         where: { id: advertisementId },
-      })
+      });
 
       if (!advertisement) {
-        throw new Error(`Advertisement with ID ${advertisementId} not found`)
+        throw new Error(`Advertisement with ID ${advertisementId} not found`);
       }
 
       // Simulate fetching updated data from Twitter
-      const updatedStatus = Math.random() > 0.9 ? "PAUSED" : "ACTIVE" // Occasionally show as paused
+      const updatedStatus = Math.random() > 0.9 ? 'PAUSED' : 'ACTIVE'; // Occasionally show as paused
       const metadata = platformRef.metadata as Record<string, any>;
       const updatedMetadata = {
         ...metadata,
@@ -242,7 +274,7 @@ export class TwitterAdService {
           likes: Math.floor(Math.random() * 2000) + 50,
           replies: Math.floor(Math.random() * 200) + 5,
         },
-      }
+      };
 
       // Update the platform reference with the latest data
       await this.prisma.adPlatformReference.update({
@@ -251,22 +283,25 @@ export class TwitterAdService {
           status: updatedStatus,
           metadata: updatedMetadata,
         },
-      })
+      });
 
       // Fetch the latest stats
-      const stats = await this.getTwitterAdStats(advertisementId)
+      const stats = await this.getTwitterAdStats(advertisementId);
 
       return {
         success: true,
-        platform: "TWITTER",
+        platform: 'TWITTER',
         externalId: platformRef.externalId,
         status: updatedStatus,
         metadata: updatedMetadata,
         stats: stats.stats,
-      }
+      };
     } catch (error) {
-      this.logger.error(`Error syncing Twitter ad: ${error.message}`, error.stack)
-      throw error
+      this.logger.error(
+        `Error syncing Twitter ad: ${error.message}`,
+        error.stack,
+      );
+      throw error;
     }
   }
 }

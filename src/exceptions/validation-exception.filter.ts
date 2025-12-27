@@ -16,7 +16,7 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    
+
     const status = exception.getStatus();
     const exceptionResponse = exception.getResponse();
 
@@ -25,7 +25,7 @@ export class ValidationExceptionFilter implements ExceptionFilter {
 
     if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
       const responseObj = exceptionResponse as any;
-      
+
       if (responseObj.message && Array.isArray(responseObj.message)) {
         // Extract detailed constraint violations
         message = 'Input validation failed. Please check your data.';
@@ -45,15 +45,17 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     };
 
     this.logger.error(
-      `Validation Error for ${request.method} ${request.url}: ${JSON.stringify(detailedError)}`
+      `Validation Error for ${request.method} ${request.url}: ${JSON.stringify(detailedError)}`,
     );
 
     response.status(status).json(detailedError);
   }
 
-  private formatValidationErrors(validationErrors: any[]): Record<string, string[]> {
+  private formatValidationErrors(
+    validationErrors: any[],
+  ): Record<string, string[]> {
     const errors: Record<string, string[]> = {};
-    
+
     validationErrors.forEach((error) => {
       if (typeof error === 'string') {
         // Simple error message

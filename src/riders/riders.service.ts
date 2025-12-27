@@ -3,13 +3,13 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-} from "@nestjs/common";
-import  { PrismaService } from "../prisma/prisma.service";
-import { CreateRiderApplicationDto } from "./dto/create-rider-application.dto"
-import { UpdateRiderDto } from "./dto/update-rider.dto"
-import { UpdateRiderApplicationDto } from "./dto/update-rider-application.dto"
-import { UpdateLocationDto } from "./dto/update-location.dto";
-import { Prisma } from "@prisma/client";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateRiderApplicationDto } from './dto/create-rider-application.dto';
+import { UpdateRiderDto } from './dto/update-rider.dto';
+import { UpdateRiderApplicationDto } from './dto/update-rider-application.dto';
+import { UpdateLocationDto } from './dto/update-location.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class RidersService {
@@ -25,7 +25,7 @@ export class RidersService {
     });
 
     if (existingApplication) {
-      throw new ConflictException("User already has a rider application");
+      throw new ConflictException('User already has a rider application');
     }
 
     // Check if user is already a rider
@@ -34,7 +34,7 @@ export class RidersService {
     });
 
     if (existingRider) {
-      throw new ConflictException("User is already a rider");
+      throw new ConflictException('User is already a rider');
     }
 
     // Check if license number is unique
@@ -43,7 +43,7 @@ export class RidersService {
     });
 
     if (licenseExists) {
-      throw new ConflictException("License number already in use");
+      throw new ConflictException('License number already in use');
     }
 
     // Create rider application
@@ -51,7 +51,7 @@ export class RidersService {
       data: {
         ...createRiderApplicationDto,
         userId,
-        status: "PENDING",
+        status: 'PENDING',
       },
     });
   }
@@ -77,7 +77,7 @@ export class RidersService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           user: {
             select: {
@@ -111,7 +111,7 @@ export class RidersService {
     });
 
     if (!application) {
-      throw new NotFoundException("Rider application not found");
+      throw new NotFoundException('Rider application not found');
     }
 
     return application;
@@ -140,7 +140,7 @@ export class RidersService {
 
     return application;
   }
- 
+
   async updateApplication(
     id: string,
     updateRiderApplicationDto: Prisma.RiderApplicationUpdateInput,
@@ -175,8 +175,8 @@ export class RidersService {
     }
 
     // Check if application is already approved
-    if (application.status === "APPROVED") {
-      throw new BadRequestException("Application is already approved");
+    if (application.status === 'APPROVED') {
+      throw new BadRequestException('Application is already approved');
     }
 
     // Check if user is already a rider
@@ -185,13 +185,13 @@ export class RidersService {
     });
 
     if (existingRider) {
-      throw new ConflictException("User is already a rider");
+      throw new ConflictException('User is already a rider');
     }
 
     // Update user role to RIDER
     await this.prisma.user.update({
       where: { id: application.userId },
-      data: { role: "RIDER" },
+      data: { role: 'RIDER' },
     });
 
     // Create rider
@@ -209,13 +209,13 @@ export class RidersService {
     await this.prisma.riderApplication.update({
       where: { id },
       data: {
-        status: "APPROVED",
-        notes: "Application approved. Rider account created.",
+        status: 'APPROVED',
+        notes: 'Application approved. Rider account created.',
       },
     });
 
     return {
-      message: "Application approved successfully",
+      message: 'Application approved successfully',
       rider,
     };
   }
@@ -231,21 +231,21 @@ export class RidersService {
     }
 
     // Check if application is already rejected
-    if (application.status === "REJECTED") {
-      throw new BadRequestException("Application is already rejected");
+    if (application.status === 'REJECTED') {
+      throw new BadRequestException('Application is already rejected');
     }
 
     // Update application status
     await this.prisma.riderApplication.update({
       where: { id },
       data: {
-        status: "REJECTED",
-        notes: notes || "Application rejected.",
+        status: 'REJECTED',
+        notes: notes || 'Application rejected.',
       },
     });
 
     return {
-      message: "Application rejected successfully",
+      message: 'Application rejected successfully',
     };
   }
 
@@ -264,10 +264,10 @@ export class RidersService {
     if (search) {
       where.user = {
         OR: [
-          { firstName: { contains: search, mode: "insensitive" } },
-          { lastName: { contains: search, mode: "insensitive" } },
-          { email: { contains: search, mode: "insensitive" } },
-          { phone: { contains: search, mode: "insensitive" } },
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
         ],
       };
     }
@@ -282,7 +282,7 @@ export class RidersService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           user: {
             select: {
@@ -359,8 +359,8 @@ export class RidersService {
         const distance = this.calculateDistance(
           latitude,
           longitude,
-          (rider.currentLatitude || 0) as number,
-          (rider.currentLongitude || 0) as number,
+          rider.currentLatitude || 0,
+          rider.currentLongitude || 0,
         );
 
         return {
@@ -419,7 +419,7 @@ export class RidersService {
     });
 
     if (!rider) {
-      throw new NotFoundException("Rider profile not found");
+      throw new NotFoundException('Rider profile not found');
     }
 
     // Update rider
@@ -439,7 +439,7 @@ export class RidersService {
     });
 
     if (!rider) {
-      throw new NotFoundException("Rider profile not found");
+      throw new NotFoundException('Rider profile not found');
     }
 
     // Update rider location
@@ -459,12 +459,12 @@ export class RidersService {
     });
 
     if (!rider) {
-      throw new NotFoundException("Rider profile not found");
+      throw new NotFoundException('Rider profile not found');
     }
 
     // Check if rider is verified
     if (!rider.isVerified) {
-      throw new BadRequestException("Rider is not verified yet");
+      throw new BadRequestException('Rider is not verified yet');
     }
 
     // Update rider availability
@@ -493,9 +493,9 @@ export class RidersService {
 
   private calculateDistance(
     lat1: number,
-    lon1: number ,
-    lat2: number ,
-    lon2: number ,
+    lon1: number,
+    lat2: number,
+    lon2: number,
   ): number {
     const R = 6371; // Radius of the earth in km
     const dLat = this.deg2rad(lat2 - lat1);

@@ -3,11 +3,11 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from "@nestjs/common";
-import  { PrismaService } from "../prisma/prisma.service";
-import { CreateFlashSaleDto } from "./dto/create-flash-sale.dto";
-import { UpdateFlashSaleDto } from "./dto/update-flash-sale.dto";
-import { generateSlug } from "../utils/slug-generator";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateFlashSaleDto } from './dto/create-flash-sale.dto';
+import { UpdateFlashSaleDto } from './dto/update-flash-sale.dto';
+import { generateSlug } from '../utils/slug-generator';
 
 @Injectable()
 export class FlashSalesService {
@@ -23,7 +23,7 @@ export class FlashSalesService {
     });
 
     if (!vendor) {
-      throw new ForbiddenException("User is not a vendor");
+      throw new ForbiddenException('User is not a vendor');
     }
 
     // Validate dates
@@ -31,12 +31,12 @@ export class FlashSalesService {
     const end = new Date(endDate);
 
     if (start >= end) {
-      throw new BadRequestException("End date must be after start date");
+      throw new BadRequestException('End date must be after start date');
     }
 
     if (start < new Date() && !isActive) {
       throw new BadRequestException(
-        "Cannot create an inactive flash sale with a past start date",
+        'Cannot create an inactive flash sale with a past start date',
       );
     }
 
@@ -62,7 +62,7 @@ export class FlashSalesService {
 
     if (products.length !== productIds.length) {
       throw new BadRequestException(
-        "Some products do not exist or do not belong to this vendor",
+        'Some products do not exist or do not belong to this vendor',
       );
     }
 
@@ -145,7 +145,7 @@ export class FlashSalesService {
         where,
         skip,
         take: limit,
-        orderBy: [{ startDate: "asc" }, { createdAt: "desc" }],
+        orderBy: [{ startDate: 'asc' }, { createdAt: 'desc' }],
         include: {
           vendor: {
             select: {
@@ -153,10 +153,8 @@ export class FlashSalesService {
               businessName: true,
               slug: true,
             },
-            
           },
           items: {
-            
             include: {
               product: {
                 include: {
@@ -170,9 +168,9 @@ export class FlashSalesService {
                   reviews: {
                     select: {
                       rating: true,
-                    }
+                    },
                   },
-                }
+                },
               }, // Include product data here
             },
           },
@@ -198,10 +196,10 @@ export class FlashSalesService {
         ...flashSale,
         itemCount: flashSale._count.items,
         status: isActive
-          ? "ACTIVE"
+          ? 'ACTIVE'
           : flashSale.startDate > now
-            ? "UPCOMING"
-            : "EXPIRED",
+            ? 'UPCOMING'
+            : 'EXPIRED',
         _count: undefined,
       };
     });
@@ -284,10 +282,10 @@ export class FlashSalesService {
       flashSale.isActive &&
       flashSale.startDate <= now &&
       flashSale.endDate >= now
-        ? "ACTIVE"
+        ? 'ACTIVE'
         : flashSale.startDate > now
-          ? "UPCOMING"
-          : "EXPIRED";
+          ? 'UPCOMING'
+          : 'EXPIRED';
 
     return {
       ...flashSale,
@@ -311,9 +309,9 @@ export class FlashSalesService {
     }
 
     // Check if user is the vendor of the flash sale or an admin
-    if (user.role !== "ADMIN" && flashSale.vendor.userId !== user.id) {
+    if (user.role !== 'ADMIN' && flashSale.vendor.userId !== user.id) {
       throw new ForbiddenException(
-        "You do not have permission to update this flash sale",
+        'You do not have permission to update this flash sale',
       );
     }
 
@@ -348,7 +346,7 @@ export class FlashSalesService {
     }
 
     if (start >= end) {
-      throw new BadRequestException("End date must be after start date");
+      throw new BadRequestException('End date must be after start date');
     }
 
     // Prepare update data
@@ -377,7 +375,7 @@ export class FlashSalesService {
 
       if (products.length !== productIds.length) {
         throw new BadRequestException(
-          "Some products do not exist or do not belong to this vendor",
+          'Some products do not exist or do not belong to this vendor',
         );
       }
 
@@ -451,9 +449,9 @@ export class FlashSalesService {
     }
 
     // Check if user is the vendor of the flash sale or an admin
-    if (user.role !== "ADMIN" && flashSale.vendor.userId !== user.id) {
+    if (user.role !== 'ADMIN' && flashSale.vendor.userId !== user.id) {
       throw new ForbiddenException(
-        "You do not have permission to delete this flash sale",
+        'You do not have permission to delete this flash sale',
       );
     }
 
@@ -462,6 +460,6 @@ export class FlashSalesService {
       where: { id },
     });
 
-    return { message: "Flash sale deleted successfully" };
+    return { message: 'Flash sale deleted successfully' };
   }
 }

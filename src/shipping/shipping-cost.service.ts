@@ -5,7 +5,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class ShippingCostService {
   constructor(private prisma: PrismaService) {}
 
-  async getShippingCost(shippingOptionId: string, vendorId: string): Promise<number> {
+  async getShippingCost(
+    shippingOptionId: string,
+    vendorId: string,
+  ): Promise<number> {
     // First try to find in regular shipping methods
     const shippingMethod = await this.prisma.shipping.findFirst({
       where: { id: shippingOptionId, Vendor: { some: { id: vendorId } } },

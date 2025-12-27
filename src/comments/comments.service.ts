@@ -2,10 +2,10 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-} from "@nestjs/common";
-import  { PrismaService } from "../prisma/prisma.service";
-import { CreateCommentDto } from "./dto/create-comment.dto";
-import { UpdateCommentDto } from "./dto/update-comment.dto";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateCommentDto } from './dto/create-comment.dto';
+import { UpdateCommentDto } from './dto/update-comment.dto';
 
 @Injectable()
 export class CommentsService {
@@ -38,7 +38,7 @@ export class CommentsService {
       // Ensure parent comment belongs to the same product
       if (parentComment.productId !== productId) {
         throw new ForbiddenException(
-          "Parent comment does not belong to the specified product",
+          'Parent comment does not belong to the specified product',
         );
       }
     }
@@ -89,7 +89,7 @@ export class CommentsService {
         },
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           user: {
             select: {
@@ -153,7 +153,7 @@ export class CommentsService {
         },
         skip,
         take: limit,
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: 'asc' },
         include: {
           user: {
             select: {
@@ -194,9 +194,9 @@ export class CommentsService {
     }
 
     // Check if user is the owner of the comment
-    if (comment.userId !== user.id && user.role !== "ADMIN") {
+    if (comment.userId !== user.id && user.role !== 'ADMIN') {
       throw new ForbiddenException(
-        "You do not have permission to update this comment",
+        'You do not have permission to update this comment',
       );
     }
 
@@ -228,9 +228,9 @@ export class CommentsService {
     }
 
     // Check if user is the owner of the comment or an admin
-    if (comment.userId !== user.id && user.role !== "ADMIN") {
+    if (comment.userId !== user.id && user.role !== 'ADMIN') {
       throw new ForbiddenException(
-        "You do not have permission to delete this comment",
+        'You do not have permission to delete this comment',
       );
     }
 
@@ -239,6 +239,6 @@ export class CommentsService {
       where: { id },
     });
 
-    return { message: "Comment deleted successfully" };
+    return { message: 'Comment deleted successfully' };
   }
 }

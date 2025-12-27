@@ -4,15 +4,15 @@ import {
   type OnGatewayConnection,
   type OnGatewayDisconnect,
   SubscribeMessage,
-} from "@nestjs/websockets";
-import { Server, Socket } from "socket.io";
-import { JwtService } from "@nestjs/jwt";
-import { ConfigService } from "@nestjs/config";
-import { Logger } from "@nestjs/common";
+} from '@nestjs/websockets';
+import { Server, Socket } from 'socket.io';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
   cors: {
-    origin: "*",
+    origin: '*',
   },
 })
 export class NotificationsGateway
@@ -21,7 +21,7 @@ export class NotificationsGateway
   @WebSocketServer()
   server: Server;
 
-  private logger = new Logger("NotificationsGateway");
+  private logger = new Logger('NotificationsGateway');
   private userSocketMap = new Map<string, string[]>();
 
   constructor(
@@ -34,13 +34,13 @@ export class NotificationsGateway
       const token = client.handshake.auth.token;
 
       if (!token) {
-        this.logger.error("No token provided");
+        this.logger.error('No token provided');
         client.disconnect();
         return;
       }
 
       const payload = this.jwtService.verify(token, {
-        secret: this.configService.get("JWT_ACCESS_SECRET"),
+        secret: this.configService.get('JWT_ACCESS_SECRET'),
       });
 
       const userId = payload.sub;
@@ -79,13 +79,13 @@ export class NotificationsGateway
     }
   }
 
-  @SubscribeMessage("subscribe")
+  @SubscribeMessage('subscribe')
   handleSubscribe(client: Socket, userId: string) {
     client.join(`user-${userId}`);
     return { success: true };
   }
 
   sendNotificationToUser(userId: string, notification: any) {
-    this.server.to(`user-${userId}`).emit("notification", notification);
+    this.server.to(`user-${userId}`).emit('notification', notification);
   }
 }

@@ -12,9 +12,9 @@ export async function generateSlug(
   let slug = text
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, "") // Remove non-word chars
-    .replace(/[\s_-]+/g, "-") // Replace spaces and underscores with hyphens
-    .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
+    .replace(/[^\w\s-]/g, '') // Remove non-word chars
+    .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
+    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
 
   // Check if slug is unique
   let isUniqueSlug = await isUnique(slug);

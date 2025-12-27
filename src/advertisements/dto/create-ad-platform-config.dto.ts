@@ -1,41 +1,54 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger"
-import { IsString, IsEnum, IsOptional, IsBoolean, IsUUID, IsJSON } from "class-validator"
-import { AdPlatform } from "@prisma/client"
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsBoolean,
+  IsUUID,
+  IsJSON,
+} from 'class-validator';
+import { AdPlatform } from '@prisma/client';
 
 export class CreateAdPlatformConfigDto {
-  @ApiProperty({ example: "advertisement-uuid" })
+  @ApiProperty({ example: 'advertisement-uuid' })
   @IsString()
-  advertisementId: string
+  advertisementId: string;
 
-  @ApiProperty({ example: "ad config name" })
+  @ApiProperty({ example: 'ad config name' })
   @IsString()
-  name: string
+  name: string;
 
   @ApiProperty({ enum: AdPlatform, example: AdPlatform.FACEBOOK })
   @IsEnum(AdPlatform)
-  platform: AdPlatform
+  platform: AdPlatform;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()
-  isActive?: boolean
+  isActive?: boolean;
 
-  @ApiPropertyOptional({ example: "platform-ad-id-123" })
+  @ApiPropertyOptional({ example: 'platform-ad-id-123' })
   @IsOptional()
   @IsString()
-  platformAdId?: string
+  platformAdId?: string;
 
-  @ApiPropertyOptional({ example: "platform-campaign-id-123" })
+  @ApiPropertyOptional({ example: 'platform-campaign-id-123' })
   @IsOptional()
   @IsString()
-  platformCampaignId?: string
+  platformCampaignId?: string;
 
-  @ApiPropertyOptional({ example: { placementType: "feed", audienceExpansion: true } })
+  @ApiPropertyOptional({
+    example: { placementType: 'feed', audienceExpansion: true },
+  })
   @IsOptional()
-  settings?: Record<string, any>
+  settings?: Record<string, any>;
 
-  @ApiPropertyOptional({ example: {"key": "value", "platform-campaign-id": "platform-campaign-id-123"} })
-
+  @ApiPropertyOptional({
+    example: {
+      key: 'value',
+      'platform-campaign-id': 'platform-campaign-id-123',
+    },
+  })
   @IsJSON()
-  config: {}
+  config: {};
 }

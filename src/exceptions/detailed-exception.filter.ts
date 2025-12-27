@@ -22,7 +22,7 @@ export class DetailedExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    
+
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
@@ -34,9 +34,9 @@ export class DetailedExceptionFilter implements ExceptionFilter {
     // Log detailed error information in terminal only
     this.logger.error(
       `Error ${status} - ${request.method} ${request.url}\n` +
-      `File: ${errorDetails.file}:${errorDetails.line}\n` +
-      `Function: ${errorDetails.function}\n` +
-      `Code: ${errorDetails.code}\n`,
+        `File: ${errorDetails.file}:${errorDetails.line}\n` +
+        `Function: ${errorDetails.function}\n` +
+        `Code: ${errorDetails.code}\n`,
       exception instanceof Error ? exception.stack : undefined,
     );
 
@@ -46,10 +46,11 @@ export class DetailedExceptionFilter implements ExceptionFilter {
       // Client errors - return detailed information
       if (exception instanceof HttpException) {
         const exceptionResponse = exception.getResponse();
-        const responseObject = typeof exceptionResponse === 'string' 
-          ? { message: exceptionResponse }
-          : exceptionResponse;
-          
+        const responseObject =
+          typeof exceptionResponse === 'string'
+            ? { message: exceptionResponse }
+            : exceptionResponse;
+
         response.status(status).json({
           statusCode: status,
           timestamp: new Date().toISOString(),
@@ -59,7 +60,8 @@ export class DetailedExceptionFilter implements ExceptionFilter {
         response.status(status).json({
           statusCode: status,
           timestamp: new Date().toISOString(),
-          message: exception instanceof Error ? exception.message : 'Client error',
+          message:
+            exception instanceof Error ? exception.message : 'Client error',
         });
       }
     } else {
@@ -93,9 +95,11 @@ export class DetailedExceptionFilter implements ExceptionFilter {
     }
 
     const stackLines = exception.stack?.split('\n') || [];
-    const relevantStackLine = stackLines.find(
-      line => line.includes(path.join('src', '')) && !line.includes('node_modules'),
-    ) || stackLines[1];
+    const relevantStackLine =
+      stackLines.find(
+        (line) =>
+          line.includes(path.join('src', '')) && !line.includes('node_modules'),
+      ) || stackLines[1];
 
     if (!relevantStackLine) {
       return {
@@ -105,16 +109,17 @@ export class DetailedExceptionFilter implements ExceptionFilter {
     }
 
     // Extract file path and line number
-    const pathMatch = relevantStackLine.match(/\((.*):(\d+):(\d+)\)/) ||
-                     relevantStackLine.match(/at (.*):(\d+):(\d+)/);
-    
+    const pathMatch =
+      relevantStackLine.match(/\((.*):(\d+):(\d+)\)/) ||
+      relevantStackLine.match(/at (.*):(\d+):(\d+)/);
+
     if (pathMatch) {
       const filePath = pathMatch[1];
       const line = parseInt(pathMatch[2], 10);
-      
+
       // Get just the filename for readability
       const fileName = path.basename(filePath);
-      
+
       return {
         file: fileName,
         line: line,
@@ -131,13 +136,13 @@ export class DetailedExceptionFilter implements ExceptionFilter {
   }
 
   private extractFunctionName(stackLine: string): string {
-    const functionMatch = stackLine.match(/at (.+?) \(/) ||
-                         stackLine.match(/at (.+?)$/);
-    
+    const functionMatch =
+      stackLine.match(/at (.+?) \(/) || stackLine.match(/at (.+?)$/);
+
     if (functionMatch) {
       return functionMatch[1].trim();
     }
-    
+
     return 'unknown';
   }
 
@@ -151,19 +156,20 @@ export class DetailedExceptionFilter implements ExceptionFilter {
       // Read the file
       const fileContent = fs.readFileSync(filePath, 'utf8');
       const lines = fileContent.split('\n');
-      
+
       // Get a few lines around the error line for context
       const startLine = Math.max(0, lineNumber - 3);
       const endLine = Math.min(lines.length, lineNumber + 2);
-      
-      const codeSnippet = lines.slice(startLine, endLine)
+
+      const codeSnippet = lines
+        .slice(startLine, endLine)
         .map((line, index) => {
           const currentLine = startLine + index + 1;
           const marker = currentLine === lineNumber ? '>>> ' : '    ';
           return `${marker}${currentLine}: ${line}`;
         })
         .join('\n');
-      
+
       return codeSnippet || `Code snippet not available (line ${lineNumber})`;
     } catch (error) {
       return `Error reading code snippet: ${error.message}`;

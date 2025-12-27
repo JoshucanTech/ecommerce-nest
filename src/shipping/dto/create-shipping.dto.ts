@@ -29,7 +29,7 @@ export enum ShippingType {
 export enum FulfillmentType {
   MERCHANT = 'MERCHANT', // Fulfilled by Merchant (FBM)
   PLATFORM = 'PLATFORM', // Fulfilled by App (FBA)
-  PRIME = 'PRIME',       // Seller Fulfilled Prime (SFP)
+  PRIME = 'PRIME', // Seller Fulfilled Prime (SFP)
 }
 
 class ShippingMethodDto {
@@ -75,7 +75,7 @@ class ShippingMethodDto {
   @IsString({ each: true })
   @IsOptional()
   tags?: string[];
-  
+
   @ApiProperty({
     enum: ShippingType,
     example: ShippingType.STANDARD,
@@ -112,7 +112,7 @@ export class ShippingZoneDto {
   @IsString()
   @IsOptional()
   postalCode?: string;
-  
+
   @ApiProperty({
     example: 'Los Angeles',
     description: 'City name',
@@ -130,7 +130,7 @@ export class ShippingZoneDto {
   @IsNumber()
   @IsOptional()
   price?: number;
-  
+
   @ApiProperty({
     example: 0,
     description: 'Minimum weight for this price',
@@ -139,7 +139,7 @@ export class ShippingZoneDto {
   @IsNumber()
   @IsOptional()
   minWeight?: number;
-  
+
   @ApiProperty({
     example: 10,
     description: 'Maximum weight for this price',
@@ -148,7 +148,7 @@ export class ShippingZoneDto {
   @IsNumber()
   @IsOptional()
   maxWeight?: number;
-  
+
   @ApiProperty({
     example: 50,
     description: 'Minimum order price for free shipping',
@@ -157,7 +157,7 @@ export class ShippingZoneDto {
   @IsNumber()
   @IsOptional()
   minPrice?: number;
-  
+
   @ApiProperty({
     example: 1000,
     description: 'Maximum order price for this rule',
@@ -232,30 +232,30 @@ export class CreateShippingDto {
   @IsOptional()
   isActive?: boolean;
 
-  @ApiProperty({ 
+  @ApiProperty({
     example: '3-5 business days',
-    description: 'Delivery time estimation'
+    description: 'Delivery time estimation',
   })
   @IsString()
   @IsNotEmpty()
   deliveryTime: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     example: 5.99,
-    description: 'Shipping price'
+    description: 'Shipping price',
   })
   @IsNumber()
   price: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     example: 'vendor-id',
     description: 'Vendor ID (required for vendor-specific methods)',
-    required: false
+    required: false,
   })
   @IsString()
   @IsOptional()
   vendorId?: string;
-  
+
   @ApiProperty({
     enum: ShippingType,
     example: ShippingType.STANDARD,

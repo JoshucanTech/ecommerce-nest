@@ -1,33 +1,40 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger"
-import { IsString, IsEnum, IsNumber, IsUUID, Min, IsOptional } from "class-validator"
-import { PaymentMethod, PaymentStatus } from "@prisma/client"
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsString,
+  IsEnum,
+  IsNumber,
+  IsUUID,
+  Min,
+  IsOptional,
+} from 'class-validator';
+import { PaymentMethod, PaymentStatus } from '@prisma/client';
 
 export class CreateAdPaymentDto {
-  @ApiProperty({ example: "advertisement-uuid" })
+  @ApiProperty({ example: 'advertisement-uuid' })
   @IsUUID()
-  advertisementId: string
+  advertisementId: string;
 
   @ApiProperty({ example: 100 })
   @IsNumber()
   @Min(1)
-  amount: number
+  amount: number;
 
   @ApiProperty({ enum: PaymentMethod, example: PaymentMethod.CREDIT_CARD })
   @IsEnum(PaymentMethod)
-  paymentMethod: PaymentMethod
+  paymentMethod: PaymentMethod;
 
   @ApiPropertyOptional({ enum: PaymentStatus, default: PaymentStatus.PENDING })
   @IsOptional()
   @IsEnum(PaymentStatus)
-  status?: PaymentStatus
+  status?: PaymentStatus;
 
-  @ApiPropertyOptional({ example: "transaction-id-123" })
+  @ApiPropertyOptional({ example: 'transaction-id-123' })
   @IsOptional()
   @IsString()
-  transactionId?: string
+  transactionId?: string;
 
-  @ApiPropertyOptional({ example: "USD" })
+  @ApiPropertyOptional({ example: 'USD' })
   @IsOptional()
   @IsString()
-  currency?: string
+  currency?: string;
 }

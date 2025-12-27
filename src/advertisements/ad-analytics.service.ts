@@ -1,7 +1,7 @@
-import { Injectable } from "@nestjs/common"
-import { PrismaService } from "../prisma/prisma.service"
-import { AdAnalyticsQueryDto } from "./dto/ad-analytics-query.dto"
-import { AdPlatform } from "@prisma/client"
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AdAnalyticsQueryDto } from './dto/ad-analytics-query.dto';
+import { AdPlatform } from '@prisma/client';
 
 @Injectable()
 export class AdAnalyticsService {
@@ -9,8 +9,7 @@ export class AdAnalyticsService {
 
   async getAdAnalytics(adId: string, query: AdAnalyticsQueryDto) {
     // const { startDate, endDate, metrics = ["views", "clicks", "conversions"] } = query
-    const { startDate, endDate } = query
-
+    const { startDate, endDate } = query;
 
     // Get analytics for the specified ad
     const analytics = await this.prisma.adAnalytics.findMany({
@@ -22,9 +21,9 @@ export class AdAnalyticsService {
         },
       },
       orderBy: {
-        timestamp: "asc",
+        timestamp: 'asc',
       },
-    })
+    });
 
     // Calculate aggregated metrics
     const aggregatedMetrics = {
@@ -33,21 +32,24 @@ export class AdAnalyticsService {
       totalConversions: 0,
       clickThroughRate: 0,
       conversionRate: 0,
-    }
+    };
 
     analytics.forEach((record) => {
-      aggregatedMetrics.totalViews += record.views
-      aggregatedMetrics.totalClicks += record.clicks
-      aggregatedMetrics.totalConversions += record.conversions
-    })
+      aggregatedMetrics.totalViews += record.views;
+      aggregatedMetrics.totalClicks += record.clicks;
+      aggregatedMetrics.totalConversions += record.conversions;
+    });
 
     // Calculate rates
     if (aggregatedMetrics.totalViews > 0) {
-      aggregatedMetrics.clickThroughRate = (aggregatedMetrics.totalClicks / aggregatedMetrics.totalViews) * 100
+      aggregatedMetrics.clickThroughRate =
+        (aggregatedMetrics.totalClicks / aggregatedMetrics.totalViews) * 100;
     }
 
     if (aggregatedMetrics.totalClicks > 0) {
-      aggregatedMetrics.conversionRate = (aggregatedMetrics.totalConversions / aggregatedMetrics.totalClicks) * 100
+      aggregatedMetrics.conversionRate =
+        (aggregatedMetrics.totalConversions / aggregatedMetrics.totalClicks) *
+        100;
     }
 
     // Format data for time series if needed
@@ -56,18 +58,20 @@ export class AdAnalyticsService {
       views: record.views,
       clicks: record.clicks,
       conversions: record.conversions,
-      clickThroughRate: record.views > 0 ? (record.clicks / record.views) * 100 : 0,
-      conversionRate: record.clicks > 0 ? (record.conversions / record.clicks) * 100 : 0,
-    }))
+      clickThroughRate:
+        record.views > 0 ? (record.clicks / record.views) * 100 : 0,
+      conversionRate:
+        record.clicks > 0 ? (record.conversions / record.clicks) * 100 : 0,
+    }));
 
     return {
       aggregatedMetrics,
       timeSeriesData,
-    }
+    };
   }
 
   async getVendorAnalytics(vendorId: string, query: AdAnalyticsQueryDto) {
-    const { startDate, endDate } = query
+    const { startDate, endDate } = query;
 
     // Get all ads for the vendor
     const ads = await this.prisma.advertisement.findMany({
@@ -77,9 +81,9 @@ export class AdAnalyticsService {
       select: {
         id: true,
       },
-    })
+    });
 
-    const adIds = ads.map((ad) => ad.id)
+    const adIds = ads.map((ad) => ad.id);
 
     // Get analytics for all vendor ads
     const analytics = await this.prisma.adAnalytics.findMany({
@@ -100,10 +104,10 @@ export class AdAnalyticsService {
           },
         },
       },
-    })
+    });
 
     // Aggregate by ad
-    const adPerformance = {}
+    const adPerformance = {};
     analytics.forEach((record) => {
       if (!adPerformance[record.advertisementId]) {
         adPerformance[record.advertisementId] = {
@@ -114,13 +118,14 @@ export class AdAnalyticsService {
           totalClicks: 0,
           totalConversions: 0,
           totalSpend: 0,
-        }
+        };
       }
 
-      adPerformance[record.advertisementId].totalViews += record.views
-      adPerformance[record.advertisementId].totalClicks += record.clicks
-      adPerformance[record.advertisementId].totalConversions += record.conversions
-    })
+      adPerformance[record.advertisementId].totalViews += record.views;
+      adPerformance[record.advertisementId].totalClicks += record.clicks;
+      adPerformance[record.advertisementId].totalConversions +=
+        record.conversions;
+    });
 
     // Get payment data to calculate spend
     const payments = await this.prisma.adPayment.findMany({
@@ -133,13 +138,13 @@ export class AdAnalyticsService {
           lte: endDate ? new Date(endDate) : undefined,
         },
       },
-    })
+    });
 
     payments.forEach((payment) => {
       if (adPerformance[payment.advertisementId]) {
-        adPerformance[payment.advertisementId].totalSpend += payment.amount
+        adPerformance[payment.advertisementId].totalSpend += payment.amount;
       }
-    })
+    });
 
     // Calculate overall performance
     const overallPerformance = {
@@ -151,38 +156,43 @@ export class AdAnalyticsService {
       conversionRate: 0,
       costPerClick: 0,
       costPerConversion: 0,
-    }
+    };
 
     Object.values(adPerformance).forEach((ad: any) => {
-      overallPerformance.totalViews += ad.totalViews
-      overallPerformance.totalClicks += ad.totalClicks
-      overallPerformance.totalConversions += ad.totalConversions
-      overallPerformance.totalSpend += ad.totalSpend
-    })
+      overallPerformance.totalViews += ad.totalViews;
+      overallPerformance.totalClicks += ad.totalClicks;
+      overallPerformance.totalConversions += ad.totalConversions;
+      overallPerformance.totalSpend += ad.totalSpend;
+    });
 
     // Calculate rates
     if (overallPerformance.totalViews > 0) {
-      overallPerformance.clickThroughRate = (overallPerformance.totalClicks / overallPerformance.totalViews) * 100
+      overallPerformance.clickThroughRate =
+        (overallPerformance.totalClicks / overallPerformance.totalViews) * 100;
     }
 
     if (overallPerformance.totalClicks > 0) {
-      overallPerformance.conversionRate = (overallPerformance.totalConversions / overallPerformance.totalClicks) * 100
-      overallPerformance.costPerClick = overallPerformance.totalSpend / overallPerformance.totalClicks
+      overallPerformance.conversionRate =
+        (overallPerformance.totalConversions / overallPerformance.totalClicks) *
+        100;
+      overallPerformance.costPerClick =
+        overallPerformance.totalSpend / overallPerformance.totalClicks;
     }
 
     if (overallPerformance.totalConversions > 0) {
-      overallPerformance.costPerConversion = overallPerformance.totalSpend / overallPerformance.totalConversions
+      overallPerformance.costPerConversion =
+        overallPerformance.totalSpend / overallPerformance.totalConversions;
     }
 
     return {
       overallPerformance,
       adPerformance: Object.values(adPerformance),
-    }
+    };
   }
 
   async recordAdView(platform: AdPlatform, adId: string, userId?: string) {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     // Find or create today's analytics record
     const analyticsRecord = await this.prisma.adAnalytics.upsert({
@@ -206,30 +216,30 @@ export class AdAnalyticsService {
         clicks: 0,
         conversions: 0,
         conversionValue: 0,
-        platform
+        platform,
       },
-    })
+    });
 
     // Record user interaction
     await this.prisma.adUserInteraction.create({
       data: {
         advertisementId: adId,
         userId,
-        interactionType: "VIEW",
+        interactionType: 'VIEW',
         timestamp: new Date(),
         metadata: {
-          userAgent: "User agent information would be captured here",
-          page: "Page information would be captured here",
+          userAgent: 'User agent information would be captured here',
+          page: 'Page information would be captured here',
         },
       },
-    })
+    });
 
-    return analyticsRecord
+    return analyticsRecord;
   }
 
-  async recordAdClick(adId: string, platform: AdPlatform,  userId?: string) {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+  async recordAdClick(adId: string, platform: AdPlatform, userId?: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     // Find or create today's analytics record
     const analyticsRecord = await this.prisma.adAnalytics.upsert({
@@ -237,7 +247,7 @@ export class AdAnalyticsService {
         advertisementId_date_platform: {
           advertisementId: adId,
           date: today,
-          platform
+          platform,
         },
       },
       update: {
@@ -255,28 +265,33 @@ export class AdAnalyticsService {
         conversionValue: 0,
         platform,
       },
-    })
+    });
 
     // Record user interaction
     await this.prisma.adUserInteraction.create({
       data: {
         advertisementId: adId,
         userId,
-        interactionType: "CLICK",
+        interactionType: 'CLICK',
         timestamp: new Date(),
         metadata: {
-          userAgent: "User agent information would be captured here",
-          page: "Page information would be captured here",
+          userAgent: 'User agent information would be captured here',
+          page: 'Page information would be captured here',
         },
       },
-    })
+    });
 
-    return analyticsRecord
+    return analyticsRecord;
   }
 
-  async recordAdConversion(platform: AdPlatform, adId: string, userId?: string, conversionValue?: number) {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+  async recordAdConversion(
+    platform: AdPlatform,
+    adId: string,
+    userId?: string,
+    conversionValue?: number,
+  ) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     // Find or create today's analytics record
     const analyticsRecord = await this.prisma.adAnalytics.upsert({
@@ -305,32 +320,32 @@ export class AdAnalyticsService {
         conversionValue: conversionValue || 0,
         platform,
       },
-    })
+    });
 
     // Record user interaction
     await this.prisma.adUserInteraction.create({
       data: {
         advertisementId: adId,
         userId,
-        interactionType: "CONVERSION",
+        interactionType: 'CONVERSION',
         timestamp: new Date(),
         conversionValue,
         metadata: {
-          userAgent: "User agent information would be captured here",
-          page: "Page information would be captured here",
-          conversionType: "Purchase", // Or other conversion type
+          userAgent: 'User agent information would be captured here',
+          page: 'Page information would be captured here',
+          conversionType: 'Purchase', // Or other conversion type
         },
       },
-    })
+    });
 
-    return analyticsRecord
+    return analyticsRecord;
   }
 
   async getDashboardAnalytics(vendorId: string) {
     // Get date range for last 30 days
-    const endDate = new Date()
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - 30)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
 
     // Get all ads for the vendor
     const ads = await this.prisma.advertisement.findMany({
@@ -340,9 +355,9 @@ export class AdAnalyticsService {
       select: {
         id: true,
       },
-    })
+    });
 
-    const adIds = ads.map((ad) => ad.id)
+    const adIds = ads.map((ad) => ad.id);
 
     // Get analytics for the last 30 days
     const analytics = await this.prisma.adAnalytics.findMany({
@@ -355,7 +370,7 @@ export class AdAnalyticsService {
           lte: endDate,
         },
       },
-    })
+    });
 
     // Get payments for the last 30 days
     const payments = await this.prisma.adPayment.findMany({
@@ -368,45 +383,58 @@ export class AdAnalyticsService {
           lte: endDate,
         },
       },
-    })
+    });
 
     // Calculate metrics
-    const totalViews = analytics.reduce((sum, record) => sum + record.views, 0)
-    const totalClicks = analytics.reduce((sum, record) => sum + record.clicks, 0)
-    const totalConversions = analytics.reduce((sum, record) => sum + record.conversions, 0)
-    const totalSpend = payments.reduce((sum, payment) => sum + payment.amount, 0)
+    const totalViews = analytics.reduce((sum, record) => sum + record.views, 0);
+    const totalClicks = analytics.reduce(
+      (sum, record) => sum + record.clicks,
+      0,
+    );
+    const totalConversions = analytics.reduce(
+      (sum, record) => sum + record.conversions,
+      0,
+    );
+    const totalSpend = payments.reduce(
+      (sum, payment) => sum + payment.amount,
+      0,
+    );
 
     // Calculate daily metrics for charts
-    const dailyMetrics = {}
+    const dailyMetrics = {};
 
     // Initialize daily metrics for each day in the range
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split("T")[0]
+    for (
+      let d = new Date(startDate);
+      d <= endDate;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dateStr = d.toISOString().split('T')[0];
       dailyMetrics[dateStr] = {
         date: dateStr,
         views: 0,
         clicks: 0,
         conversions: 0,
         spend: 0,
-      }
+      };
     }
 
     // Populate with actual data
     analytics.forEach((record) => {
-      const dateStr = record.timestamp.toISOString().split("T")[0]
+      const dateStr = record.timestamp.toISOString().split('T')[0];
       if (dailyMetrics[dateStr]) {
-        dailyMetrics[dateStr].views += record.views
-        dailyMetrics[dateStr].clicks += record.clicks
-        dailyMetrics[dateStr].conversions += record.conversions
+        dailyMetrics[dateStr].views += record.views;
+        dailyMetrics[dateStr].clicks += record.clicks;
+        dailyMetrics[dateStr].conversions += record.conversions;
       }
-    })
+    });
 
     payments.forEach((payment) => {
-      const dateStr = payment.createdAt.toISOString().split("T")[0]
+      const dateStr = payment.createdAt.toISOString().split('T')[0];
       if (dailyMetrics[dateStr]) {
-        dailyMetrics[dateStr].spend += payment.amount
+        dailyMetrics[dateStr].spend += payment.amount;
       }
-    })
+    });
 
     return {
       summary: {
@@ -415,11 +443,13 @@ export class AdAnalyticsService {
         totalConversions,
         totalSpend,
         clickThroughRate: totalViews > 0 ? (totalClicks / totalViews) * 100 : 0,
-        conversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
+        conversionRate:
+          totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
         costPerClick: totalClicks > 0 ? totalSpend / totalClicks : 0,
-        costPerConversion: totalConversions > 0 ? totalSpend / totalConversions : 0,
+        costPerConversion:
+          totalConversions > 0 ? totalSpend / totalConversions : 0,
       },
       dailyMetrics: Object.values(dailyMetrics),
-    }
+    };
   }
 }

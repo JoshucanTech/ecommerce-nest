@@ -126,13 +126,7 @@ export class CartItemService {
     });
   }
 
-  async removeItem({
-    cartId,
-    itemId,
-  }: {
-    cartId: string;
-    itemId: string;
-  }) {
+  async removeItem({ cartId, itemId }: { cartId: string; itemId: string }) {
     const cartItem = await this.prisma.cartItem.findFirst({
       where: {
         id: itemId,

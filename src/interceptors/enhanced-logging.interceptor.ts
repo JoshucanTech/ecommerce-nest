@@ -20,15 +20,12 @@ export class EnhancedLoggingInterceptor implements NestInterceptor {
     const now = Date.now();
 
     // Log request details
-    this.logger.log(
-      `REQUEST --> ${method} ${url} from ${ip}`,
-      {
-        userAgent,
-        body: req.body,
-        params: req.params,
-        query: req.query,
-      }
-    );
+    this.logger.log(`REQUEST --> ${method} ${url} from ${ip}`, {
+      userAgent,
+      body: req.body,
+      params: req.params,
+      query: req.query,
+    });
 
     return next.handle().pipe(
       tap((data) => {
@@ -37,22 +34,22 @@ export class EnhancedLoggingInterceptor implements NestInterceptor {
           `RESPONSE <-- ${method} ${url} - Status: 200 - ${delay}ms`,
           {
             response: data,
-          }
+          },
         );
       }),
       catchError((error) => {
         const delay = Date.now() - now;
         const status = error.status || 500;
-        
+
         // Log error response
         this.logger.error(
           `ERROR <-- ${method} ${url} - Status: ${status} - ${delay}ms`,
           error.message,
           {
             stack: error.stack,
-          }
+          },
         );
-        
+
         // Re-throw the error for the exception filters to handle
         return throwError(() => error);
       }),

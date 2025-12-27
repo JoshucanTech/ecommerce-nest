@@ -47,15 +47,16 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('VENDOR', 'ADMIN')
   @ApiBearerAuth()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Create a new product',
-    description: 'Create a new product in the system. Only vendors and administrators can create products.'
+    description:
+      'Create a new product in the system. Only vendors and administrators can create products.',
   })
   @ApiHeader({
     name: 'Authorization',
     description: 'Bearer token for authentication',
     required: true,
-    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+    example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   @ApiBody({
     description: 'Product creation data',
@@ -65,16 +66,17 @@ export class ProductsController {
         summary: 'Basic product creation',
         value: {
           name: 'Wireless Headphones',
-          description: 'High-quality wireless headphones with noise cancellation',
+          description:
+            'High-quality wireless headphones with noise cancellation',
           price: 99.99,
           quantity: 100,
           sku: 'WH-NC100-BLK',
           images: [
             'https://example.com/image1.jpg',
-            'https://example.com/image2.jpg'
+            'https://example.com/image2.jpg',
           ],
-          categoryId: '123e4567-e89b-12d3-a456-426614174000'
-        }
+          categoryId: '123e4567-e89b-12d3-a456-426614174000',
+        },
       },
       withDiscount: {
         summary: 'Product with discount price',
@@ -87,26 +89,33 @@ export class ProductsController {
           sku: 'SP-LT2023-BLK',
           images: [
             'https://example.com/smartphone1.jpg',
-            'https://example.com/smartphone2.jpg'
+            'https://example.com/smartphone2.jpg',
           ],
           isPublished: true,
-          categoryId: '123e4567-e89b-12d3-a456-426614174001'
-        }
-      }
-    }
+          categoryId: '123e4567-e89b-12d3-a456-426614174001',
+        },
+      },
+    },
   })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Product created successfully',
     content: {
       'application/json': {
         schema: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+            id: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174000',
+            },
             name: { type: 'string', example: 'Wireless Headphones' },
             slug: { type: 'string', example: 'wireless-headphones' },
-            description: { type: 'string', example: 'High-quality wireless headphones with noise cancellation' },
+            description: {
+              type: 'string',
+              example:
+                'High-quality wireless headphones with noise cancellation',
+            },
             price: { type: 'number', example: 99.99 },
             discountPrice: { type: 'number', example: null, nullable: true },
             sku: { type: 'string', example: 'WH-NC100-BLK' },
@@ -115,24 +124,42 @@ export class ProductsController {
               items: { type: 'string' },
               example: [
                 'https://example.com/image1.jpg',
-                'https://example.com/image2.jpg'
-              ]
+                'https://example.com/image2.jpg',
+              ],
             },
             isPublished: { type: 'boolean', example: false },
-            categoryId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-            vendorId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
-            createdAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
-            updatedAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' }
-          }
-        }
-      }
-    }
+            categoryId: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174000',
+            },
+            vendorId: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174001',
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2023-01-01T00:00:00Z',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2023-01-01T00:00:00Z',
+            },
+          },
+        },
+      },
+    },
   })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid input data' })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Missing or invalid authentication token' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Missing or invalid authentication token',
+  })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Insufficient permissions (vendor or admin role required)'
+    description:
+      'Forbidden - Insufficient permissions (vendor or admin role required)',
   })
   create(@Body() createProductDto: CreateProductDto, @CurrentUser() user) {
     return this.productsService.create(createProductDto, user.id);
@@ -140,75 +167,76 @@ export class ProductsController {
 
   @Get()
   @Public()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get all products with filtering and pagination',
-    description: 'Retrieve a paginated list of products with optional filtering by search term, category, vendor, price range, and sorting options.'
+    description:
+      'Retrieve a paginated list of products with optional filtering by search term, category, vendor, price range, and sorting options.',
   })
   @ApiQuery({
     name: 'page',
     required: false,
     type: Number,
     description: 'Page number for pagination',
-    example: 1
+    example: 1,
   })
   @ApiQuery({
     name: 'limit',
     required: false,
     type: Number,
     description: 'Number of items per page',
-    example: 10
+    example: 10,
   })
   @ApiQuery({
     name: 'search',
     required: false,
     type: String,
     description: 'Search term to filter products by name or description',
-    example: 'headphones'
+    example: 'headphones',
   })
   @ApiQuery({
     name: 'category',
     required: false,
     type: String,
     description: 'Category ID or slug to filter products',
-    example: 'electronics'
+    example: 'electronics',
   })
   @ApiQuery({
     name: 'vendor',
     required: false,
     type: String,
     description: 'Vendor ID or slug to filter products',
-    example: 'tech-store'
+    example: 'tech-store',
   })
   @ApiQuery({
     name: 'minPrice',
     required: false,
     type: Number,
     description: 'Minimum price filter',
-    example: 50
+    example: 50,
   })
   @ApiQuery({
     name: 'maxPrice',
     required: false,
     type: Number,
     description: 'Maximum price filter',
-    example: 200
+    example: 200,
   })
   @ApiQuery({
     name: 'sortBy',
     required: false,
     type: String,
     description: 'Field to sort by (e.g., price, createdAt, name)',
-    example: 'price'
+    example: 'price',
   })
   @ApiQuery({
     name: 'sortOrder',
     required: false,
     type: String,
     description: 'Sort order (asc or desc)',
-    example: 'asc'
+    example: 'asc',
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Returns paginated products',
     content: {
       'application/json': {
@@ -220,57 +248,88 @@ export class ProductsController {
               items: {
                 type: 'object',
                 properties: {
-                  id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                  id: {
+                    type: 'string',
+                    example: '123e4567-e89b-12d3-a456-426614174000',
+                  },
                   name: { type: 'string', example: 'Wireless Headphones' },
                   slug: { type: 'string', example: 'wireless-headphones' },
-                  description: { type: 'string', example: 'High-quality wireless headphones with noise cancellation' },
+                  description: {
+                    type: 'string',
+                    example:
+                      'High-quality wireless headphones with noise cancellation',
+                  },
                   price: { type: 'number', example: 99.99 },
-                  discountPrice: { type: 'number', example: null, nullable: true },
+                  discountPrice: {
+                    type: 'number',
+                    example: null,
+                    nullable: true,
+                  },
                   sku: { type: 'string', example: 'WH-NC100-BLK' },
                   images: {
                     type: 'array',
                     items: { type: 'string' },
                     example: [
                       'https://example.com/image1.jpg',
-                      'https://example.com/image2.jpg'
-                    ]
+                      'https://example.com/image2.jpg',
+                    ],
                   },
                   isPublished: { type: 'boolean', example: true },
-                  categoryId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
-                  vendorId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174002' },
-                  createdAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
-                  updatedAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
+                  categoryId: {
+                    type: 'string',
+                    example: '123e4567-e89b-12d3-a456-426614174001',
+                  },
+                  vendorId: {
+                    type: 'string',
+                    example: '123e4567-e89b-12d3-a456-426614174002',
+                  },
+                  createdAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    example: '2023-01-01T00:00:00Z',
+                  },
+                  updatedAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    example: '2023-01-01T00:00:00Z',
+                  },
                   category: {
                     type: 'object',
                     properties: {
-                      id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
+                      id: {
+                        type: 'string',
+                        example: '123e4567-e89b-12d3-a456-426614174001',
+                      },
                       name: { type: 'string', example: 'Electronics' },
-                      slug: { type: 'string', example: 'electronics' }
-                    }
+                      slug: { type: 'string', example: 'electronics' },
+                    },
                   },
                   vendor: {
                     type: 'object',
                     properties: {
-                      id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174002' },
+                      id: {
+                        type: 'string',
+                        example: '123e4567-e89b-12d3-a456-426614174002',
+                      },
                       businessName: { type: 'string', example: 'Tech Store' },
-                      slug: { type: 'string', example: 'tech-store' }
-                    }
-                  }
-                }
-              }
+                      slug: { type: 'string', example: 'tech-store' },
+                    },
+                  },
+                },
+              },
             },
             meta: {
               type: 'object',
               properties: {
                 page: { type: 'number', example: 1 },
                 limit: { type: 'number', example: 10 },
-                total: { type: 'number', example: 100 }
-              }
-            }
-          }
-        }
-      }
-    }
+                total: { type: 'number', example: 100 },
+              },
+            },
+          },
+        },
+      },
+    },
   })
   findAll(
     @Query('page') page?: number,
@@ -298,26 +357,27 @@ export class ProductsController {
 
   @Get('/new')
   @Public()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get new products',
-    description: 'Retrieve a list of newly added products, sorted by creation date.'
+    description:
+      'Retrieve a list of newly added products, sorted by creation date.',
   })
   @ApiQuery({
     name: 'limit',
     required: false,
     type: Number,
     description: 'Number of items to retrieve',
-    example: 10
+    example: 10,
   })
   @ApiQuery({
     name: 'page',
     required: false,
     type: Number,
     description: 'Page number for pagination',
-    example: 1
+    example: 1,
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Returns new products',
     content: {
       'application/json': {
@@ -329,41 +389,66 @@ export class ProductsController {
               items: {
                 type: 'object',
                 properties: {
-                  id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                  id: {
+                    type: 'string',
+                    example: '123e4567-e89b-12d3-a456-426614174000',
+                  },
                   name: { type: 'string', example: 'Wireless Headphones' },
                   slug: { type: 'string', example: 'wireless-headphones' },
-                  description: { type: 'string', example: 'High-quality wireless headphones with noise cancellation' },
+                  description: {
+                    type: 'string',
+                    example:
+                      'High-quality wireless headphones with noise cancellation',
+                  },
                   price: { type: 'number', example: 99.99 },
-                  discountPrice: { type: 'number', example: null, nullable: true },
+                  discountPrice: {
+                    type: 'number',
+                    example: null,
+                    nullable: true,
+                  },
                   sku: { type: 'string', example: 'WH-NC100-BLK' },
                   images: {
                     type: 'array',
                     items: { type: 'string' },
                     example: [
                       'https://example.com/image1.jpg',
-                      'https://example.com/image2.jpg'
-                    ]
+                      'https://example.com/image2.jpg',
+                    ],
                   },
                   isPublished: { type: 'boolean', example: true },
-                  categoryId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174001' },
-                  vendorId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174002' },
-                  createdAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' },
-                  updatedAt: { type: 'string', format: 'date-time', example: '2023-01-01T00:00:00Z' }
-                }
-              }
+                  categoryId: {
+                    type: 'string',
+                    example: '123e4567-e89b-12d3-a456-426614174001',
+                  },
+                  vendorId: {
+                    type: 'string',
+                    example: '123e4567-e89b-12d3-a456-426614174002',
+                  },
+                  createdAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    example: '2023-01-01T00:00:00Z',
+                  },
+                  updatedAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    example: '2023-01-01T00:00:00Z',
+                  },
+                },
+              },
             },
             meta: {
               type: 'object',
               properties: {
                 page: { type: 'number', example: 1 },
                 limit: { type: 'number', example: 10 },
-                total: { type: 'number', example: 50 }
-              }
-            }
-          }
-        }
-      }
-    }
+                total: { type: 'number', example: 50 },
+              },
+            },
+          },
+        },
+      },
+    },
   })
   getNewProducts(@Query('limit') limit = 10, @Query('page') page = 1) {
     return this.productsService.getNewProducts(limit, page);

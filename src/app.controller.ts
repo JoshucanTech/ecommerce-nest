@@ -1,4 +1,11 @@
-import { Controller, Get, Post, Body, Delete, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Delete,
+  HttpStatus,
+} from '@nestjs/common';
 import { AppService } from './app.service';
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/auth/decorators/public.decorator';
@@ -68,10 +75,10 @@ export class TestController {
     throw new AppException(
       'This is a custom application exception',
       HttpStatus.BAD_REQUEST,
-      { 
+      {
         errorCode: 'CUSTOM_ERROR_001',
-        additionalInfo: 'This is additional context for debugging' 
-      }
+        additionalInfo: 'This is additional context for debugging',
+      },
     );
   }
 }

@@ -94,12 +94,16 @@ export class OrdersController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me/grouped')
-  @ApiOperation({ summary: 'Get all orders for the authenticated user grouped by transaction reference' })
+  @ApiOperation({
+    summary:
+      'Get all orders for the authenticated user grouped by transaction reference',
+  })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
   @ApiResponse({
     status: 200,
-    description: 'Return all orders for the authenticated user grouped by transaction reference.',
+    description:
+      'Return all orders for the authenticated user grouped by transaction reference.',
   })
   async findMyOrdersGrouped(
     @CurrentUser() user,
@@ -158,11 +162,7 @@ export class OrdersController {
     @Body() updateOrderStatusDto: UpdateOrderStatusDto,
     @CurrentUser() user,
   ) {
-    return this.ordersService.updateStatus(
-      id,
-      updateOrderStatusDto,
-      user.id,
-    );
+    return this.ordersService.updateStatus(id, updateOrderStatusDto, user.id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

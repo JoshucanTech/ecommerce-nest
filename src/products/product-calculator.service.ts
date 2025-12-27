@@ -3,9 +3,7 @@ import { ShippingCalculationService } from '../shipping/shipping-calculation.ser
 
 @Injectable()
 export class ProductCalculatorService {
-  constructor(
-    private shippingCalculationService: ShippingCalculationService,
-  ) {}
+  constructor(private shippingCalculationService: ShippingCalculationService) {}
 
   calculateProductRatings(reviews: any[]) {
     const avgRating =
@@ -41,7 +39,7 @@ export class ProductCalculatorService {
     const activeFlashSale = flashSaleItems.find(
       (item) => item.flashSale !== null,
     );
-    
+
     const flashSalePrice = activeFlashSale
       ? product.price * (1 - activeFlashSale.discountPercentage / 100)
       : null;
@@ -69,33 +67,37 @@ export class ProductCalculatorService {
     let shippingInfo = null;
     if (vendor.Shipping && vendor.Shipping.length > 0) {
       // Get the fastest/cheapest shipping option
-      const fastestShipping = vendor.Shipping
-        .filter(s => s.isActive)
-        .sort((a, b) => a.price - b.price)[0];
-      
+      const fastestShipping = vendor.Shipping.filter((s) => s.isActive).sort(
+        (a, b) => a.price - b.price,
+      )[0];
+
       if (fastestShipping) {
         // Get processing time from vendor's shipping policy
-        let processingTime = "1-2 business days"; // Default processing time
+        let processingTime = '1-2 business days'; // Default processing time
         if (vendor.ShippingPolicy && vendor.ShippingPolicy.length > 0) {
           processingTime = vendor.ShippingPolicy[0].processingTime;
         }
-        
-        const deliveryDateInfo = this.shippingCalculationService.calculateDeliveryDate(
-          fastestShipping,
-          undefined, // No ZIP code yet
-          processingTime
-        );
-        
+
+        const deliveryDateInfo =
+          this.shippingCalculationService.calculateDeliveryDate(
+            fastestShipping,
+            undefined, // No ZIP code yet
+            processingTime,
+          );
+
         // Check if shipping method is Prime eligible (based on name or price)
-        const isPrimeEligible = fastestShipping.price === 0 || 
-          (fastestShipping.name && fastestShipping.name.toLowerCase().includes('prime')) ||
-          (fastestShipping.name && fastestShipping.name.toLowerCase().includes('free'));
-        
+        const isPrimeEligible =
+          fastestShipping.price === 0 ||
+          (fastestShipping.name &&
+            fastestShipping.name.toLowerCase().includes('prime')) ||
+          (fastestShipping.name &&
+            fastestShipping.name.toLowerCase().includes('free'));
+
         shippingInfo = {
           method: fastestShipping,
           deliveryDateInfo,
           isFree: fastestShipping.price === 0,
-          isPrimeEligible: isPrimeEligible
+          isPrimeEligible: isPrimeEligible,
         };
       }
     }

@@ -3,10 +3,10 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from "@nestjs/common";
-import  { PrismaService } from "../prisma/prisma.service";
-import { CreateReviewDto } from "./dto/create-review.dto";
-import { UpdateReviewDto } from "./dto/update-review.dto";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateReviewDto } from './dto/create-review.dto';
+import { UpdateReviewDto } from './dto/update-review.dto';
 
 @Injectable()
 export class ReviewsService {
@@ -36,7 +36,7 @@ export class ReviewsService {
     });
 
     if (existingReview) {
-      throw new BadRequestException("You have already reviewed this product");
+      throw new BadRequestException('You have already reviewed this product');
     }
 
     // Create review
@@ -87,7 +87,7 @@ export class ReviewsService {
         where: { productId },
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           user: {
             select: {
@@ -141,7 +141,7 @@ export class ReviewsService {
         where: { userId },
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           product: {
             select: {
@@ -208,9 +208,9 @@ export class ReviewsService {
     }
 
     // Check if user is the owner of the review
-    if (review.userId !== user.id && user.role !== "ADMIN") {
+    if (review.userId !== user.id && user.role !== 'ADMIN') {
       throw new ForbiddenException(
-        "You do not have permission to update this review",
+        'You do not have permission to update this review',
       );
     }
 
@@ -232,10 +232,10 @@ export class ReviewsService {
 
     // If rating was updated, update product and vendor ratings
     if (updateReviewDto.rating !== undefined) {
-      const product = await this.prisma.product.findUnique({
+      const product = (await this.prisma.product.findUnique({
         where: { id: review.productId },
         select: { vendorId: true },
-      })  ?? { vendorId: "" };
+      })) ?? { vendorId: '' };
 
       await this.updateProductAndVendorRatings(
         review.productId,
@@ -262,9 +262,9 @@ export class ReviewsService {
     }
 
     // Check if user is the owner of the review or an admin
-    if (review.userId !== user.id && user.role !== "ADMIN") {
+    if (review.userId !== user.id && user.role !== 'ADMIN') {
       throw new ForbiddenException(
-        "You do not have permission to delete this review",
+        'You do not have permission to delete this review',
       );
     }
 
@@ -279,7 +279,7 @@ export class ReviewsService {
       review.product.vendorId,
     );
 
-    return { message: "Review deleted successfully" };
+    return { message: 'Review deleted successfully' };
   }
 
   private async updateProductAndVendorRatings(

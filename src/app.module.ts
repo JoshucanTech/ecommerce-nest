@@ -41,7 +41,7 @@ import { ValidationExceptionFilter } from './exceptions/validation-exception.fil
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    EventEmitterModule.forRoot(),
+    EventEmitterModule.forRoot({ global: true }),
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,

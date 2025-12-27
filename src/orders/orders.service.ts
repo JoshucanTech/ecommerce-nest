@@ -50,7 +50,10 @@ export class OrdersService {
     }
 
     // Group items by vendor
-    const itemsByVendor = this.groupItemsByVendor(createOrderDto.items, products);
+    const itemsByVendor = this.groupItemsByVendor(
+      createOrderDto.items,
+      products,
+    );
 
     // Process coupons if provided
     const processedCoupons = createOrderDto.couponCode
@@ -592,8 +595,8 @@ export class OrdersService {
         // This is a simplification - true group-wise ordering would require a more complex query
         { createdAt: 'desc' },
         // Then order by transactionRef and createdAt within each group
-        { transactionRef: 'asc' }, 
-        { createdAt: 'desc' }
+        { transactionRef: 'asc' },
+        { createdAt: 'desc' },
       ],
       include: {
         vendor: {
@@ -631,12 +634,12 @@ export class OrdersService {
 
     // Extract unique transaction references while maintaining order
     const uniqueTransactionRefs = Array.from(
-      new Set(orders.map(order => order.transactionRef))
+      new Set(orders.map((order) => order.transactionRef)),
     );
-    
+
     // Apply pagination to the grouped results
     const paginatedRefs = uniqueTransactionRefs.slice(skip, skip + limit);
-    
+
     // Create a new object with only the paginated groups
     const paginatedGroupedOrders = {};
     for (const ref of paginatedRefs) {
@@ -645,19 +648,19 @@ export class OrdersService {
 
     // Calculate counts from the already fetched data
     const totalCount = uniqueTransactionRefs.length;
-    
+
     // Calculate recent orders (within last 7 days) from already fetched data
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    
+
     const recentTransactionRefs = Array.from(
       new Set(
         orders
-          .filter(order => order.createdAt >= oneWeekAgo)
-          .map(order => order.transactionRef)
-      )
+          .filter((order) => order.createdAt >= oneWeekAgo)
+          .map((order) => order.transactionRef),
+      ),
     );
-    
+
     const recentCount = recentTransactionRefs.length;
 
     return {

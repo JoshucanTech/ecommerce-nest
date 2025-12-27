@@ -2,8 +2,8 @@ import {
   Injectable,
   type OnModuleInit,
   type OnModuleDestroy,
-} from "@nestjs/common";
-import { PrismaClient } from "@prisma/client";
+} from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService
@@ -12,7 +12,7 @@ export class PrismaService
 {
   constructor() {
     super({
-      log: ["query", "info", "warn", "error"],
+      log: ['query', 'info', 'warn', 'error'],
     });
   }
 
@@ -25,19 +25,19 @@ export class PrismaService
   }
 
   async cleanDatabase() {
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === 'production') {
       return;
     }
 
     const models = Reflect.ownKeys(this).filter(
       (key) =>
-        typeof key === "string" &&
-        !key.startsWith("_") &&
-        key !== "$connect" &&
-        key !== "$disconnect" &&
-        key !== "$on" &&
-        key !== "$transaction" &&
-        key !== "$use",
+        typeof key === 'string' &&
+        !key.startsWith('_') &&
+        key !== '$connect' &&
+        key !== '$disconnect' &&
+        key !== '$on' &&
+        key !== '$transaction' &&
+        key !== '$use',
     );
 
     return Promise.all(

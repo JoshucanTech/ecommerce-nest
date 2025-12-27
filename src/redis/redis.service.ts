@@ -14,12 +14,16 @@ export class RedisService {
     const redisPort = parseInt(process.env.REDIS_PORT, 10) || 6379;
     const redisPassword = process.env.REDIS_PASSWORD || undefined;
     const redisUrl = process.env.REDIS_URL || undefined;
-    
-    this.logger.log(`Initializing Redis connection with: ${redisUrl ? 'REDIS_URL' : `host=${redisHost}, port=${redisPort}${redisPassword ? ', password=***' : ''}`}`);
+
+    this.logger.log(
+      `Initializing Redis connection with: ${redisUrl ? 'REDIS_URL' : `host=${redisHost}, port=${redisPort}${redisPassword ? ', password=***' : ''}`}`,
+    );
 
     // In development mode, allow the application to run even without Redis
     if (this.isDevelopment) {
-      this.logger.log('Running in development mode - Redis connection is optional');
+      this.logger.log(
+        'Running in development mode - Redis connection is optional',
+      );
     }
 
     const redisOptions = {
@@ -64,9 +68,11 @@ export class RedisService {
       this.client.on('error', (err) => {
         this.logger.error('Redis error:', err.message);
         if (err.message.includes('AUTH')) {
-          this.logger.error('Redis authentication failed. Check your REDIS_PASSWORD.');
+          this.logger.error(
+            'Redis authentication failed. Check your REDIS_PASSWORD.',
+          );
         }
-        
+
         // In development, we don't want Redis errors to crash the app
         if (this.isDevelopment) {
           this.logger.log('Continuing without Redis in development mode');
@@ -81,18 +87,20 @@ export class RedisService {
       this.client.on('reconnecting', () => {
         this.logger.log('Redis reconnecting...');
       });
-      
+
       this.client.on('end', () => {
         this.logger.log('Redis connection ended');
         this.isConnected = false;
       });
-      
+
       // Connect asynchronously without blocking
       this.connectAsync();
     } catch (error) {
       this.logger.error('Failed to initialize Redis client:', error.message);
       if (this.isDevelopment) {
-        this.logger.log('Redis disabled in development mode due to initialization error');
+        this.logger.log(
+          'Redis disabled in development mode due to initialization error',
+        );
         this.client = null;
       }
     }
@@ -111,7 +119,10 @@ export class RedisService {
           await this.client.connect();
           this.logger.log('Redis connection established');
         } catch (error) {
-          this.logger.error('Failed to establish Redis connection:', error.message);
+          this.logger.error(
+            'Failed to establish Redis connection:',
+            error.message,
+          );
           if (this.isDevelopment) {
             this.logger.log('Application will continue running without Redis');
           }
@@ -139,7 +150,7 @@ export class RedisService {
   getRedisInfo(): { host: string; port: number; connected: boolean } {
     const redisHost = process.env.REDIS_HOST || 'localhost';
     const redisPort = parseInt(process.env.REDIS_PORT, 10) || 6379;
-    
+
     return {
       host: redisHost,
       port: redisPort,
@@ -150,7 +161,9 @@ export class RedisService {
   private checkConnection(): boolean {
     if (!this.client || !this.isRedisConnected()) {
       if (this.isDevelopment) {
-        this.logger.debug('Redis is not connected. Skipping operation in development mode.');
+        this.logger.debug(
+          'Redis is not connected. Skipping operation in development mode.',
+        );
       } else {
         this.logger.warn('Redis is not connected. Operations will be skipped.');
       }
@@ -161,7 +174,7 @@ export class RedisService {
 
   async addViewer(productId: string, userId: string) {
     if (!this.checkConnection()) return;
-    
+
     try {
       await this.client.sadd(`product:${productId}:viewers`, userId);
       await this.client.expire(`product:${productId}:viewers`, 300); // auto-expire in 5 min
@@ -172,7 +185,7 @@ export class RedisService {
 
   async removeViewer(productId: string, userId: string) {
     if (!this.checkConnection()) return;
-    
+
     try {
       await this.client.srem(`product:${productId}:viewers`, userId);
     } catch (error) {
@@ -182,11 +195,14 @@ export class RedisService {
 
   async getViewerCount(productId: string): Promise<number> {
     if (!this.checkConnection()) return 0;
-    
+
     try {
       return await this.client.scard(`product:${productId}:viewers`);
     } catch (error) {
-      this.logger.error('Error getting viewer count from Redis:', error.message);
+      this.logger.error(
+        'Error getting viewer count from Redis:',
+        error.message,
+      );
       return 0;
     }
   }
@@ -194,7 +210,7 @@ export class RedisService {
   // Added methods for CacheService to use
   async get(key: string): Promise<string | null> {
     if (!this.checkConnection()) return null;
-    
+
     try {
       return await this.client.get(key);
     } catch (error) {
@@ -205,7 +221,7 @@ export class RedisService {
 
   async setex(key: string, ttl: number, value: string): Promise<void> {
     if (!this.checkConnection()) return;
-    
+
     try {
       await this.client.setex(key, ttl, value);
     } catch (error) {
@@ -215,7 +231,7 @@ export class RedisService {
 
   async del(...keys: string[]): Promise<void> {
     if (!this.checkConnection()) return;
-    
+
     try {
       await this.client.del(...keys);
     } catch (error) {
@@ -225,11 +241,14 @@ export class RedisService {
 
   async keys(pattern: string): Promise<string[]> {
     if (!this.checkConnection()) return [];
-    
+
     try {
       return await this.client.keys(pattern);
     } catch (error) {
-      this.logger.error(`Error getting keys with pattern ${pattern} from Redis:`, error.message);
+      this.logger.error(
+        `Error getting keys with pattern ${pattern} from Redis:`,
+        error.message,
+      );
       return [];
     }
   }
@@ -296,7 +315,11 @@ export class RedisService {
    * @param value Raw string value to cache
    * @param ttl Time to live in seconds (default: 300 seconds / 5 minutes)
    */
-  async setCacheRaw(key: string, value: string, ttl: number = 300): Promise<void> {
+  async setCacheRaw(
+    key: string,
+    value: string,
+    ttl: number = 300,
+  ): Promise<void> {
     if (!this.checkConnection()) {
       return;
     }
@@ -339,7 +362,10 @@ export class RedisService {
         await this.client.del(...keys);
       }
     } catch (error) {
-      this.logger.error(`Error invalidating cache pattern ${pattern}:`, error.message);
+      this.logger.error(
+        `Error invalidating cache pattern ${pattern}:`,
+        error.message,
+      );
     }
   }
 }

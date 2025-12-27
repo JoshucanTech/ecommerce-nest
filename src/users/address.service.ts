@@ -29,10 +29,7 @@ export class AddressService {
       const savedAddress = await this.prisma.shippingAddress.findFirst({
         where: {
           id: createOrderDto.shippingAddressId,
-          OR: [
-            { userId },
-            { sharedWith: { some: { sharedWithId: userId } } },
-          ],
+          OR: [{ userId }, { sharedWith: { some: { sharedWithId: userId } } }],
         },
       });
 

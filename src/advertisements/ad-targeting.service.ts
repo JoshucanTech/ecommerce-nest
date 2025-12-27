@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from "@nestjs/common"
-import { PrismaService } from "../prisma/prisma.service"
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class AdTargetingService {
@@ -9,10 +9,12 @@ export class AdTargetingService {
     // Verify advertisement exists
     const advertisement = await this.prisma.advertisement.findUnique({
       where: { id: advertisementId },
-    })
+    });
 
     if (!advertisement) {
-      throw new NotFoundException(`Advertisement with ID ${advertisementId} not found`)
+      throw new NotFoundException(
+        `Advertisement with ID ${advertisementId} not found`,
+      );
     }
 
     // Create or update targeting data
@@ -27,7 +29,7 @@ export class AdTargetingService {
         advertisementId,
         ...targetingData,
       },
-    })
+    });
   }
 
   async getTargeting(advertisementId: string) {
@@ -35,13 +37,15 @@ export class AdTargetingService {
       where: {
         advertisementId,
       },
-    })
+    });
 
     if (!targeting) {
-      throw new NotFoundException(`Targeting for advertisement ID ${advertisementId} not found`)
+      throw new NotFoundException(
+        `Targeting for advertisement ID ${advertisementId} not found`,
+      );
     }
 
-    return targeting
+    return targeting;
   }
 
   async updateTargeting(advertisementId: string, targetingData: any) {
@@ -50,10 +54,12 @@ export class AdTargetingService {
       where: {
         advertisementId,
       },
-    })
+    });
 
     if (!targeting) {
-      throw new NotFoundException(`Targeting for advertisement ID ${advertisementId} not found`)
+      throw new NotFoundException(
+        `Targeting for advertisement ID ${advertisementId} not found`,
+      );
     }
 
     return this.prisma.adTargeting.update({
@@ -61,7 +67,7 @@ export class AdTargetingService {
         advertisementId,
       },
       data: targetingData,
-    })
+    });
   }
 
   async deleteTargeting(advertisementId: string) {
@@ -70,17 +76,19 @@ export class AdTargetingService {
       where: {
         advertisementId,
       },
-    })
+    });
 
     if (!targeting) {
-      throw new NotFoundException(`Targeting for advertisement ID ${advertisementId} not found`)
+      throw new NotFoundException(
+        `Targeting for advertisement ID ${advertisementId} not found`,
+      );
     }
 
     return this.prisma.adTargeting.delete({
       where: {
         advertisementId,
       },
-    })
+    });
   }
 
   async matchUserToAd(userId: string, adId: string) {
@@ -90,68 +98,70 @@ export class AdTargetingService {
       include: {
         profile: true,
       },
-    })
+    });
 
     if (!user) {
-      return false
+      return false;
     }
 
     // Get ad targeting criteria
     const targeting = await this.prisma.adTargeting.findUnique({
       where: { advertisementId: adId },
-    })
+    });
 
     if (!targeting) {
       // If no targeting is set, assume the ad is for everyone
-      return true
+      return true;
     }
 
     // Match user against targeting criteria
-    let matches = true
+    let matches = true;
 
     // Age targeting
     if (targeting.minAge || targeting.maxAge) {
-      const userAge =  this.calculateAge(user.profile?.dateOfBirth)
+      const userAge = this.calculateAge(user.profile?.dateOfBirth);
 
       if (targeting.minAge && userAge < targeting.minAge) {
-        matches = false
+        matches = false;
       }
 
       if (targeting.maxAge && userAge > targeting.maxAge) {
-        matches = false
+        matches = false;
       }
     }
 
     // Gender targeting
     if (targeting.genders && targeting.genders.length > 0) {
       if (!targeting.genders.includes(user.profile?.gender)) {
-        matches = false
+        matches = false;
       }
     }
 
     // Location targeting
     if (targeting.locations && targeting.locations.length > 0) {
-      const userLocation = user.profile?.location || ""
+      const userLocation = user.profile?.location || '';
       const locationMatches = targeting.locations.some((location) =>
         userLocation.toLowerCase().includes(location.toLowerCase()),
-      )
+      );
 
       if (!locationMatches) {
-        matches = false
+        matches = false;
       }
     }
 
     // Interest targeting
     if (targeting.interests && targeting.interests.length > 0) {
-      const userInterests = user.profile?.interests || []
-      const hasMatchingInterest = targeting.interests.some((interest) => userInterests.includes(interest))
+      const userInterests = user.profile?.interests || [];
+      const hasMatchingInterest = targeting.interests.some((interest) =>
+        userInterests.includes(interest),
+      );
 
       if (!hasMatchingInterest) {
-        matches = false
+        matches = false;
       }
     }
 
-    return matches
+    return matches;
   }
 
   async getRelevantAdsForUser(userId: string, limit = 5) {
@@ -161,16 +171,16 @@ export class AdTargetingService {
       include: {
         profile: true,
       },
-    })
+    });
 
     if (!user) {
-      return []
+      return [];
     }
 
     // Get all active ads
     const activeAds = await this.prisma.advertisement.findMany({
       where: {
-        status: "ACTIVE",
+        status: 'ACTIVE',
         startDate: {
           lte: new Date(),
         },
@@ -181,85 +191,90 @@ export class AdTargetingService {
       include: {
         targeting: true,
       },
-    })
+    });
 
     // Filter ads based on targeting criteria
-    const relevantAds = []
+    const relevantAds = [];
 
     for (const ad of activeAds) {
       if (!ad.targeting) {
         // If no targeting is set, include the ad
-        relevantAds.push(ad)
-        continue
+        relevantAds.push(ad);
+        continue;
       }
 
-      let matches = true
-      const targeting = ad.targeting
+      let matches = true;
+      const targeting = ad.targeting;
 
       // Age targeting
       if (targeting.minAge || targeting.maxAge) {
-        const userAge =  this.calculateAge(user.profile?.dateOfBirth)
+        const userAge = this.calculateAge(user.profile?.dateOfBirth);
 
         if (targeting.minAge && userAge < targeting.minAge) {
-          matches = false
+          matches = false;
         }
 
         if (targeting.maxAge && userAge > targeting.maxAge) {
-          matches = false
+          matches = false;
         }
       }
 
       // Gender targeting
       if (targeting.genders && targeting.genders.length > 0) {
         if (!targeting.genders.includes(user.profile?.gender)) {
-          matches = false
+          matches = false;
         }
       }
 
       // Location targeting
       if (targeting.locations && targeting.locations.length > 0) {
-        const userLocation = user.profile?.location || ""
+        const userLocation = user.profile?.location || '';
         const locationMatches = targeting.locations.some((location) =>
           userLocation.toLowerCase().includes(location.toLowerCase()),
-        )
+        );
 
         if (!locationMatches) {
-          matches = false
+          matches = false;
         }
       }
 
       // Interest targeting
       if (targeting.interests && targeting.interests.length > 0) {
-        const userInterests = user.profile?.interests || []
-        const hasMatchingInterest = targeting.interests.some((interest) => userInterests.includes(interest))
+        const userInterests = user.profile?.interests || [];
+        const hasMatchingInterest = targeting.interests.some((interest) =>
+          userInterests.includes(interest),
+        );
 
         if (!hasMatchingInterest) {
-          matches = false
+          matches = false;
         }
       }
 
       if (matches) {
-        relevantAds.push(ad)
+        relevantAds.push(ad);
       }
     }
 
     // Sort by relevance (could be enhanced with more sophisticated algorithms)
     // For now, just return the first 'limit' ads
-    return relevantAds.slice(0, limit)
+    return relevantAds.slice(0, limit);
   }
 
   private calculateAge(dateOfBirth: Date | undefined): number {
-    if (!dateOfBirth) return 0
+    if (!dateOfBirth) return 0;
 
-    const today = new Date()
-    const birthDate = new Date(dateOfBirth)
-    let age = today.getFullYear() - birthDate.getFullYear()
-    const monthDiff = today.getMonth() - birthDate.getMonth()
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
 
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
+      age--;
     }
 
-    return age
+    return age;
   }
 }

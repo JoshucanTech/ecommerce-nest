@@ -1,4 +1,8 @@
-import { WebSocketGateway, SubscribeMessage, MessageBody } from '@nestjs/websockets';
+import {
+  WebSocketGateway,
+  SubscribeMessage,
+  MessageBody,
+} from '@nestjs/websockets';
 import { RealTimeService } from './real-time.service';
 import { CreateRealTimeDto } from './dto/create-real-time.dto';
 import { UpdateRealTimeDto } from './dto/update-real-time.dto';

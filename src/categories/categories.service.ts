@@ -1,8 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common"
-import { PrismaService } from "../prisma/prisma.service"
-import { CreateCategoryDto } from "./dto/create-category.dto"
-import { UpdateCategoryDto } from "./dto/update-category.dto"
-import { generateSlug } from "../utils/slug-generator"
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { generateSlug } from '../utils/slug-generator';
 
 @Injectable()
 export class CategoriesService {
@@ -13,10 +17,12 @@ export class CategoriesService {
     if (createCategoryDto.parentId) {
       const parentCategory = await this.prisma.category.findUnique({
         where: { id: createCategoryDto.parentId },
-      })
+      });
 
       if (!parentCategory) {
-        throw new BadRequestException(`Parent category with ID ${createCategoryDto.parentId} not found`)
+        throw new BadRequestException(
+          `Parent category with ID ${createCategoryDto.parentId} not found`,
+        );
       }
     }
 
@@ -24,9 +30,9 @@ export class CategoriesService {
     const slug = await generateSlug(createCategoryDto.name, async (slug) => {
       const exists = await this.prisma.category.findUnique({
         where: { slug },
-      })
-      return !exists
-    })
+      });
+      return !exists;
+    });
 
     // Create category
     return this.prisma.category.create({
@@ -35,7 +41,7 @@ export class CategoriesService {
         slug,
         userId,
       },
-    })
+    });
   }
 
   async findAll() {
@@ -62,13 +68,13 @@ export class CategoriesService {
           },
         },
       },
-    })
+    });
 
     return categories.map((category) => ({
       ...category,
       productCount: category._count.products,
       _count: undefined,
-    }))
+    }));
   }
 
   async findOne(idOrSlug: string) {
@@ -95,7 +101,7 @@ export class CategoriesService {
         products: {
           take: 10,
           orderBy: {
-            createdAt: "desc",
+            createdAt: 'desc',
           },
           select: {
             id: true,
@@ -112,47 +118,51 @@ export class CategoriesService {
           },
         },
       },
-    })
+    });
 
     if (!category) {
-      throw new NotFoundException(`Category with ID or slug ${idOrSlug} not found`)
+      throw new NotFoundException(
+        `Category with ID or slug ${idOrSlug} not found`,
+      );
     }
 
     return {
       ...category,
       productCount: category._count.products,
       _count: undefined,
-    }
+    };
   }
 
   async update(id: string, updateCategoryDto: UpdateCategoryDto) {
     // Check if category exists
     const category = await this.prisma.category.findUnique({
       where: { id },
-    })
+    });
 
     if (!category) {
-      throw new NotFoundException(`Category with ID ${id} not found`)
+      throw new NotFoundException(`Category with ID ${id} not found`);
     }
 
     // Check if parent category exists if parentId is provided
     if (updateCategoryDto.parentId) {
       // Prevent circular reference
       if (updateCategoryDto.parentId === id) {
-        throw new BadRequestException("A category cannot be its own parent")
+        throw new BadRequestException('A category cannot be its own parent');
       }
 
       const parentCategory = await this.prisma.category.findUnique({
         where: { id: updateCategoryDto.parentId },
-      })
+      });
 
       if (!parentCategory) {
-        throw new BadRequestException(`Parent category with ID ${updateCategoryDto.parentId} not found`)
+        throw new BadRequestException(
+          `Parent category with ID ${updateCategoryDto.parentId} not found`,
+        );
       }
     }
 
     // Update slug if name is changed
-    let slug = category.slug
+    let slug = category.slug;
     if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
       slug = await generateSlug(updateCategoryDto.name, async (newSlug) => {
         const exists = await this.prisma.category.findFirst({
@@ -160,9 +170,9 @@ export class CategoriesService {
             slug: newSlug,
             id: { not: id },
           },
-        })
-        return !exists
-      })
+        });
+        return !exists;
+      });
     }
 
     // Update category
@@ -172,7 +182,7 @@ export class CategoriesService {
         ...updateCategoryDto,
         slug,
       },
-    })
+    });
   }
 
   async remove(id: string) {
@@ -183,27 +193,29 @@ export class CategoriesService {
         subCategories: true,
         products: true,
       },
-    })
+    });
 
     if (!category) {
-      throw new NotFoundException(`Category with ID ${id} not found`)
+      throw new NotFoundException(`Category with ID ${id} not found`);
     }
 
     // Check if category has subcategories
     if (category.subCategories.length > 0) {
-      throw new BadRequestException("Cannot delete a category with subcategories")
+      throw new BadRequestException(
+        'Cannot delete a category with subcategories',
+      );
     }
 
     // Check if category has products
     if (category.products.length > 0) {
-      throw new BadRequestException("Cannot delete a category with products")
+      throw new BadRequestException('Cannot delete a category with products');
     }
 
     // Delete category
     await this.prisma.category.delete({
       where: { id },
-    })
+    });
 
-    return { message: "Category deleted successfully" }
+    return { message: 'Category deleted successfully' };
   }
 }

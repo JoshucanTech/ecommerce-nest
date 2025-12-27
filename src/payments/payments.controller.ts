@@ -1,4 +1,13 @@
-import { Controller, Post, Body, UseGuards, Headers, Req, Get, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Headers,
+  Req,
+  Get,
+  Query,
+} from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { GenericPaymentDto } from './dto/generic-payment.dto';
@@ -29,17 +38,15 @@ export class PaymentsController {
   @Get('verify-payment')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Verify a payment using transaction reference or transaction ID' })
+  @ApiOperation({
+    summary: 'Verify a payment using transaction reference or transaction ID',
+  })
   verifyPayment(
     @Query('tx_ref') tx_ref: string,
     @Query('transaction_id') transaction_id: string,
     @CurrentUser() user,
   ) {
-    return this.paymentsService.verifyPayment(
-      tx_ref,
-      transaction_id,
-      user.id,
-    );
+    return this.paymentsService.verifyPayment(tx_ref, transaction_id, user.id);
   }
 
   @Post('process-payment')

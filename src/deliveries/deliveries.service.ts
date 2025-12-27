@@ -4,13 +4,13 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from "@nestjs/common";
-import  { PrismaService } from "../prisma/prisma.service";
-import { CreateDeliveryDto } from "./dto/create-delivery.dto";
-import { AssignRiderDto } from "./dto/assign-rider.dto";
-import { UpdateDeliveryStatusDto } from "./dto/update-delivery-status.dto";
-import { DeliveryStatus, OrderStatus } from "@prisma/client";
-import { NotificationsService } from "../notifications/notifications.service";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateDeliveryDto } from './dto/create-delivery.dto';
+import { AssignRiderDto } from './dto/assign-rider.dto';
+import { UpdateDeliveryStatusDto } from './dto/update-delivery-status.dto';
+import { DeliveryStatus, OrderStatus } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class DeliveriesService {
@@ -44,16 +44,16 @@ export class DeliveriesService {
 
     // Check if delivery already exists for this order
     if (order.delivery) {
-      throw new BadRequestException("Delivery already exists for this order");
+      throw new BadRequestException('Delivery already exists for this order');
     }
 
     // Check if user is authorized to create delivery for this order
     if (
-      user.role !== "ADMIN" &&
-      (user.role !== "VENDOR" || order.vendor?.userId !== user.id)
+      user.role !== 'ADMIN' &&
+      (user.role !== 'VENDOR' || order.vendor?.userId !== user.id)
     ) {
       throw new ForbiddenException(
-        "You do not have permission to create delivery for this order",
+        'You do not have permission to create delivery for this order',
       );
     }
 
@@ -63,7 +63,7 @@ export class DeliveriesService {
       order.status !== OrderStatus.SHIPPED
     ) {
       throw new BadRequestException(
-        "Order must be in PROCESSING or SHIPPED status to create delivery",
+        'Order must be in PROCESSING or SHIPPED status to create delivery',
       );
     }
 
@@ -107,8 +107,8 @@ export class DeliveriesService {
     // Create notification for user
     await this.notificationsService.create({
       userId: order.userId,
-      type: "DELIVERY",
-      title: "Delivery Created",
+      type: 'DELIVERY',
+      title: 'Delivery Created',
       message: `Delivery for your order #${order.orderNumber} has been created. Tracking number: ${trackingNumber}`,
       data: `{
        orderId: order.id,
@@ -137,7 +137,7 @@ export class DeliveriesService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           order: {
             select: {
@@ -206,7 +206,7 @@ export class DeliveriesService {
     });
 
     if (!rider) {
-      throw new ForbiddenException("User is not a rider");
+      throw new ForbiddenException('User is not a rider');
     }
 
     // Build where conditions
@@ -224,7 +224,7 @@ export class DeliveriesService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           order: {
             select: {
@@ -281,7 +281,7 @@ export class DeliveriesService {
     });
 
     if (!vendor) {
-      throw new ForbiddenException("User is not a vendor");
+      throw new ForbiddenException('User is not a vendor');
     }
 
     // Build where conditions
@@ -301,7 +301,7 @@ export class DeliveriesService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           order: {
             select: {
@@ -374,7 +374,7 @@ export class DeliveriesService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           order: {
             select: {
@@ -480,13 +480,13 @@ export class DeliveriesService {
 
     // Check if user is authorized to view this delivery
     if (
-      user.role !== "ADMIN" &&
+      user.role !== 'ADMIN' &&
       delivery.order.userId !== user.id &&
       delivery.order.vendor?.userId !== user.id &&
       delivery.rider?.userId !== user.id
     ) {
       throw new ForbiddenException(
-        "You do not have permission to view this delivery",
+        'You do not have permission to view this delivery',
       );
     }
 
@@ -524,13 +524,13 @@ export class DeliveriesService {
     });
 
     if (!rider) {
-      throw new BadRequestException("Rider not found or not available");
+      throw new BadRequestException('Rider not found or not available');
     }
 
     // Check if delivery status is appropriate for rider assignment
     if (delivery.status !== DeliveryStatus.PENDING) {
       throw new BadRequestException(
-        "Delivery must be in PENDING status to assign a rider",
+        'Delivery must be in PENDING status to assign a rider',
       );
     }
 
@@ -560,8 +560,8 @@ export class DeliveriesService {
     // Create notification for user
     await this.notificationsService.create({
       userId: delivery.order.userId,
-      type: "DELIVERY",
-      title: "Rider Assigned",
+      type: 'DELIVERY',
+      title: 'Rider Assigned',
       message: `A rider has been assigned to your delivery for order #${delivery.order.orderNumber}`,
       data: `{
        orderId: delivery.order.id,
@@ -573,8 +573,8 @@ export class DeliveriesService {
     // Create notification for rider
     await this.notificationsService.create({
       userId: rider.userId,
-      type: "DELIVERY",
-      title: "New Delivery Assignment",
+      type: 'DELIVERY',
+      title: 'New Delivery Assignment',
       message: `You have been assigned to a new delivery for order #${delivery.order.orderNumber}`,
       data: `{
        orderId: delivery.order.id,
@@ -621,11 +621,11 @@ export class DeliveriesService {
     // Check if user is authorized to update this delivery
     const isRider = delivery.rider?.userId === user.id;
     const isVendor = delivery.order.vendor?.userId === user.id;
-    const isAdmin = user.role === "ADMIN";
+    const isAdmin = user.role === 'ADMIN';
 
     if (!isRider && !isVendor && !isAdmin) {
       throw new ForbiddenException(
-        "You do not have permission to update this delivery",
+        'You do not have permission to update this delivery',
       );
     }
 
@@ -664,9 +664,9 @@ export class DeliveriesService {
     // Create notification for user
     await this.notificationsService.create({
       userId: delivery.order.userId,
-      type: "DELIVERY",
-      title: "Delivery Status Updated",
-      message: `Your delivery for order #${delivery.order.orderNumber} has been updated to ${status}${notes ? `: ${notes}` : ""}`,
+      type: 'DELIVERY',
+      title: 'Delivery Status Updated',
+      message: `Your delivery for order #${delivery.order.orderNumber} has been updated to ${status}${notes ? `: ${notes}` : ''}`,
       data: `{
        orderId: delivery.order.id,
        deliveryId: delivery.id,
@@ -736,8 +736,8 @@ export class DeliveriesService {
   }
 
   private generateTrackingNumber(): string {
-    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let trackingNumber = "";
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let trackingNumber = '';
     for (let i = 0; i < 10; i++) {
       trackingNumber += characters.charAt(
         Math.floor(Math.random() * characters.length),

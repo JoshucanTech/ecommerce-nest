@@ -30,7 +30,7 @@ export class CartService {
     sessionId?: string;
   }) {
     const where = this.getCartWhereClause(userId, sessionId);
-    let cart = await this.prisma.cart.findUnique({
+    const cart = await this.prisma.cart.findUnique({
       where,
       include: {
         items: {
@@ -72,7 +72,8 @@ export class CartService {
       };
     }
 
-    const { items, subtotal, itemCount } = this.cartCalculatorService.calculateCartTotals(cart.items);
+    const { items, subtotal, itemCount } =
+      this.cartCalculatorService.calculateCartTotals(cart.items);
 
     return {
       id: cart.id,
