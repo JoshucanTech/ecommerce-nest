@@ -32,13 +32,15 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Prisma } from '@prisma/client';
 import { CreateShippingAddressDto } from './dto/create-shipping-address.dto';
 import { UpdateShippingAddressDto } from './dto/update-shipping-address.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { AddressType } from './enums/address-type.enum';
+
 
 @ApiTags('users')
 @Controller('users')
 // @ApiBearerAuth()
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -197,6 +199,22 @@ export class UsersController {
   ) {
     return this.usersService.updateProfile(user.id, updateProfileDto);
   }
+
+  @Post('change-password')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Change user password' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({ status: 400, description: 'Bad Request - Incorrect current password or invalid new password' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async changePassword(
+    @CurrentUser() user,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.usersService.changePassword(user.id, changePasswordDto);
+  }
+
 
   @Get('settings')
   @UseGuards(JwtAuthGuard)

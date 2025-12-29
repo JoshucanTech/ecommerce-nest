@@ -11,8 +11,11 @@ import { UpdateAddressDto } from './dto/update-address.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { CreateShippingAddressDto } from './dto/create-shipping-address.dto';
 import { UpdateShippingAddressDto } from './dto/update-shipping-address.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { AddressType } from './enums/address-type.enum';
 import { Prisma } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
+
 
 @Injectable()
 export class UsersService {
@@ -477,6 +480,45 @@ export class UsersService {
 
     return address;
   }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    const { currentPassword, newPassword } = changePasswordDto;
+
+    // Find user
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify current password
+    if (!user.password) {
+      throw new BadRequestException(
+        'User does not have a password set (social login?). Cannot change password.',
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+
+    if (!isPasswordValid) {
+      throw new BadRequestException('Incorrect current password');
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update user
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Password changed successfully' };
+  }
+
 
   async updateShippingAddress(
     userId: string,
