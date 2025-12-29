@@ -35,6 +35,10 @@ import { HealthModule } from './health/health.module';
 import { MessagesModule } from './messages/messages.module';
 import { RequestLoggerMiddleware } from './middleware/request-logger.middleware';
 import { ValidationExceptionFilter } from './exceptions/validation-exception.filter';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+import { UploadsModule } from './uploads/uploads.module';
+
 //
 //
 
@@ -66,6 +70,12 @@ import { ValidationExceptionFilter } from './exceptions/validation-exception.fil
     LocationsModule,
     HealthModule,
     MessagesModule,
+    UploadsModule,
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
+
   ],
   controllers: [AppController, TestController],
   providers: [
