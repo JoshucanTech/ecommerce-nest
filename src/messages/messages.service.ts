@@ -17,7 +17,7 @@ export class MessagesService {
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async createConversation(
     userId: string,
@@ -171,6 +171,9 @@ export class MessagesService {
             },
           },
           reactions: true,
+          conversation: {
+            select: { id: true, participants: true }
+          }
         },
       });
 
@@ -189,7 +192,27 @@ export class MessagesService {
       return newMessage;
     });
 
+    // Handle delivery status if recipient is online (simplified for 1:1)
+    const otherParticipant = (message as any).conversation.participants.find((p: string) => p !== userId);
+    if (otherParticipant) {
+      this.eventEmitter.emit('message.delivered', {
+        messageId: message.id,
+        conversationId: message.conversationId,
+        recipientId: otherParticipant
+      });
+    }
+
     return message;
+  }
+
+  async markAsDelivered(messageId: string) {
+    return this.prisma.message.update({
+      where: { id: messageId },
+      data: {
+        isDelivered: true,
+        deliveredAt: new Date()
+      } as any,
+    });
   }
 
   async updateMessage(

@@ -163,10 +163,12 @@ export class MessagesGateway
       const result = await this.messagesService.toggleReaction(userId, data);
 
       if (result.conversationId) {
+        // Emit full update to ensure immediate reflection
         this.server
           .to(`conversation:${result.conversationId}`)
           .emit('message:reaction', {
             messageId: data.messageId,
+            conversationId: result.conversationId,
             userId,
             emoji: data.emoji,
             action: result.action,
@@ -275,9 +277,10 @@ export class MessagesGateway
 
       await this.messagesService.markAsRead(userId, data.conversationId);
 
-      client.to(`conversation:${data.conversationId}`).emit('message:read', {
-        userId,
+      this.server.to(`conversation:${data.conversationId}`).emit('message:read', {
+        readerId: userId,
         conversationId: data.conversationId,
+        readAt: new Date().toISOString(),
       });
 
       return { success: true };
@@ -290,6 +293,19 @@ export class MessagesGateway
     this.server
       .to(`conversation:${message.conversationId}`)
       .emit('message:new', message);
+  }
+
+  @OnEvent('message.delivered')
+  async handleMessageDelivered(data: { messageId: string, conversationId: string, recipientId: string }) {
+    const isOnline = this.onlineUsers.get(data.recipientId)?.socketId;
+    if (isOnline) {
+      await this.messagesService.markAsDelivered(data.messageId);
+      this.server.to(`conversation:${data.conversationId}`).emit('message:delivered', {
+        messageId: data.messageId,
+        conversationId: data.conversationId,
+        deliveredAt: new Date().toISOString(),
+      });
+    }
   }
 
   @OnEvent('conversation.created')

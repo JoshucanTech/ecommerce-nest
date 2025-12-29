@@ -16,7 +16,7 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async findAll(params: {
     page: number;
@@ -155,6 +155,45 @@ export class UsersService {
   }
 
   async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
+    const { firstName, lastName, phone, email, profile: nestedProfile, ...directProfileData } = updateProfileDto;
+
+    // Merge direct profile data with nested profile data if it exists
+    const profileData = {
+      ...directProfileData,
+      ...(nestedProfile?.bio && { bio: nestedProfile.bio }),
+      ...(nestedProfile?.gender && { gender: nestedProfile.gender }),
+      ...(nestedProfile?.birthDate && { birthDate: nestedProfile.birthDate }),
+    };
+
+    // Update User basic info if any user field is provided
+    if (firstName !== undefined || lastName !== undefined || phone !== undefined || email !== undefined) {
+      if (email !== undefined) {
+        // Check if another user already has this email
+        const existingUserWithEmail = await this.prisma.user.findFirst({
+          where: {
+            email: { equals: email, mode: 'insensitive' },
+            NOT: { id: userId }
+          }
+        });
+
+        if (existingUserWithEmail) {
+          throw new BadRequestException('Email already in use');
+        }
+      }
+
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(firstName !== undefined && { firstName }),
+          ...(lastName !== undefined && { lastName }),
+          ...(phone !== undefined && { phone }),
+          ...(email !== undefined && { email }),
+        },
+      });
+    }
+
+
+
     // Check if profile exists
     const profile = await this.prisma.profile.findUnique({
       where: { userId },
@@ -164,18 +203,20 @@ export class UsersService {
       // Update existing profile
       return this.prisma.profile.update({
         where: { userId },
-        data: updateProfileDto,
+        data: profileData,
       });
     } else {
       // Create new profile
       return this.prisma.profile.create({
         data: {
-          ...updateProfileDto,
+          ...profileData,
           userId,
         },
       });
     }
   }
+
+
 
   async getSettings(userId: string) {
     let settings = await this.prisma.userSettings.findUnique({
@@ -348,17 +389,17 @@ export class UsersService {
         // If sharedWithId is provided, create a shared address relationship
         sharedWith: createShippingAddressDto.sharedWithId
           ? {
-              create: [
-                {
-                  sharedBy: { connect: { id: userId } },
-                  sharedWith: {
-                    connect: { id: createShippingAddressDto.sharedWithId },
-                  },
-                  canEdit: createShippingAddressDto.canEdit || false,
-                  expiresAt: createShippingAddressDto.expiresAt,
+            create: [
+              {
+                sharedBy: { connect: { id: userId } },
+                sharedWith: {
+                  connect: { id: createShippingAddressDto.sharedWithId },
                 },
-              ],
-            }
+                canEdit: createShippingAddressDto.canEdit || false,
+                expiresAt: createShippingAddressDto.expiresAt,
+              },
+            ],
+          }
           : undefined,
       },
     });

@@ -34,8 +34,10 @@ model Message {
   messageType    MessageType  @default(TEXT)
   attachments    String[]     @default([])
   isRead         Boolean      @default(false)
+  isDelivered    Boolean      @default(false)
   isEdited       Boolean      @default(false)
   editedAt       DateTime?
+  deliveredAt    DateTime?
   replyToId      String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt

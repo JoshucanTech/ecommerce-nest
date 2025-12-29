@@ -55,4 +55,11 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+  @ApiPropertyOptional({
+    description: 'Nested profile data',
+    type: Object,
+  })
+  @IsOptional()
+  profile?: any;
 }
+
