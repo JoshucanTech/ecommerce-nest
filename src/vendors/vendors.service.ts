@@ -313,7 +313,7 @@ export class VendorsService {
 
   async getDashboardStats(userId: string) {
     const [stats, productCount] = await Promise.all([
-      this.ordersService.getVendorStats(userId),
+      this.ordersService.getDashboardStats(userId),
       this.prisma.product.count({
         where: {
           vendor: { userId },

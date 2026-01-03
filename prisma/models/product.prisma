@@ -1,48 +1,46 @@
 model Product {
-  id               String          @id @default(uuid())
-  name             String
-  description      String
-  shortDescription String?
-  price            Float
-  discountPrice    Float?
-  quantity         Int             @default(0)
-  sku              String          @unique
-  images           String[]
-  isPublished      Boolean         @default(false)
-  vendorId         String
-  slug             String          @unique
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  cartItems        CartItem[]
-  comments         Comment[]
-  flashSaleItems   FlashSaleItem[]
-  inventory        Inventory?
-  orderItems       OrderItem[]
-  vendor           Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  reviews          Review[]
-  wishlistItems    WishlistItem[]
-  attributes       Json? // Store product attributes as JSON
-  tags             String[]
-  metaTitle        String?
-  metaDescription  String?
-  warrantyInfo     String?
-  returnPolicy     String?
-  soldCount        Int             @default(0)
-  viewCount        Int             @default(0)
-
-  // Add these relations:
-  category              Category[]              @relation("ProductCategories")
-  shippingOptions       ShippingOption[]
-  features              ProductFeature[]
-  specifications        ProductSpecification[]
-  inBoxItems            ProductInBox[]
-  advertisements        ProductAdvertisement[]
+  id                    String                  @id @default(uuid())
+  name                  String
+  description           String
+  price                 Float
+  discountPrice         Float?
+  quantity              Int                     @default(0)
+  sku                   String                  @unique
+  images                String[]
+  isPublished           Boolean                 @default(false)
+  vendorId              String
+  slug                  String                  @unique
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  attributes            Json?
+  metaDescription       String?
+  metaTitle             String?
+  tags                  String[]
+  shippingPolicyId      String?
+  returnPolicy          String?
+  soldCount             Int                     @default(0)
+  viewCount             Int                     @default(0)
+  warrantyInfo          String?
+  shortDescription      String?
   userInteractions      AdUserInteraction[]
-  RecentlyViewedProduct RecentlyViewedProduct[]
-  ProductCategory       ProductCategory[]
-  shippingPolicyId      String? // Optional override at product level
-  shippingPolicy        ShippingPolicy?         @relation(fields: [shippingPolicyId], references: [id])
+  advertisements        ProductAdvertisement[]
   ProductVariant        ProductVariant[]
+  cartItems             CartItem[]
+  comments              Comment[]
+  flashSaleItems        FlashSaleItem[]
+  inventory             Inventory?
+  orderItems            OrderItem[]
+  ProductCategory       ProductCategory[]
+  features              ProductFeature[]
+  inBoxItems            ProductInBox[]
+  specifications        ProductSpecification[]
+  shippingPolicy        ShippingPolicy?         @relation(fields: [shippingPolicyId], references: [id])
+  vendor                Vendor                  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  RecentlyViewedProduct RecentlyViewedProduct[]
+  reviews               Review[]
+  shippingOptions       ShippingOption[]
+  wishlistItems         WishlistItem[]
+  category              Category[]              @relation("ProductCategories")
 
   @@map("products")
 }
@@ -63,13 +61,12 @@ model Inventory {
 
 model RecentlyViewedProduct {
   id        String   @id @default(uuid())
-  userId    String? // null if guest
-  sessionId String? // only for guests
+  userId    String?
+  sessionId String?
   productId String
   viewedAt  DateTime @default(now())
-
-  user    User?   @relation(fields: [userId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([sessionId])
@@ -83,9 +80,9 @@ model ProductVariant {
   color         String
   size          String
   price         Float
-  discountPrice Float?
   quantity      Int
   inStock       Boolean     @default(true)
+  discountPrice Float?
   product       Product     @relation(fields: [productId], references: [id])
   CartItem      CartItem[]
   OrderItem     OrderItem[]
@@ -95,8 +92,8 @@ model ProductCategory {
   id         String   @id @default(uuid())
   productId  String
   categoryId String
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, categoryId])
   @@map("product_categories")
@@ -106,9 +103,9 @@ model ShippingOption {
   id           String  @id @default(uuid())
   name         String
   price        Float
-  deliveryTime String
-  isActive     Boolean @default(true)
   productId    String
+  isActive     Boolean @default(true)
+  deliveryTime String
   product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("shipping_options")
@@ -117,7 +114,7 @@ model ShippingOption {
 model ProductFeature {
   id         String  @id @default(uuid())
   text       String
-  attributes Json? // Store product attributes as JSON
+  attributes Json?
   productId  String
   product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -128,7 +125,7 @@ model ProductSpecification {
   id         String  @id @default(uuid())
   name       String
   value      String
-  attributes Json? // Store product attributes as JSON
+  attributes Json?
   productId  String
   product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -138,7 +135,7 @@ model ProductSpecification {
 model ProductInBox {
   id         String  @id @default(uuid())
   item       String
-  attributes Json? // Store product attributes as JSON
+  attributes Json?
   productId  String
   product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 

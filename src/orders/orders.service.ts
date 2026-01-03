@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto, OrderItemDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { PaymentsService } from '../payments/payments.service';
 import { RedisService } from '../redis/redis.service';
@@ -534,16 +534,80 @@ export class OrdersService {
     };
   }
 
-  @Cacheable(300, 'vendor-stats')
-  async getVendorStats(userId: string) {
-    // Get vendor ID
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { userId },
+  @Cacheable(300, 'dashboard-stats')
+  async getDashboardStats(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roles: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
     });
 
-    if (!vendor) {
-      throw new ForbiddenException('User is not a vendor');
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
+
+    let where: any = {
+      status: { not: 'CANCELLED' },
+    };
+
+    if (user.role === UserRole.VENDOR) {
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { userId },
+      });
+      if (!vendor) throw new ForbiddenException('User is not a vendor');
+      where.vendorId = vendor.id;
+    } else if (user.role === UserRole.SUB_ADMIN) {
+      // Dynamic Permission Handling
+      const permissions = user.roles.flatMap((r) =>
+        r.permissions.map((rp) => rp.permission),
+      );
+
+      const orderPermissions = permissions.filter(
+        (p) =>
+          p.resource === 'ORDERS' &&
+          (p.action === 'READ' || p.action === 'MANAGE'),
+      );
+
+      if (orderPermissions.length === 0) {
+        throw new ForbiddenException('No permission to access stats');
+      }
+
+      // Check for global access (no scope)
+      const hasGlobalAccess = orderPermissions.some((p) => !p.scope);
+
+      if (!hasGlobalAccess) {
+        const cities: string[] = [];
+        const states: string[] = [];
+
+        for (const p of orderPermissions) {
+          const scope = p.scope as any;
+          if (scope?.location?.cities) cities.push(...scope.location.cities);
+          if (scope?.location?.states) states.push(...scope.location.states);
+        }
+
+        if (cities.length > 0 || states.length > 0) {
+          where.shippingAddress = {
+            OR: [
+              { city: { in: cities, mode: 'insensitive' } },
+              { state: { in: states, mode: 'insensitive' } },
+            ],
+          };
+        } else {
+          // If scope is defined but empty, maybe return 0 stats?
+          // For now assume empty scope means no access if strict
+        }
+      }
+    }
+    // implicit else: ADMIN -> no filter (global access)
 
     // Get date 30 days ago for chart data
     const thirtyDaysAgo = new Date();
@@ -569,30 +633,30 @@ export class OrdersService {
     ] = await Promise.all([
       // Total orders count
       this.prisma.order.count({
-        where: { vendorId: vendor.id },
+        where: { ...where, status: undefined }, // Count all statuses? Or reuse where? Existing logic used vendorId only.
       }),
       // Total sales amount
       this.prisma.order.aggregate({
-        where: { vendorId: vendor.id, status: { not: 'CANCELLED' } },
+        where: where,
         _sum: { totalAmount: true },
       }),
       // Recent orders (last 7 days)
       this.prisma.order.count({
         where: {
-          vendorId: vendor.id,
+          ...where,
+          status: undefined,
           createdAt: { gte: sevenDaysAgo },
         },
       }),
       // Unique customers
       this.prisma.order.groupBy({
         by: ['userId'],
-        where: { vendorId: vendor.id },
+        where: where,
       }),
       // Last month sales for growth calculation
       this.prisma.order.aggregate({
         where: {
-          vendorId: vendor.id,
-          status: { not: 'CANCELLED' },
+          ...where,
           createdAt: { gte: lastMonthStart, lte: lastMonthEnd },
         },
         _sum: { totalAmount: true },
@@ -600,8 +664,7 @@ export class OrdersService {
       // Daily sales for chart
       this.prisma.order.findMany({
         where: {
-          vendorId: vendor.id,
-          status: { not: 'CANCELLED' },
+          ...where,
           createdAt: { gte: thirtyDaysAgo },
         },
         select: {
@@ -1066,5 +1129,147 @@ export class OrdersService {
       .toString()
       .padStart(3, '0');
     return `ORD-${timestamp}-${random}`;
+  }
+  async findDashboardOrders(
+    userId: string,
+    params: {
+      page: number;
+      limit: number;
+      status?: string;
+    },
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roles: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === UserRole.ADMIN) {
+      return this.findAllAdmin({ ...params, userId: undefined });
+    }
+
+    if (user.role === UserRole.VENDOR) {
+      return this.findVendorOrders(userId, params);
+    }
+
+    if (user.role === UserRole.SUB_ADMIN) {
+      // Dynamic Permission Handling
+      const permissions = user.roles.flatMap((r) =>
+        r.permissions.map((rp) => rp.permission),
+      );
+
+      const orderPermissions = permissions.filter(
+        (p) =>
+          p.resource === 'ORDERS' &&
+          (p.action === 'READ' || p.action === 'MANAGE'),
+      );
+
+      if (orderPermissions.length === 0) {
+        throw new ForbiddenException('No permission to access orders');
+      }
+
+      // Check for global access (no scope)
+      const hasGlobalAccess = orderPermissions.some((p) => !p.scope);
+
+      if (hasGlobalAccess) {
+        return this.findAllAdmin({ ...params, userId: undefined });
+      }
+
+      // Aggregate specific scopes
+      const cities: string[] = [];
+      const states: string[] = [];
+
+      for (const p of orderPermissions) {
+        const scope = p.scope as any; // Assuming JSON structure
+        if (scope?.location?.cities) {
+          cities.push(...scope.location.cities);
+        }
+        if (scope?.location?.states) {
+          states.push(...scope.location.states);
+        }
+      }
+
+      if (cities.length === 0 && states.length === 0) {
+        return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+      }
+
+      // Build location filter
+      const where: any = {};
+      if (params.status) where.status = params.status;
+
+      where.shippingAddress = {
+        OR: [
+          { city: { in: cities, mode: 'insensitive' } },
+          { state: { in: states, mode: 'insensitive' } },
+        ],
+      };
+
+      const skip = (params.page - 1) * params.limit;
+
+      const [orders, total] = await Promise.all([
+        this.prisma.order.findMany({
+          where,
+          skip,
+          take: params.limit,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            items: {
+              include: {
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    images: true,
+                  },
+                },
+              },
+            },
+            vendor: {
+              select: {
+                id: true,
+                businessName: true,
+                slug: true,
+              },
+            },
+            shippingAddress: true,
+          },
+        }),
+        this.prisma.order.count({ where }),
+      ]);
+
+      return {
+        data: orders,
+        meta: {
+          total,
+          page: params.page,
+          limit: params.limit,
+          totalPages: Math.ceil(total / params.limit),
+        },
+      };
+    }
+
+    throw new ForbiddenException('Invalid role for dashboard access');
   }
 }

@@ -7,45 +7,45 @@ model Notification {
   isRead    Boolean          @default(false)
   data      Json?
   createdAt DateTime         @default(now())
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  Order     Order?           @relation(fields: [orderId], references: [id])
   orderId   String?
+  Order     Order?           @relation(fields: [orderId], references: [id])
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
 }
 
 model Conversation {
-  id           String    @id @default(uuid())
-  participants String[]  // Array of user IDs
-  lastMessage  String?
+  id            String    @id @default(uuid())
+  participants  String[]
+  lastMessage   String?
   lastMessageAt DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  messages     Message[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  messages      Message[]
 
   @@map("conversations")
 }
 
 model Message {
-  id             String       @id @default(uuid())
-  conversationId String
+  id             String            @id @default(uuid())
   senderId       String
   content        String
-  messageType    MessageType  @default(TEXT)
-  attachments    String[]     @default([])
-  isRead         Boolean      @default(false)
-  isDelivered    Boolean      @default(false)
-  isEdited       Boolean      @default(false)
+  isRead         Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  attachments    String[]          @default([])
+  conversationId String
   editedAt       DateTime?
-  deliveredAt    DateTime?
+  isEdited       Boolean           @default(false)
+  messageType    MessageType       @default(TEXT)
   replyToId      String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  replyTo        Message?     @relation("MessageReplies", fields: [replyToId], references: [id])
-  replies        Message[]    @relation("MessageReplies")
+  updatedAt      DateTime          @updatedAt
+  deliveredAt    DateTime?
+  isDelivered    Boolean           @default(false)
   reactions      MessageReaction[]
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  replyTo        Message?          @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies        Message[]         @relation("MessageReplies")
+  sender         User              @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@map("messages")
 }

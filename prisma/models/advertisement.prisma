@@ -1,4 +1,204 @@
-// Advertisement related models
+model AdUserInteraction {
+  id              String        @id @default(uuid())
+  advertisementId String
+  userId          String?
+  interactionType String
+  timestamp       DateTime      @default(now())
+  conversionValue Float?
+  metadata        Json?
+  deviceInfo      Json?
+  ipAddress       String?
+  referrer        String?
+  productId       String?
+  vendorId        String?
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  Product         Product?      @relation(fields: [productId], references: [id])
+  user            User?         @relation(fields: [userId], references: [id])
+  vendor          Vendor?       @relation(fields: [vendorId], references: [id])
+
+  @@index([advertisementId])
+  @@index([userId])
+  @@index([vendorId])
+  @@index([interactionType])
+  @@index([timestamp])
+}
+
+model Advertisement {
+  id               String                 @id @default(uuid())
+  title            String
+  description      String?
+  vendorId         String
+  startDate        DateTime?
+  endDate          DateTime?
+  budget           Float?
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  imageUrl         String?
+  targetUrl        String?
+  rejectionReason  String?
+  videoUrl         String?
+  adText           String?
+  bidAmount        Float
+  callToAction     String?
+  dailyBudget      Float?
+  landingPageUrl   String?
+  mediaUrls        String[]
+  pricingModel     PricingModel
+  reviewNotes      String?
+  spend            Float                  @default(0)
+  type             AdType
+  status           AdStatus               @default(DRAFT)
+  maxProducts      Int                    @default(1)
+  maxVendors       Int                    @default(1)
+  analytics        AdAnalytics[]
+  payments         AdPayment[]
+  platformConfigs  AdPlatformConfig[]
+  platformRefs     AdPlatformReference[]
+  targeting        AdTargeting?
+  userInteractions AdUserInteraction[]
+  reviewer         User?                  @relation("AdReviewer", fields: [reviewedBy], references: [id])
+  vendor           Vendor                 @relation(fields: [vendorId], references: [id])
+  products         ProductAdvertisement[]
+  clicks           AdClick[]
+  conversions      AdConversion[]
+  impressions      AdImpression[]
+
+  @@index([vendorId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model ProductAdvertisement {
+  id                String        @id @default(uuid())
+  advertisementId   String
+  productId         String
+  displayOrder      Int           @default(0)
+  customTitle       String?
+  customDescription String?
+  customImageUrl    String?
+  customPrice       Float?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  advertisement     Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  product           Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([advertisementId, productId])
+  @@index([advertisementId])
+  @@index([productId])
+}
+
+model AdTargeting {
+  id               String        @id @default(uuid())
+  advertisementId  String        @unique
+  genders          String[]
+  locations        String[]
+  interests        String[]
+  devices          String[]
+  customAudience   Json?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  excludedAudience Json?
+  languages        String[]
+  maxAge           Int?
+  minAge           Int?
+  browsers         String[]
+  keywords         String[]
+  advertisement    Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+}
+
+model AdPlatformConfig {
+  id                  String        @id @default(uuid())
+  isActive            Boolean       @default(true)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  config              Json
+  description         String?
+  name                String
+  advertisementId     String
+  metadata            Json?
+  platformAdId        String?
+  platformCampaignId  String?
+  platformClicks      Int           @default(0)
+  platformConversions Int           @default(0)
+  platformImpressions Int           @default(0)
+  platformSpend       Float         @default(0)
+  platformStatus      String?
+  settings            Json?
+  platform            AdPlatform
+  advertisement       Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+
+  @@unique([advertisementId, platform, name])
+}
+
+model AdPlatformReference {
+  id              String        @id @default(uuid())
+  advertisementId String
+  platform        String
+  externalId      String
+  status          String        @default("PENDING")
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+
+  @@unique([advertisementId, platform])
+  @@index([platform])
+  @@index([status])
+}
+
+model AdAnalytics {
+  id                 String        @id @default(uuid())
+  advertisementId    String
+  date               DateTime
+  clicks             Int           @default(0)
+  conversions        Int           @default(0)
+  ctr                Float?
+  conversionRate     Float?
+  views              Int           @default(0)
+  conversionValue    Float         @default(0)
+  timestamp          DateTime      @default(now())
+  avgSessionDuration Float?
+  bounceRate         Float?
+  costPerClick       Float?
+  costPerConversion  Float?
+  createdAt          DateTime      @default(now())
+  impressions        Int           @default(0)
+  platform           AdPlatform
+  spend              Float         @default(0)
+  updatedAt          DateTime      @updatedAt
+  advertisement      Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+
+  @@unique([advertisementId, date, platform])
+  @@index([advertisementId])
+  @@index([date])
+}
+
+model AdPayment {
+  id                   String        @id @default(uuid())
+  advertisementId      String
+  amount               Float
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  currency             String?       @default("USD")
+  notes                String?
+  refundedAmount       Float?
+  refundedAt           DateTime?
+  processedAt          DateTime?
+  transactionReference String?
+  invoiceNumber        String?       @unique
+  invoiceUrl           String?
+  transactionId        String?
+  status               PaymentStatus @default(PENDING)
+  paymentMethod        PaymentMethod
+  advertisement        Advertisement @relation(fields: [advertisementId], references: [id])
+
+  @@index([advertisementId])
+  @@index([status])
+  @@index([createdAt])
+}
 
 enum AdStatus {
   DRAFT
@@ -12,18 +212,18 @@ enum AdStatus {
 
 enum AdType {
   FEATURED_PRODUCT
-  FEATURED_VENDOR
   IN_APP_BANNER
   IN_APP_POPUP
   EXTERNAL
   CAROUSEL
+  FEATURED_VENDOR
 }
 
 enum PricingModel {
-  CPC // Cost per click
-  CPM // Cost per thousand impressions
-  CPV // Cost per view
-  FIXED // Fixed price for duration
+  CPC
+  CPM
+  CPV
+  FIXED
 }
 
 enum AdPlatform {
@@ -37,256 +237,4 @@ enum AdPlatform {
   LINKEDIN
   PINTEREST
   OTHER
-}
-
-model AdUserInteraction {
-  id              String        @id @default(uuid())
-  advertisementId String
-  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
-  userId          String?
-  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  interactionType String // VIEW, CLICK, CONVERSION
-  timestamp       DateTime      @default(now())
-  conversionValue Float? // Value of the conversion if applicable
-  metadata        Json? // Additional data about the interaction
-  deviceInfo      Json? // Information about the user's device
-  ipAddress       String? // User's IP address (anonymized if needed)
-  referrer        String? // Where the user came from
-  Product         Product?      @relation(fields: [productId], references: [id])
-  productId       String?
-  vendorId        String? // Which vendor in the ad was interacted with (if applicable)
-  vendor          Vendor?       @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-
-  @@index([advertisementId])
-  @@index([userId])
-  @@index([vendorId])
-  @@index([interactionType])
-  @@index([timestamp])
-}
-
-model Advertisement {
-  id           String       @id @default(uuid())
-  title        String
-  description  String?
-  // userId       String
-  // user         User         @relation("UserAdvertisement", fields: [userId], references: [id], onDelete: Cascade)
-  vendorId     String
-  vendor       Vendor       @relation(fields: [vendorId], references: [id])
-  type         AdType
-  status       AdStatus     @default(DRAFT)
-  startDate    DateTime?
-  endDate      DateTime?
-  budget       Float?
-  dailyBudget  Float?
-  pricingModel PricingModel
-  bidAmount    Float // Amount per click/view based on pricing model
-  maxVendors   Int          @default(1) // Maximum number of vendors this ad can hold
-
-  // Ad content
-  mediaUrls      String[] // Array of image/video URLs
-  imageUrl       String?
-  videoUrl       String?
-  targetUrl      String?
-  adText         String?
-  callToAction   String?
-  landingPageUrl String?
-
-  // Targeting
-  targeting AdTargeting?
-
-  // Platform specific configurations
-  platformConfigs AdPlatformConfig[]
-
-  // Analytics
-  // impressions Int   @default(0)
-  // clicks      Int   @default(0)
-  // conversions Int   @default(0)
-  spend Float @default(0)
-
-  // Approval
-  reviewNotes     String?
-  reviewedBy      String?
-  reviewedAt      DateTime?
-  rejectionReason String?
-  reviewer        User?     @relation("AdReviewer", fields: [reviewedBy], references: [id])
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Updated to support multiple products
-  products    ProductAdvertisement[] // Relation to join table for multiple products
-  maxProducts Int                    @default(1) // Maximum number of products this ad can hold
-
-  // Relations
-  analytics        AdAnalytics[]
-  payments         AdPayment[]
-  platformRefs     AdPlatformReference[]
-  userInteractions AdUserInteraction[]
-
-  // User interaction tracking
-  clicks      AdClick[]
-  impressions AdImpression[]
-  conversions AdConversion[]
-
-  @@index([vendorId])
-  @@index([status])
-  @@index([startDate])
-  @@index([endDate])
-}
-
-// New join table to support many-to-many relationship between advertisements and products
-model ProductAdvertisement {
-  id                String        @id @default(uuid())
-  advertisementId   String
-  advertisement     Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
-  productId         String
-  product           Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  displayOrder      Int           @default(0) // Order in which products appear in the ad
-  customTitle       String? // Optional custom title for this product in this ad
-  customDescription String? // Optional custom description for this product in this ad
-  customImageUrl    String? // Optional custom image URL for this product in this ad
-  customPrice       Float? // Optional custom price for this product in this ad
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-
-  @@unique([advertisementId, productId])
-  @@index([advertisementId])
-  @@index([productId])
-}
-
-model AdTargeting {
-  id              String        @id @default(uuid())
-  advertisementId String        @unique
-  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
-
-  // Demographics
-  minAge    Int?
-  maxAge    Int?
-  genders   String[] // Array of genders
-  locations String[] // Array of locations (countries, cities)
-
-  // Interests and behaviors
-  interests String[] // Array of interest categories
-  keywords  String[] // Array of keywords
-  languages String[] // Array of languages to target
-
-  // Device targeting
-  devices  String[] // Array of device types
-  browsers String[] // Array of browsers
-
-  // Custom targeting
-  customAudience   Json? // Platform-specific custom audience data
-  excludedAudience Json? // Criteria for audience exclusion
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model AdPlatformConfig {
-  id              String        @id @default(uuid())
-  advertisementId String
-  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
-  platform        AdPlatform
-  isActive        Boolean       @default(true)
-
-  name        String
-  description String?
-  config      Json // Platform-specific configuration
-
-  // Platform-specific configuration
-  platformAdId       String? // ID of the ad on the platform
-  platformCampaignId String? // ID of the campaign on the platform
-  platformStatus     String? // Status of the ad on the platform
-
-  // Platform-specific settings
-  settings Json? // Platform-specific settings
-  metadata Json? // Platform-specific settings
-
-  // Platform-specific analytics
-  platformImpressions Int   @default(0)
-  platformClicks      Int   @default(0)
-  platformConversions Int   @default(0)
-  platformSpend       Float @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([advertisementId, platform, name])
-}
-
-model AdPlatformReference {
-  id              String        @id @default(uuid())
-  advertisementId String
-  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
-  platform        String // FACEBOOK, INSTAGRAM, TWITTER, GOOGLE_ADSENSE, WHATSAPP, IN_APP
-  externalId      String // ID on the external platform
-  status          String        @default("PENDING") // PENDING, ACTIVE, PAUSED, DELETED
-  metadata        Json? // Platform-specific metadata
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  @@unique([advertisementId, platform])
-  @@index([platform])
-  @@index([status])
-}
-
-model AdAnalytics {
-  id              String        @id @default(uuid())
-  advertisementId String
-  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
-  date            DateTime
-  platform        AdPlatform
-
-  impressions Int   @default(0)
-  clicks      Int   @default(0)
-  views       Int   @default(0)
-  conversions Int   @default(0)
-  spend       Float @default(0)
-
-  // Engagement metrics
-  ctr               Float? // Click-through rate
-  conversionRate    Float? // Conversion rate
-  costPerClick      Float? // Cost per click
-  costPerConversion Float? // Cost per conversion
-  timestamp         DateTime @default(now())
-  conversionValue   Float    @default(0) // Total value of conversions 
-
-  // Additional metrics
-  bounceRate         Float? // Bounce rate
-  avgSessionDuration Float? // Average session duration
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([advertisementId, date, platform])
-  @@index([advertisementId])
-  @@index([date])
-}
-
-model AdPayment {
-  id                   String        @id @default(uuid())
-  advertisementId      String
-  advertisement        Advertisement @relation(fields: [advertisementId], references: [id])
-  amount               Float
-  refundedAmount       Float?
-  refundedAt           DateTime?
-  status               PaymentStatus @default(PENDING)
-  notes                String?
-  transactionId        String?
-  currency             String?       @default("USD")
-  paymentMethod        PaymentMethod
-  transactionReference String?
-  processedAt          DateTime?
-
-  // Invoice details
-  invoiceNumber String? @unique
-  invoiceUrl    String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([advertisementId])
-  @@index([status])
-  @@index([createdAt])
 }

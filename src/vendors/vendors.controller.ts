@@ -20,6 +20,7 @@ import {
   ApiHeader,
 } from '@nestjs/swagger';
 import { VendorsService } from './vendors.service';
+import { OrdersService } from '../orders/orders.service';
 import { CreateVendorApplicationDto } from './dto/create-vendor-application.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
@@ -32,7 +33,10 @@ import { Public } from '../auth/decorators/public.decorator';
 @ApiTags('vendors')
 @Controller('vendors')
 export class VendorsController {
-  constructor(private readonly vendorsService: VendorsService) { }
+  constructor(
+    private readonly vendorsService: VendorsService,
+    private readonly ordersService: OrdersService,
+  ) { }
 
   @Get('dashboard/stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -45,6 +49,31 @@ export class VendorsController {
   })
   getDashboardStats(@CurrentUser() user) {
     return this.vendorsService.getDashboardStats(user.id);
+  }
+
+  @Get('orders')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR', 'SUB_ADMIN', 'ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get vendor orders' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns paginated orders for the vendor',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'status', required: false, type: String })
+  getVendorOrders(
+    @CurrentUser() user,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Query('status') status?: string,
+  ) {
+    return this.ordersService.findDashboardOrders(user.id, {
+      page: +page,
+      limit: +limit,
+      status,
+    });
   }
 
   @Post('apply')

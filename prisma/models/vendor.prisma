@@ -4,7 +4,6 @@ model Vendor {
   businessName     String
   businessEmail    String              @unique
   businessPhone    String
-  businessAddress  VendorAddress[]
   businessLogo     String?
   description      String?
   isVerified       Boolean             @default(false)
@@ -15,24 +14,25 @@ model Vendor {
   status           ApplicationStatus   @default(PENDING)
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
+  balance          Float               @default(0)
+  bankInfo         Json?
+  coverImage       String?
+  isActive         Boolean             @default(true)
+  socialMedia      Json?
+  website          String?
+  userInteractions AdUserInteraction[]
+  advertisements   Advertisement[]
   coupons          Coupon[]
   flashSales       FlashSale[]
   inventory        Inventory[]
+  OrderShipping    OrderShipping[]
   orders           Order[]             @relation("VendorOrders")
   products         Product[]
-  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  advertisements   Advertisement[]
-  coverImage       String?
-  website          String?
-  socialMedia      Json? // Store social media links as JSON
-  isActive         Boolean             @default(true)
-  balance          Float               @default(0)
-  bankInfo         Json? // Store bank information as JSON
-  userInteractions AdUserInteraction[]
-  Shipping         Shipping[]
-  OrderShipping    OrderShipping[]
   ShippingPolicy   ShippingPolicy[]
+  businessAddress  VendorAddress[]
   VendorShipping   VendorShipping[]
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Shipping         Shipping[]          @relation("ShippingToVendor")
 
   @@map("vendors")
 }
@@ -43,19 +43,18 @@ model VendorApplication {
   businessName    String
   businessEmail   String            @unique
   businessPhone   String
-  businessAddress VendorAddress[]
   businessLogo    String?
   description     String?
   status          ApplicationStatus @default(PENDING)
   notes           String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
-
-  website    String?
-  documents  Json? // Store document URLs as JSON
-  reviewedBy String?
-  reviewedAt DateTime?
-  User       User[]
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  website         String?
+  documents       Json?
+  User            User[]
+  businessAddress VendorAddress[]
 
   @@map("vendor_applications")
 }
@@ -70,10 +69,10 @@ model VendorAddress {
   isDefault           Boolean            @default(false)
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
-  Vendor              Vendor?            @relation(fields: [vendorId], references: [id])
   vendorId            String?
-  VendorApplication   VendorApplication? @relation(fields: [vendorApplicationId], references: [id])
   vendorApplicationId String?
+  VendorApplication   VendorApplication? @relation(fields: [vendorApplicationId], references: [id])
+  Vendor              Vendor?            @relation(fields: [vendorId], references: [id])
 
   @@map("vendor_addresses")
 }

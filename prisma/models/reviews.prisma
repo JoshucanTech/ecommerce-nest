@@ -1,15 +1,15 @@
 model Review {
   id        String   @id @default(uuid())
   rating    Int?
-  helpful   Int?
   comment   String?
-  title     String?
   productId String
   userId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  helpful   Int?
+  title     String?
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user      User?    @relation(fields: [userId], references: [id])
 
   @@map("reviews")
 }

@@ -1,29 +1,23 @@
-// prisma/models/shipping.prisma
 model Shipping {
   id               String           @id @default(uuid())
   name             String
   description      String?
-  deliveryTime     String // e.g., "3-5 business days"
-  price            Float            @default(0) // Base price
+  deliveryTime     String
+  price            Float            @default(0)
   isActive         Boolean          @default(true)
-  minDays          Float            @default(0)
-  maxDays          Float            @default(0)
-  // Remove the direct vendor relationship to support many-to-many
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
-  orderItems       OrderItem[]
-  shippingZones    ShippingZone[]
-  OrderShipping    OrderShipping[]
-  // Add many-to-many relationship with vendors
-  vendorShippings  VendorShipping[]
-  CartItem         CartItem[]
-  ShippingPolicy   ShippingPolicy?  @relation(fields: [shippingPolicyId], references: [id])
   shippingPolicyId String?
-  // Vendor           Vendor?          @relation(fields: [vendorId], references: [id])
-  // vendorId         String?
-  Vendor           Vendor[]
-  // Add shipping speed/type
   shippingType     ShippingType     @default(STANDARD)
+  maxDays          Float            @default(0)
+  minDays          Float            @default(0)
+  CartItem         CartItem[]
+  orderItems       OrderItem[]
+  OrderShipping    OrderShipping[]
+  shippingZones    ShippingZone[]
+  ShippingPolicy   ShippingPolicy?  @relation(fields: [shippingPolicyId], references: [id])
+  vendorShippings  VendorShipping[]
+  Vendor           Vendor[]         @relation("ShippingToVendor")
 
   @@map("shippings")
 }
@@ -31,16 +25,16 @@ model Shipping {
 model ShippingZone {
   id         String   @id @default(uuid())
   country    String
-  region     String? // State/Province
-  postalCode String? // Postal code or range
-  city       String? // City (for more granular control)
-  price      Float? // Zone-specific price override
+  region     String?
+  postalCode String?
   shippingId String
+  city       String?
+  maxPrice   Float?
+  maxWeight  Float?
+  minPrice   Float?
+  minWeight  Float?
+  price      Float?
   shipping   Shipping @relation(fields: [shippingId], references: [id])
-  minWeight  Float? // Minimum weight for this price
-  maxWeight  Float? // Maximum weight for this price
-  minPrice   Float? // Minimum order price for free shipping
-  maxPrice   Float? // Maximum order price for this rule
 
   @@map("shipping_zones")
 }
@@ -54,12 +48,41 @@ model OrderShipping {
   estimatedDelivery DateTime?
   actualDelivery    DateTime?
   notes             String?
+  vendorId          String
   order             Order          @relation(fields: [orderId], references: [id])
   shipping          Shipping       @relation(fields: [shippingId], references: [id])
   vendor            Vendor         @relation(fields: [vendorId], references: [id])
-  vendorId          String
 
   @@map("order_shippings")
+}
+
+model VendorShipping {
+  id              String          @id @default(uuid())
+  vendorId        String
+  shippingId      String
+  priceOverride   Float?
+  isActive        Boolean         @default(true)
+  fulfillment     FulfillmentType @default(MERCHANT)
+  maxDaysOverride Float?
+  minDaysOverride Float?
+  shipping        Shipping        @relation(fields: [shippingId], references: [id])
+  vendor          Vendor          @relation(fields: [vendorId], references: [id])
+
+  @@unique([vendorId, shippingId])
+  @@map("vendor_shippings")
+}
+
+model ShippingPolicy {
+  id              String     @id @default(uuid())
+  name            String
+  description     String
+  processingTime  String
+  vendorId        String
+  products        Product[]
+  vendor          Vendor     @relation(fields: [vendorId], references: [id])
+  shippingMethods Shipping[]
+
+  @@map("shipping_policies")
 }
 
 enum ShippingStatus {
@@ -82,44 +105,8 @@ enum ShippingType {
   INTERNATIONAL
 }
 
-// Model to handle many-to-many relationship between vendors and shipping methods
-model VendorShipping {
-  id              String          @id @default(uuid())
-  vendorId        String
-  shippingId      String
-  // Vendor-specific fields
-  priceOverride   Float? // Override the default shipping price for this vendor
-  minDaysOverride Float?
-  maxDaysOverride Float?
-  isActive        Boolean         @default(true)
-  // Add fulfillment type
-  fulfillment     FulfillmentType @default(MERCHANT)
-
-  // Relations
-  vendor   Vendor   @relation(fields: [vendorId], references: [id])
-  shipping Shipping @relation(fields: [shippingId], references: [id])
-
-  // Ensure a vendor can't have the same shipping method twice
-  @@unique([vendorId, shippingId])
-  @@map("vendor_shippings")
-}
-
 enum FulfillmentType {
-  MERCHANT // Fulfilled by Merchant (FBM)
-  PLATFORM // Fulfilled by App (FBA)
-  PRIME // Seller Fulfilled Prime (SFP)
-}
-
-// New shipping policy model
-model ShippingPolicy {
-  id              String     @id @default(uuid())
-  name            String
-  description     String
-  processingTime  String // e.g. "1-2 business days"
-  shippingMethods Shipping[]
-  vendorId        String
-  vendor          Vendor     @relation(fields: [vendorId], references: [id])
-  products        Product[]
-
-  @@map("shipping_policies")
+  MERCHANT
+  PLATFORM
+  PRIME
 }

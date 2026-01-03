@@ -67,6 +67,9 @@ async function main() {
   await prisma.category.deleteMany();
   await prisma.rider.deleteMany();
   await prisma.vendor.deleteMany();
+  await prisma.rolePermission.deleteMany();
+  await prisma.permission.deleteMany();
+  await prisma.role.deleteMany();
   await prisma.user.deleteMany();
 
   console.log('Seeding database...');
@@ -1654,6 +1657,7 @@ async function main() {
       userId: buyer.id,
       subject: 'Issue with recent order',
       description: 'The product arrived damaged.',
+      category: 'General',
       status: 'OPEN',
     },
   });
@@ -1978,6 +1982,68 @@ async function main() {
     }),
   ]);
   console.log('Created conversations and messages');
+
+  // Seed Roles and Permissions
+  console.log('Seeding Roles and Permissions...');
+  const orderReadPermission = await prisma.permission.create({
+    data: {
+      name: 'Read Orders (Global)',
+      description: 'Can view all orders',
+      action: 'READ',
+      resource: 'ORDERS',
+    },
+  });
+
+  const orderManageNYPermission = await prisma.permission.create({
+    data: {
+      name: 'Manage NY Orders',
+      description: 'Can manage orders in New York',
+      action: 'MANAGE',
+      resource: 'ORDERS',
+      scope: {
+        location: {
+          states: ['NY'],
+        },
+      },
+    },
+  });
+
+  const hdRole = await prisma.role.create({
+    data: {
+      name: 'HD',
+      description: 'Help Desk Role',
+      permissions: {
+        create: [
+          { permissionId: orderManageNYPermission.id },
+        ],
+      },
+    },
+  });
+
+  const adminRole = await prisma.role.create({
+    data: {
+      name: 'Super Admin',
+      description: 'Full system access',
+      permissions: {
+        create: [
+          { permissionId: orderReadPermission.id },
+        ],
+      },
+    },
+  });
+
+  // Assign HD role to the sub-admin user created earlier
+  await prisma.user.update({
+    where: { id: subAdmin.id },
+    data: {
+      role: 'SUB_ADMIN', // Update enum role as well
+      roles: {
+        connect: [{ id: hdRole.id }],
+      },
+    },
+  });
+
+  console.log('Created roles and permissions, assigned HD role to sub-admin');
 
   console.log('Database seeded successfully!');
   console.log('Seed completed \ud83c\udf31');
