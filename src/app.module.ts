@@ -38,6 +38,7 @@ import { ValidationExceptionFilter } from './exceptions/validation-exception.fil
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { UploadsModule } from './uploads/uploads.module';
+import { SupportModule } from './support/support.module';
 
 //
 //
@@ -71,6 +72,7 @@ import { UploadsModule } from './uploads/uploads.module';
     HealthModule,
     MessagesModule,
     UploadsModule,
+    SupportModule,
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',

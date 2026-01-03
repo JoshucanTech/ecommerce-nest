@@ -426,7 +426,7 @@ async function main() {
 
   // Get the first shipping address for the buyer (should be the default one)
   const buyerShippingAddressId = buyerShippingAddresses[0]?.id;
-  
+
   // If no shipping address found, create one
   let shippingAddressId = buyerShippingAddressId;
   if (!shippingAddressId) {

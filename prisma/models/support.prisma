@@ -2,6 +2,7 @@ model SupportTicket {
   id          String              @id @default(uuid())
   subject     String
   description String
+  category    String?
   status      SupportTicketStatus @default(OPEN)
   priority    TicketPriority      @default(MEDIUM)
   userId      String
