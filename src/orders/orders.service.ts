@@ -29,7 +29,7 @@ export class OrdersService {
     private productValidationService: ProductValidationService,
     private couponsService: CouponsService,
     private shippingCostService: ShippingCostService,
-  ) {}
+  ) { }
 
   @CacheInvalidate('order:', 'user-orders:')
   async create(createOrderDto: CreateOrderDto, userId: string) {
@@ -58,9 +58,9 @@ export class OrdersService {
     // Process coupons if provided
     const processedCoupons = createOrderDto.couponCode
       ? await this.couponsService.processCoupons(
-          createOrderDto.couponCode,
-          itemsByVendor,
-        )
+        createOrderDto.couponCode,
+        itemsByVendor,
+      )
       : null;
 
     // Calculate vendor totals with discounts and shipping costs
@@ -531,6 +531,128 @@ export class OrdersService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  @Cacheable(300, 'vendor-stats')
+  async getVendorStats(userId: string) {
+    // Get vendor ID
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+
+    if (!vendor) {
+      throw new ForbiddenException('User is not a vendor');
+    }
+
+    // Get date 30 days ago for chart data
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Get date 7 days ago for recent stats
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    // Get previous month start and end for comparison
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const [
+      totalOrders,
+      totalSalesAgg,
+      recentOrdersCount,
+      customersRef,
+      lastMonthSalesAgg,
+      dailySales,
+    ] = await Promise.all([
+      // Total orders count
+      this.prisma.order.count({
+        where: { vendorId: vendor.id },
+      }),
+      // Total sales amount
+      this.prisma.order.aggregate({
+        where: { vendorId: vendor.id, status: { not: 'CANCELLED' } },
+        _sum: { totalAmount: true },
+      }),
+      // Recent orders (last 7 days)
+      this.prisma.order.count({
+        where: {
+          vendorId: vendor.id,
+          createdAt: { gte: sevenDaysAgo },
+        },
+      }),
+      // Unique customers
+      this.prisma.order.groupBy({
+        by: ['userId'],
+        where: { vendorId: vendor.id },
+      }),
+      // Last month sales for growth calculation
+      this.prisma.order.aggregate({
+        where: {
+          vendorId: vendor.id,
+          status: { not: 'CANCELLED' },
+          createdAt: { gte: lastMonthStart, lte: lastMonthEnd },
+        },
+        _sum: { totalAmount: true },
+      }),
+      // Daily sales for chart
+      this.prisma.order.findMany({
+        where: {
+          vendorId: vendor.id,
+          status: { not: 'CANCELLED' },
+          createdAt: { gte: thirtyDaysAgo },
+        },
+        select: {
+          createdAt: true,
+          totalAmount: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    // Process daily sales for chart
+    const salesMap = new Map<string, number>();
+    // Initialize last 30 days with 0
+    for (let i = 0; i < 30; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      salesMap.set(dateStr, 0);
+    }
+
+    // Fill with actual data
+    dailySales.forEach((order) => {
+      const dateStr = order.createdAt.toISOString().split('T')[0];
+      if (salesMap.has(dateStr)) {
+        salesMap.set(dateStr, (salesMap.get(dateStr) || 0) + order.totalAmount);
+      }
+    });
+
+    const salesChart = Array.from(salesMap.entries())
+      .map(([date, amount]) => ({ date, amount }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // Calculate growth
+    const currentTotalSales = totalSalesAgg._sum.totalAmount || 0;
+    const lastMonthSales = lastMonthSalesAgg._sum.totalAmount || 0;
+    let growth = 0;
+    if (lastMonthSales > 0) {
+      growth =
+        ((currentTotalSales - lastMonthSales) / lastMonthSales) *
+        100;
+    } else if (currentTotalSales > 0) {
+      growth = 100; // 100% growth if started from 0
+    }
+
+    return {
+      totalOrders,
+      totalSales: currentTotalSales,
+      recentOrdersCount,
+      totalCustomers: customersRef.length,
+      salesChart,
+      growth: Math.round(growth * 10) / 10,
     };
   }
 

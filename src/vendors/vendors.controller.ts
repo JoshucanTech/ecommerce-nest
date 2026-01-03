@@ -32,7 +32,20 @@ import { Public } from '../auth/decorators/public.decorator';
 @ApiTags('vendors')
 @Controller('vendors')
 export class VendorsController {
-  constructor(private readonly vendorsService: VendorsService) {}
+  constructor(private readonly vendorsService: VendorsService) { }
+
+  @Get('dashboard/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get vendor dashboard statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns filtered dashboard statistics including sales, orders, and customer counts'
+  })
+  getDashboardStats(@CurrentUser() user) {
+    return this.vendorsService.getDashboardStats(user.id);
+  }
 
   @Post('apply')
   @UseGuards(JwtAuthGuard)

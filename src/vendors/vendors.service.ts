@@ -11,9 +11,16 @@ import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto'
 import { generateSlug } from '../utils/slug-generator';
 import { AdStatus, AdType, ApplicationStatus } from '@prisma/client';
 
+import { OrdersService } from '../orders/orders.service';
+import { ProductsService } from '../products/products.service';
+
 @Injectable()
 export class VendorsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private ordersService: OrdersService,
+    private productsService: ProductsService,
+  ) { }
 
   async apply(
     createVendorApplicationDto: CreateVendorApplicationDto,
@@ -304,6 +311,22 @@ export class VendorsService {
     };
   }
 
+  async getDashboardStats(userId: string) {
+    const [stats, productCount] = await Promise.all([
+      this.ordersService.getVendorStats(userId),
+      this.prisma.product.count({
+        where: {
+          vendor: { userId },
+        },
+      }),
+    ]);
+
+    return {
+      ...stats,
+      productCount,
+    };
+  }
+
   async rejectApplication(id: string, notes?: string) {
     // Check if application exists
     const application = await this.prisma.vendorApplication.findUnique({
@@ -584,10 +607,10 @@ export class VendorsService {
     // If spotlight is true, we want to get the top featured vendor
     const orderBy = spotlight
       ? [
-          { displayOrder: 'asc' },
-          { advertisement: { budget: 'desc' } },
-          { createdAt: 'desc' },
-        ]
+        { displayOrder: 'asc' },
+        { advertisement: { budget: 'desc' } },
+        { createdAt: 'desc' },
+      ]
       : [{ displayOrder: 'asc' }, { createdAt: 'desc' }];
 
     // Get featured vendors with pagination

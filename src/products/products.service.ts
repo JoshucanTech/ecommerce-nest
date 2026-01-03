@@ -16,7 +16,7 @@ export class ProductsService {
     private prisma: PrismaService,
     private productValidationService: ProductValidationService,
     private productCalculatorService: ProductCalculatorService,
-  ) {}
+  ) { }
 
   async create(createProductDto: CreateProductDto, userId: string) {
     // Get vendor ID from user
@@ -186,6 +186,42 @@ export class ProductsService {
     };
   }
 
+  async getVendorProducts(userId: string) {
+    // Get vendor ID
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+
+    if (!vendor) {
+      throw new ForbiddenException('User is not a vendor');
+    }
+
+    const products = await this.prisma.product.findMany({
+      where: { vendorId: vendor.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        category: true,
+        reviews: {
+          select: {
+            rating: true,
+          },
+        },
+      },
+    });
+
+    // Calculate ratings
+    return products.map((product) => {
+      const { avgRating, reviewCount } =
+        this.productCalculatorService.calculateProductRatings(product.reviews);
+      const { reviews, ...rest } = product;
+      return {
+        ...rest,
+        avgRating,
+        reviewCount,
+      };
+    });
+  }
+
   async findOne(idOrSlug: string) {
     const product = await this.prisma.product.findFirst({
       where: {
@@ -282,11 +318,11 @@ export class ProductsService {
       shortDescription,
       activeFlashSale: activeFlashSale
         ? {
-            id: activeFlashSale.id,
-            name: activeFlashSale.name,
-            discountPercentage: activeFlashSale.discountPercentage,
-            endDate: activeFlashSale.endDate,
-          }
+          id: activeFlashSale.id,
+          name: activeFlashSale.name,
+          discountPercentage: activeFlashSale.discountPercentage,
+          endDate: activeFlashSale.endDate,
+        }
         : null,
       shippingInfo, // Add shipping information for display
     };
@@ -429,7 +465,7 @@ export class ProductsService {
       const avgRating =
         product.reviews.length > 0
           ? product.reviews.reduce((sum, r) => sum + r.rating, 0) /
-            product.reviews.length
+          product.reviews.length
           : 0;
 
       const { reviews, ...rest } = product;

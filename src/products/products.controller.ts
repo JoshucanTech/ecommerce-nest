@@ -41,7 +41,7 @@ export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
     private readonly redisService: RedisService,
-  ) {}
+  ) { }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -163,6 +163,16 @@ export class ProductsController {
   })
   create(@Body() createProductDto: CreateProductDto, @CurrentUser() user) {
     return this.productsService.create(createProductDto, user.id);
+  }
+
+  @Get('vendor')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all products for the logged-in vendor' })
+  @ApiResponse({ status: 200, description: 'Returns vendor products' })
+  getVendorProducts(@CurrentUser() user) {
+    return this.productsService.getVendorProducts(user.id);
   }
 
   @Get()
