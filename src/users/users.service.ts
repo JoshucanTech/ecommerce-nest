@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -13,7 +14,7 @@ import { CreateShippingAddressDto } from './dto/create-shipping-address.dto';
 import { UpdateShippingAddressDto } from './dto/update-shipping-address.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { AddressType } from './enums/address-type.enum';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 
@@ -92,6 +93,153 @@ export class UsersService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  async findDashboardCustomers(userId: string, params: {
+    page: number;
+    limit: number;
+    search?: string;
+  }) {
+    const actor = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        vendor: true,
+        roles: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!actor) throw new NotFoundException('User not found');
+
+    const orderWhere: any = {};
+
+    if (actor.role === UserRole.VENDOR) {
+      orderWhere.vendorId = actor.vendor?.id;
+    } else if (actor.role === UserRole.SUB_ADMIN) {
+      const permissions = actor.roles.flatMap(r => r.permissions.map(rp => rp.permission));
+      const customerPermissions = permissions.filter(p =>
+        (p.resource === 'CUSTOMERS' || p.resource === 'ORDERS') &&
+        (p.action === 'READ' || p.action === 'MANAGE')
+      );
+
+      if (customerPermissions.length === 0) {
+        throw new ForbiddenException('No permission to access customers');
+      }
+
+      const hasGlobal = customerPermissions.some(p => !p.scope);
+      if (!hasGlobal) {
+        const states = [];
+        const cities = [];
+        const vendorIds = [];
+
+        for (const p of customerPermissions) {
+          const scope: any = p.scope;
+          if (scope?.location?.states) states.push(...scope.location.states);
+          if (scope?.location?.cities) cities.push(...scope.location.cities);
+          if (scope?.vendors) vendorIds.push(...scope.vendors);
+        }
+
+        const conditions = [];
+        if (states.length > 0 || cities.length > 0) {
+          conditions.push({
+            shippingAddress: {
+              OR: [
+                { state: { in: states, mode: 'insensitive' } },
+                { city: { in: cities, mode: 'insensitive' } }
+              ]
+            }
+          });
+        }
+        if (vendorIds.length > 0) {
+          conditions.push({ vendorId: { in: vendorIds } });
+        }
+
+        if (conditions.length > 0) {
+          orderWhere.OR = conditions;
+        } else {
+          return { data: [], meta: { total: 0, page: 1, limit: params.limit, totalPages: 0 } };
+        }
+      }
+    } else if (actor.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
+    const skip = (params.page - 1) * params.limit;
+
+    const userSearchWhere: any = {};
+    if (params.search) {
+      userSearchWhere.OR = [
+        { firstName: { contains: params.search, mode: 'insensitive' } },
+        { lastName: { contains: params.search, mode: 'insensitive' } },
+        { email: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Get aggregated stats for users who have orders matching the criteria
+    const aggregatedStats = await this.prisma.order.groupBy({
+      by: ['userId'],
+      where: {
+        ...orderWhere,
+        user: userSearchWhere,
+      },
+      _count: { id: true },
+      _sum: { totalAmount: true },
+      _max: { createdAt: true },
+      orderBy: { _max: { createdAt: 'desc' } },
+      skip,
+      take: params.limit,
+    });
+
+    const totalCustomersResult = await this.prisma.order.groupBy({
+      by: ['userId'],
+      where: {
+        ...orderWhere,
+        user: userSearchWhere,
+      },
+    });
+    const totalCount = totalCustomersResult.length;
+
+    const userIds = aggregatedStats.map(s => s.userId);
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        avatar: true,
+      }
+    });
+
+    const data = aggregatedStats.map(stat => {
+      const user = users.find(u => u.id === stat.userId);
+      return {
+        id: stat.userId,
+        name: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
+        email: user?.email || '',
+        avatar: user?.avatar,
+        totalOrders: stat._count.id,
+        totalSpent: stat._sum.totalAmount || 0,
+        lastOrder: stat._max.createdAt,
+      };
+    });
+
+    return {
+      data,
+      meta: {
+        total: totalCount,
+        page: params.page,
+        limit: params.limit,
+        totalPages: Math.ceil(totalCount / params.limit),
+      }
     };
   }
 

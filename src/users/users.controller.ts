@@ -161,6 +161,26 @@ export class UsersController {
     });
   }
 
+  @Get('dashboard/customers')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'VENDOR', 'SUB_ADMIN')
+  @ApiOperation({
+    summary: 'Get customers for dashboard (Admin, Vendor, Sub-Admin)',
+    description: 'Retrieve customers matching the user\'s role and scope.',
+  })
+  findDashboardCustomers(
+    @CurrentUser() user: any,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('search') search?: string,
+  ) {
+    return this.usersService.findDashboardCustomers(user.id, {
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 50,
+      search,
+    });
+  }
+
   @Patch('profile')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
