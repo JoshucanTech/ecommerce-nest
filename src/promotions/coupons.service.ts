@@ -2,12 +2,16 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma, UserRole } from '@prisma/client';
+import { CreateCouponDto } from './dto/create-coupon.dto';
+import { UpdateCouponDto } from './dto/update-coupon.dto';
 
 @Injectable()
 export class CouponsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async processCoupons(couponCode: string, itemsByVendor: any) {
     const coupon = await this.prisma.coupon.findUnique({
@@ -119,5 +123,207 @@ export class CouponsService {
     }
 
     return discountAmount;
+  }
+
+  async findAll(user: any, params: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: string;
+  }) {
+    const { page, limit, search, status } = params;
+    const skip = (page - 1) * limit;
+
+    await this.hydrateUser(user); // Ensure vendor/roles are present
+
+    const where: Prisma.CouponWhereInput = {};
+
+    // RBAC Logic
+    if (user.role === UserRole.VENDOR) {
+      where.vendorId = user.vendor.id;
+    } else if (user.role === UserRole.SUB_ADMIN) {
+      if (!user.roles) {
+        // Should have been populated by guard/decorator, effectively no permissions if missing
+        throw new ForbiddenException('No permissions found');
+      }
+      const permissions = user.roles.flatMap(r => r.permissions.map(rp => rp.permission));
+      // Look for permissions related to PROMOTIONS or COUPONS resource
+      const couponPermissions = permissions.filter(p =>
+        (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS') &&
+        (p.action === 'READ' || p.action === 'MANAGE')
+      );
+
+      if (couponPermissions.length === 0) {
+        throw new ForbiddenException('No permission to access coupons');
+      }
+
+      const hasGlobal = couponPermissions.some(p => !p.scope);
+      if (!hasGlobal) {
+        const vendorIds = [];
+        for (const p of couponPermissions) {
+          const scope: any = p.scope;
+          if (scope?.vendors) vendorIds.push(...scope.vendors);
+        }
+
+        if (vendorIds.length > 0) {
+          where.vendorId = { in: vendorIds };
+        } else {
+          // If scoped restriction exists but no specific vendors listed, deny access
+          return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+        }
+      }
+    }
+    // ADMIN sees all
+
+    if (search) {
+      where.OR = [
+        { code: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (status && status !== 'all') {
+      const now = new Date();
+      if (status === 'active') {
+        where.isActive = true;
+        where.startDate = { lte: now };
+        where.endDate = { gte: now };
+      } else if (status === 'expired') {
+        where.endDate = { lt: now };
+      } else if (status === 'scheduled') {
+        where.startDate = { gt: now };
+      } else if (status === 'inactive') {
+        where.isActive = false;
+      }
+    }
+
+    const [coupons, total] = await Promise.all([
+      this.prisma.coupon.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.coupon.count({ where }),
+    ]);
+
+    return {
+      data: coupons,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async findOne(id: string, user: any) {
+    await this.hydrateUser(user);
+    const coupon = await this.prisma.coupon.findUnique({
+      where: { id },
+    });
+    if (!coupon) throw new NotFoundException('Coupon not found');
+
+    if (user.role === UserRole.VENDOR && coupon.vendorId !== user.vendor?.id) {
+      throw new ForbiddenException('Access denied');
+    }
+    // Sub-admin permission checks... simplifying for now: if they have READ permission they can see it
+    // ideally check scope against coupon.vendorId
+    if (user.role === UserRole.SUB_ADMIN) {
+      // ... reuse scope check logic or trust findAll filter usually. 
+      // For direct IDs, strict check:
+      const permissions = user.roles.flatMap(r => r.permissions.map(rp => rp.permission));
+      const canManage = permissions.some(p =>
+        (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS') && p.action === 'MANAGE'
+      );
+      const canRead = permissions.some(p =>
+        (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS') && p.action === 'READ'
+      );
+
+      if (!canManage && !canRead) throw new ForbiddenException('Access denied');
+
+      // Scope check
+      const hasGlobal = permissions.some(p => !p.scope && ((p.resource === 'PROMOTIONS' || p.resource === 'COUPONS')));
+      if (!hasGlobal) {
+        const allowedVendorIds = permissions.flatMap(p => (p.scope as any)?.vendors || []);
+        if (coupon.vendorId && !allowedVendorIds.includes(coupon.vendorId)) {
+          throw new ForbiddenException('Access denied to this vendor coupon');
+        }
+        if (!coupon.vendorId && allowedVendorIds.length > 0) {
+          // Global coupon, but user is scoped. Deny? 
+          throw new ForbiddenException('Access denied to global coupon');
+        }
+      }
+    }
+
+    return coupon;
+  }
+
+  async create(user: any, data: CreateCouponDto) {
+    await this.hydrateUser(user);
+    if (user.role === UserRole.VENDOR) {
+      data.vendorId = user.vendor.id;
+    }
+    // Validate uniqueness
+    const existing = await this.prisma.coupon.findUnique({ where: { code: data.code } });
+    if (existing) throw new BadRequestException('Coupon code already exists');
+
+    return this.prisma.coupon.create({
+      data: {
+        ...data,
+        // Ensure dates are Date objects if DTO passes strings
+        startDate: new Date(data.startDate),
+        endDate: new Date(data.endDate),
+      }
+    });
+  }
+
+  async update(id: string, user: any, data: UpdateCouponDto) {
+    const coupon = await this.findOne(id, user); // verifies access
+
+    return this.prisma.coupon.update({
+      where: { id },
+      data: {
+        ...data,
+        startDate: data.startDate ? new Date(data.startDate) : undefined,
+        endDate: data.endDate ? new Date(data.endDate) : undefined,
+      }
+    });
+  }
+
+  async remove(id: string, user: any) {
+    await this.findOne(id, user); // verifies access checks
+    return this.prisma.coupon.delete({ where: { id } });
+  }
+
+  private async hydrateUser(user: any) {
+    if (user.role === UserRole.VENDOR && !user.vendor) {
+      const fullUser = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        include: { vendor: true },
+      });
+      if (fullUser?.vendor) {
+        user.vendor = fullUser.vendor;
+      }
+    } else if (user.role === UserRole.SUB_ADMIN && !user.roles) {
+      const fullUser = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        include: {
+          roles: {
+            include: {
+              permissions: {
+                include: {
+                  permission: true,
+                },
+              },
+            },
+          },
+        },
+      });
+      if (fullUser?.roles) {
+        user.roles = fullUser.roles;
+      }
+    }
   }
 }
