@@ -6,14 +6,12 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRiderApplicationDto } from './dto/create-rider-application.dto';
-import { UpdateRiderDto } from './dto/update-rider.dto';
-import { UpdateRiderApplicationDto } from './dto/update-rider-application.dto';
-import { UpdateLocationDto } from './dto/update-location.dto';
 import { Prisma } from '@prisma/client';
+import { calculateDistance } from '../utils/geo';
 
 @Injectable()
 export class RidersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async apply(
     createRiderApplicationDto: CreateRiderApplicationDto,
@@ -73,7 +71,7 @@ export class RidersService {
 
     // Get applications with pagination
     const [applications, total] = await Promise.all([
-      this.prisma.rider.findMany({
+      this.prisma.riderApplication.findMany({
         where,
         skip,
         take: limit,
@@ -118,7 +116,7 @@ export class RidersService {
   }
 
   async getApplicationById(id: string) {
-    const application = await this.prisma.rider.findUnique({
+    const application = await this.prisma.riderApplication.findUnique({
       where: { id },
       include: {
         user: {
@@ -163,7 +161,7 @@ export class RidersService {
 
   async approveApplication(id: string) {
     // Check if application exists
-    const application = await this.prisma.rider.findUnique({
+    const application = await this.prisma.riderApplication.findUnique({
       where: { id },
       include: {
         user: true,
@@ -199,9 +197,11 @@ export class RidersService {
       data: {
         userId: application.userId,
         vehicleType: application.vehicleType,
-        // vehiclePlate: application.vehicleNumber,
+        vehiclePlate: application.vehiclePlate,
         licenseNumber: application.licenseNumber,
         identityDocument: application.identityDocument,
+        isVerified: true, // Auto-verify on approval
+        status: 'APPROVED',
       },
     });
 
@@ -323,21 +323,13 @@ export class RidersService {
   }
 
   async findAvailable(latitude: number, longitude: number, radiusKm: number) {
-    // Convert radius from kilometers to degrees (approximate)
-    // 1 degree of latitude = ~111 km
-    const radiusDegrees = radiusKm / 111;
-
-    // Find available riders within the radius
+    // Find available riders
     const riders = await this.prisma.rider.findMany({
       where: {
         isAvailable: true,
         isVerified: true,
-        currentLatitude: {
-          not: null,
-        },
-        currentLongitude: {
-          not: null,
-        },
+        currentLatitude: { not: null },
+        currentLongitude: { not: null },
       },
       include: {
         user: {
@@ -355,8 +347,7 @@ export class RidersService {
     // Filter riders by distance
     const ridersWithDistance = riders
       .map((rider) => {
-        // Calculate distance using Haversine formula
-        const distance = this.calculateDistance(
+        const distance = calculateDistance(
           latitude,
           longitude,
           rider.currentLatitude || 0,
@@ -413,7 +404,6 @@ export class RidersService {
   }
 
   async updateProfile(userId: string, updateRiderDto: Prisma.RiderUpdateInput) {
-    // Get rider by user ID
     const rider = await this.prisma.rider.findUnique({
       where: { userId },
     });
@@ -422,18 +412,13 @@ export class RidersService {
       throw new NotFoundException('Rider profile not found');
     }
 
-    // Update rider
     return this.prisma.rider.update({
       where: { id: rider.id },
       data: updateRiderDto,
     });
   }
 
-  async updateLocation(
-    userId: string,
-    updateLocationDto: Prisma.RiderUpdateInput,
-  ) {
-    // Get rider by user ID
+  async updateLocation(userId: string, latitude: number, longitude: number) {
     const rider = await this.prisma.rider.findUnique({
       where: { userId },
     });
@@ -442,18 +427,16 @@ export class RidersService {
       throw new NotFoundException('Rider profile not found');
     }
 
-    // Update rider location
     return this.prisma.rider.update({
       where: { id: rider.id },
       data: {
-        currentLatitude: updateLocationDto.currentLatitude,
-        currentLongitude: updateLocationDto.currentLongitude,
+        currentLatitude: latitude,
+        currentLongitude: longitude,
       },
     });
   }
 
   async toggleAvailability(userId: string, isAvailable: boolean) {
-    // Get rider by user ID
     const rider = await this.prisma.rider.findUnique({
       where: { userId },
     });
@@ -462,12 +445,10 @@ export class RidersService {
       throw new NotFoundException('Rider profile not found');
     }
 
-    // Check if rider is verified
     if (!rider.isVerified) {
       throw new BadRequestException('Rider is not verified yet');
     }
 
-    // Update rider availability
     return this.prisma.rider.update({
       where: { id: rider.id },
       data: { isAvailable },
@@ -475,7 +456,6 @@ export class RidersService {
   }
 
   async update(id: string, updateRiderDto: Prisma.RiderUpdateInput) {
-    // Check if rider exists
     const rider = await this.prisma.rider.findUnique({
       where: { id },
     });
@@ -484,34 +464,9 @@ export class RidersService {
       throw new NotFoundException(`Rider with ID ${id} not found`);
     }
 
-    // Update rider
     return this.prisma.rider.update({
       where: { id },
       data: updateRiderDto,
     });
-  }
-
-  private calculateDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
-    const R = 6371; // Radius of the earth in km
-    const dLat = this.deg2rad(lat2 - lat1);
-    const dLon = this.deg2rad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.deg2rad(lat1)) *
-        Math.cos(this.deg2rad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c; // Distance in km
-    return distance;
-  }
-
-  private deg2rad(deg: number): number {
-    return deg * (Math.PI / 180);
   }
 }

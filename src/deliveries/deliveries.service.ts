@@ -11,13 +11,16 @@ import { AssignRiderDto } from './dto/assign-rider.dto';
 import { UpdateDeliveryStatusDto } from './dto/update-delivery-status.dto';
 import { DeliveryStatus, OrderStatus } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RidersService } from '../riders/riders.service';
+import { calculateDistance } from '../utils/geo';
 
 @Injectable()
 export class DeliveriesService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
-  ) {}
+    private ridersService: RidersService,
+  ) { }
 
   async create(createDeliveryDto: CreateDeliveryDto, user: any) {
     const {
@@ -75,7 +78,11 @@ export class DeliveriesService {
       data: {
         orderId,
         pickupAddress,
+        pickupLatitude: createDeliveryDto.pickupLatitude,
+        pickupLongitude: createDeliveryDto.pickupLongitude,
         deliveryAddress,
+        deliveryLatitude: createDeliveryDto.deliveryLatitude,
+        deliveryLongitude: createDeliveryDto.deliveryLongitude,
         estimatedDeliveryTime: estimatedDeliveryTime
           ? new Date(estimatedDeliveryTime)
           : undefined,
@@ -93,6 +100,30 @@ export class DeliveriesService {
         },
       },
     });
+
+    // Notify nearby riders
+    if (delivery.pickupLatitude && delivery.pickupLongitude) {
+      const nearbyRiders = await this.ridersService.findAvailable(
+        delivery.pickupLatitude,
+        delivery.pickupLongitude,
+        5, // 5km radius
+      );
+
+      for (const rider of nearbyRiders.data) {
+        await this.notificationsService.create({
+          userId: rider.user.id,
+          type: 'DELIVERY',
+          title: 'New Delivery Available',
+          message: `A new delivery for order #${delivery.order.orderNumber} is available near you.`,
+          data: JSON.stringify({
+            deliveryId: delivery.id,
+            orderNumber: delivery.order.orderNumber,
+            pickupAddress: delivery.pickupAddress,
+            deliveryAddress: delivery.deliveryAddress,
+          }),
+        });
+      }
+    }
 
     // Update order status to SHIPPED if it's in PROCESSING
     if (order.status === OrderStatus.PROCESSING) {
@@ -120,7 +151,10 @@ export class DeliveriesService {
     return delivery;
   }
 
-  async findAll(params: { page: number; limit: number; status?: string }) {
+  async findAll(
+    params: { page: number; limit: number; status?: string },
+    user?: any,
+  ) {
     const { page, limit, status } = params;
     const skip = (page - 1) * limit;
 
@@ -129,6 +163,25 @@ export class DeliveriesService {
 
     if (status) {
       where.status = status;
+    }
+
+    // Scoped access for SUB_ADMIN
+    if (user?.role === 'SUB_ADMIN') {
+      const subAdmin = await this.prisma.user.findUnique({
+        where: { id: user.id },
+      });
+
+      if (subAdmin?.assignedCity || subAdmin?.assignedState) {
+        where.OR = [];
+        if (subAdmin.assignedCity) {
+          where.OR.push({ pickupAddress: { contains: subAdmin.assignedCity, mode: 'insensitive' } });
+          where.OR.push({ deliveryAddress: { contains: subAdmin.assignedCity, mode: 'insensitive' } });
+        }
+        if (subAdmin.assignedState) {
+          where.OR.push({ pickupAddress: { contains: subAdmin.assignedState, mode: 'insensitive' } });
+          where.OR.push({ deliveryAddress: { contains: subAdmin.assignedState, mode: 'insensitive' } });
+        }
+      }
     }
 
     // Get deliveries with pagination
@@ -648,16 +701,18 @@ export class DeliveriesService {
       },
     });
 
-    // Update order status if delivery is delivered
-    if (
-      status === DeliveryStatus.DELIVERED &&
-      delivery.order.status !== OrderStatus.DELIVERED
-    ) {
+    // Sync order status
+    let newOrderStatus: OrderStatus | null = null;
+    if (status === DeliveryStatus.PICKED_UP || status === DeliveryStatus.IN_TRANSIT) {
+      newOrderStatus = status === DeliveryStatus.IN_TRANSIT ? OrderStatus.OUT_FOR_DELIVERY : OrderStatus.SHIPPED;
+    } else if (status === DeliveryStatus.DELIVERED) {
+      newOrderStatus = OrderStatus.DELIVERED;
+    }
+
+    if (newOrderStatus && delivery.order.status !== newOrderStatus) {
       await this.prisma.order.update({
         where: { id: delivery.order.id },
-        data: {
-          status: OrderStatus.DELIVERED,
-        },
+        data: { status: newOrderStatus },
       });
     }
 
@@ -693,6 +748,126 @@ export class DeliveriesService {
         },
       });
     }
+
+    return updatedDelivery;
+  }
+
+  async findAvailableForRider(
+    userId: string,
+    params: { radius?: number; page?: number; limit?: number },
+  ) {
+    const { radius = 5, page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
+
+    const rider = await this.prisma.rider.findUnique({
+      where: { userId },
+    });
+
+    if (!rider || !rider.isVerified) {
+      throw new ForbiddenException('Only verified riders can view deliveries');
+    }
+
+    if (!rider.currentLatitude || !rider.currentLongitude) {
+      throw new BadRequestException('Rider location not updated');
+    }
+
+    const deliveries = await this.prisma.delivery.findMany({
+      where: {
+        status: DeliveryStatus.PENDING,
+        riderId: null,
+        pickupLatitude: { not: null },
+        pickupLongitude: { not: null },
+      },
+      include: {
+        order: {
+          select: {
+            orderNumber: true,
+            totalAmount: true,
+          },
+        },
+      },
+    });
+
+    const deliveriesWithDistance = deliveries
+      .map((delivery) => {
+        const distance = calculateDistance(
+          rider.currentLatitude,
+          rider.currentLongitude,
+          delivery.pickupLatitude,
+          delivery.pickupLongitude,
+        );
+
+        return {
+          ...delivery,
+          distance: Number.parseFloat(distance.toFixed(2)),
+        };
+      })
+      .filter((d) => d.distance <= radius)
+      .sort((a, b) => a.distance - b.distance);
+
+    const data = deliveriesWithDistance.slice(skip, skip + limit);
+
+    return {
+      data,
+      meta: {
+        total: deliveriesWithDistance.length,
+        page,
+        limit,
+      },
+    };
+  }
+
+  async acceptDelivery(id: string, userId: string) {
+    const rider = await this.prisma.rider.findUnique({
+      where: { userId },
+      include: { user: true },
+    });
+
+    if (!rider || !rider.isVerified) {
+      throw new ForbiddenException('Only verified riders can accept deliveries');
+    }
+
+    if (!rider.isAvailable) {
+      throw new BadRequestException(
+        'You must be available to accept deliveries',
+      );
+    }
+
+    const delivery = await this.prisma.delivery.findUnique({
+      where: { id },
+      include: {
+        order: true,
+      },
+    });
+
+    if (!delivery) {
+      throw new NotFoundException(`Delivery with ID ${id} not found`);
+    }
+
+    if (delivery.status !== DeliveryStatus.PENDING || delivery.riderId) {
+      throw new BadRequestException(
+        'Delivery is no longer available or already assigned',
+      );
+    }
+
+    const updatedDelivery = await this.prisma.delivery.update({
+      where: { id },
+      data: {
+        riderId: rider.id,
+        status: DeliveryStatus.ASSIGNED,
+      },
+    });
+
+    await this.notificationsService.create({
+      userId: delivery.order.userId,
+      type: 'DELIVERY',
+      title: 'Rider Assigned',
+      message: `A rider has accepted your delivery for order #${delivery.order.orderNumber}.`,
+      data: JSON.stringify({
+        deliveryId: delivery.id,
+        riderName: `${rider.user.firstName} ${rider.user.lastName}`,
+      }),
+    });
 
     return updatedDelivery;
   }

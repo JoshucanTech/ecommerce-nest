@@ -71,4 +71,5 @@ enum OrderStatus {
   CANCELLED
   REFUNDED
   CONFIRMED
+  OUT_FOR_DELIVERY
 }

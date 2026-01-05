@@ -18,8 +18,9 @@ model User {
   lastLogin             DateTime?
   resetToken            String?
   resetTokenExpiry      DateTime?
-  riderApplicationId    String?
   status                UserStatus              @default(ACTIVE)
+  assignedCity          String?
+  assignedState         String?
   vendorApplicationId   String?
   verificationToken     String?
   AdUserInteraction     AdUserInteraction[]
@@ -48,7 +49,7 @@ model User {
   supportTickets        SupportTicket[]
   settings              UserSettings?
   userTokens            UserTokens[]
-  riderApplication      RiderApplication?       @relation(fields: [riderApplicationId], references: [id])
+  riderApplication      RiderApplication?
   vendorApplication     VendorApplication?      @relation(fields: [vendorApplicationId], references: [id])
   vendor                Vendor?
   wishlistItems         WishlistItem[]
@@ -83,6 +84,8 @@ model Address {
   state      String
   postalCode String
   country    String
+  latitude   Float?
+  longitude  Float?
   isDefault  Boolean  @default(false)
   userId     String
   createdAt  DateTime @default(now())

@@ -5,6 +5,8 @@ model ShippingAddress {
   state        String
   postalCode   String
   country      String
+  latitude     Float?
+  longitude    Float?
   isDefault    Boolean           @default(false)
   nickname     String?
   addressType  AddressType       @default(OTHER)

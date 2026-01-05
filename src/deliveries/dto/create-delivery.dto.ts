@@ -16,12 +16,28 @@ export class CreateDeliveryDto {
   @IsString()
   pickupAddress: string;
 
+  @ApiPropertyOptional({ description: 'Pickup latitude' })
+  @IsOptional()
+  pickupLatitude?: number;
+
+  @ApiPropertyOptional({ description: 'Pickup longitude' })
+  @IsOptional()
+  pickupLongitude?: number;
+
   @ApiProperty({
     description: 'Delivery address',
     example: '456 Customer Ave, New York, NY 10002',
   })
   @IsString()
   deliveryAddress: string;
+
+  @ApiPropertyOptional({ description: 'Delivery latitude' })
+  @IsOptional()
+  deliveryLatitude?: number;
+
+  @ApiPropertyOptional({ description: 'Delivery longitude' })
+  @IsOptional()
+  deliveryLongitude?: number;
 
   @ApiPropertyOptional({
     description: 'Estimated delivery time',

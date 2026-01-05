@@ -67,6 +67,8 @@ model VendorAddress {
   state               String
   postalCode          String
   country             String
+  latitude            Float?
+  longitude           Float?
   isDefault           Boolean            @default(false)
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
