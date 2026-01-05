@@ -11,15 +11,15 @@ export class UploadsService {
         this.ensureUploadsDir();
     }
 
-    private ensureUploadsDir() {
-        const uploadDir = path.resolve(process.cwd(), 'uploads/avatars');
+    private ensureUploadsDir(category: string = 'avatars') {
+        const uploadDir = path.resolve(process.cwd(), `uploads/${category}`);
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
             this.logger.log(`Created directory: ${uploadDir}`);
         }
     }
 
-    getPublicUrl(filename: string): string {
+    getPublicUrl(filename: string, category: string = 'avatars'): string {
         const apiUrl = this.configService.get<string>('API_URL') || 'http://localhost:3000';
         // Remove trailing slash if present
         let baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
@@ -29,10 +29,8 @@ export class UploadsService {
             baseUrl = baseUrl.slice(0, -4);
         }
 
-        const publicUrl = `${baseUrl}/uploads/avatars/${filename}`;
-        this.logger.log(`Generated public URL for avatar: ${publicUrl}`);
+        const publicUrl = `${baseUrl}/uploads/${category}/${filename}`;
+        this.logger.log(`Generated public URL for ${category}: ${publicUrl}`);
         return publicUrl;
     }
-
-
 }

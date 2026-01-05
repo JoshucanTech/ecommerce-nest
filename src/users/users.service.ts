@@ -249,7 +249,11 @@ export class UsersService {
       include: {
         profile: true,
         addresses: true,
-        vendor: true,
+        vendor: {
+          include: {
+            businessAddress: true,
+          }
+        },
         rider: true,
         settings: true,
         shippingAddresses: true,

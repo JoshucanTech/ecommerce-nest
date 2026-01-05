@@ -67,7 +67,7 @@ export class UploadsController {
             throw new BadRequestException('File is required');
         }
 
-        const publicUrl = this.uploadsService.getPublicUrl(file.filename);
+        const publicUrl = this.uploadsService.getPublicUrl(file.filename, 'avatars');
 
         // Update user avatar in database
         await this.prisma.user.update({
@@ -77,6 +77,58 @@ export class UploadsController {
 
         return {
             message: 'Avatar uploaded successfully',
+            url: publicUrl,
+        };
+    }
+
+    @Post('vendor')
+    @ApiBearerAuth()
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Upload vendor profile images (logo, cover)' })
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: {
+                file: {
+                    type: 'string',
+                    format: 'binary',
+                },
+            },
+        },
+    })
+    @UseInterceptors(
+        FileInterceptor('file', {
+            storage: diskStorage({
+                destination: './uploads/vendors',
+                filename: (req, file, cb) => {
+                    const randomName = Array(32)
+                        .fill(null)
+                        .map(() => Math.round(Math.random() * 16).toString(16))
+                        .join('');
+                    cb(null, `${randomName}${extname(file.originalname)}`);
+                },
+            }),
+            fileFilter: (req, file, cb) => {
+                if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
+                    return cb(new BadRequestException('Only image files are allowed!'), false);
+                }
+                cb(null, true);
+            },
+            limits: {
+                fileSize: 5 * 1024 * 1024, // 5MB
+            },
+        }),
+    )
+    async uploadVendorImage(@UploadedFile() file: Express.Multer.File) {
+        if (!file) {
+            throw new BadRequestException('File is required');
+        }
+
+        const publicUrl = this.uploadsService.getPublicUrl(file.filename, 'vendors');
+
+        return {
+            message: 'File uploaded successfully',
             url: publicUrl,
         };
     }

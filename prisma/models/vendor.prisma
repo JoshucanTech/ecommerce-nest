@@ -61,6 +61,7 @@ model VendorApplication {
 
 model VendorAddress {
   id                  String             @id @default(uuid())
+  nickname            String?
   street              String
   city                String
   state               String

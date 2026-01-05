@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateVendorApplicationDto } from './dto/create-vendor-application.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
+import { VendorBranchDto } from './dto/vendor-branch.dto';
 import { generateSlug } from '../utils/slug-generator';
 import { AdStatus, AdType, ApplicationStatus } from '@prisma/client';
 
@@ -514,19 +515,30 @@ export class VendorsService {
     }
 
     // Update vendor
+    const { businessAddress, ...updateData } = updateVendorDto;
+
+    const vendorAddress = await this.prisma.vendorAddress.findFirst({
+      where: { vendorId: vendor.id },
+    });
+
     return this.prisma.vendor.update({
       where: { id: vendor.id },
       data: {
-        ...updateVendorDto,
+        ...updateData,
         slug,
-        businessAddress: {
-          update: {
-            where: { id: vendor.id },
-            data: {
-              ...updateVendorDto.businessAddress,
+        ...(businessAddress && vendorAddress && {
+          businessAddress: {
+            update: {
+              where: { id: vendorAddress.id },
+              data: businessAddress,
             },
           },
-        },
+        }),
+        ...(businessAddress && !vendorAddress && {
+          businessAddress: {
+            create: businessAddress,
+          },
+        }),
       },
     });
   }
@@ -579,19 +591,30 @@ export class VendorsService {
     }
 
     // Update vendor
+    const { businessAddress, ...updateData } = updateVendorDto;
+
+    const vendorAddress = await this.prisma.vendorAddress.findFirst({
+      where: { vendorId: id },
+    });
+
     return this.prisma.vendor.update({
       where: { id },
       data: {
-        ...updateVendorDto,
+        ...updateData,
         slug,
-        businessAddress: {
-          update: {
-            where: { id },
-            data: {
-              ...updateVendorDto.businessAddress,
+        ...(businessAddress && vendorAddress && {
+          businessAddress: {
+            update: {
+              where: { id: vendorAddress.id },
+              data: businessAddress,
             },
           },
-        },
+        }),
+        ...(businessAddress && !vendorAddress && {
+          businessAddress: {
+            create: businessAddress,
+          },
+        }),
       },
     });
   }
@@ -710,5 +733,112 @@ export class VendorsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async getBranches(userId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    return this.prisma.vendorAddress.findMany({
+      where: { vendorId: vendor.id },
+      orderBy: { isDefault: 'desc' },
+    });
+  }
+
+  async addBranch(userId: string, branchDto: VendorBranchDto) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    const { isDefault, ...addressData } = branchDto;
+
+    if (isDefault) {
+      // Unset existing default branch
+      await this.prisma.vendorAddress.updateMany({
+        where: { vendorId: vendor.id, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    return this.prisma.vendorAddress.create({
+      data: {
+        ...addressData,
+        isDefault: isDefault || false,
+        Vendor: { connect: { id: vendor.id } },
+      },
+    });
+  }
+
+  async updateBranch(userId: string, addressId: string, branchDto: VendorBranchDto) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    const address = await this.prisma.vendorAddress.findFirst({
+      where: { id: addressId, vendorId: vendor.id },
+    });
+
+    if (!address) {
+      throw new NotFoundException('Branch address not found');
+    }
+
+    const { isDefault, ...addressData } = branchDto;
+
+    if (isDefault && !address.isDefault) {
+      // Set as default, unset others
+      await this.prisma.vendorAddress.updateMany({
+        where: { vendorId: vendor.id, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    return this.prisma.vendorAddress.update({
+      where: { id: addressId },
+      data: {
+        ...addressData,
+        isDefault: isDefault !== undefined ? isDefault : address.isDefault,
+      },
+    });
+  }
+
+  async deleteBranch(userId: string, addressId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    const address = await this.prisma.vendorAddress.findFirst({
+      where: { id: addressId, vendorId: vendor.id },
+    });
+
+    if (!address) {
+      throw new NotFoundException('Branch address not found');
+    }
+
+    if (address.isDefault) {
+      throw new BadRequestException('Cannot delete the default branch. Set another branch as default first.');
+    }
+
+    await this.prisma.vendorAddress.delete({
+      where: { id: addressId },
+    });
+
+    return { message: 'Branch deleted successfully' };
   }
 }

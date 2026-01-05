@@ -66,4 +66,41 @@ export class UpdateVendorDto {
   @Min(0)
   @Max(100)
   commissionRate?: number;
+
+  @ApiPropertyOptional({
+    description: 'Website URL',
+    example: 'https://techgadgetspro.com',
+  })
+  @IsOptional()
+  @IsString()
+  website?: string;
+
+  @ApiPropertyOptional({
+    description: 'Cover image URL',
+    example: 'https://example.com/cover.jpg',
+  })
+  @IsOptional()
+  @IsString()
+  coverImage?: string;
+
+  @ApiPropertyOptional({
+    description: 'Social media links',
+    example: { twitter: '@techgadgets', facebook: 'techgadgets' },
+  })
+  @IsOptional()
+  socialMedia?: any;
+
+  @ApiPropertyOptional({
+    description: 'Bank information',
+    example: { bankName: 'Global Bank', accountNumber: '123456789' },
+  })
+  @IsOptional()
+  bankInfo?: any;
+
+  @ApiPropertyOptional({
+    description: 'Active status',
+    example: true,
+  })
+  @IsOptional()
+  isActive?: boolean;
 }

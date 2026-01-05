@@ -8,6 +8,7 @@ import {
   UseGuards,
   Query,
   HttpStatus,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,6 +25,7 @@ import { OrdersService } from '../orders/orders.service';
 import { CreateVendorApplicationDto } from './dto/create-vendor-application.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
+import { VendorBranchDto } from './dto/vendor-branch.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -37,6 +39,87 @@ export class VendorsController {
     private readonly vendorsService: VendorsService,
     private readonly ordersService: OrdersService,
   ) { }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update vendor profile' })
+  @ApiResponse({
+    status: 200,
+    description: 'Vendor profile updated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({ status: 404, description: 'Vendor not found' })
+  updateProfile(@CurrentUser() user, @Body() updateVendorDto: UpdateVendorDto) {
+    return this.vendorsService.updateProfile(user.id, updateVendorDto);
+  }
+
+  @Get('branches')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all branches for the current vendor' })
+  getBranches(@CurrentUser() user) {
+    return this.vendorsService.getBranches(user.id);
+  }
+
+  @Post('branches')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Add a new branch' })
+  addBranch(@CurrentUser() user, @Body() branchDto: VendorBranchDto) {
+    console.log('addBranch hit with user:', user.id, 'and dto:', branchDto);
+    return this.vendorsService.addBranch(user.id, branchDto);
+  }
+
+  @Patch('branches/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a branch' })
+  @ApiParam({ name: 'id', description: 'Branch address ID' })
+  updateBranch(
+    @CurrentUser() user,
+    @Param('id') id: string,
+    @Body() branchDto: VendorBranchDto,
+  ) {
+    return this.vendorsService.updateBranch(user.id, id, branchDto);
+  }
+
+  @Delete('branches/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a branch' })
+  @ApiParam({ name: 'id', description: 'Branch address ID' })
+  deleteBranch(@CurrentUser() user, @Param('id') id: string) {
+    return this.vendorsService.deleteBranch(user.id, id);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a vendor (admin only)' })
+  @ApiParam({ name: 'id', description: 'Vendor ID' })
+  @ApiResponse({ status: 200, description: 'Vendor updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({ status: 404, description: 'Vendor not found' })
+  update(@Param('id') id: string, @Body() updateVendorDto: UpdateVendorDto) {
+    return this.vendorsService.update(id, updateVendorDto);
+  }
 
   @Get('dashboard/stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -706,41 +789,4 @@ export class VendorsController {
     return this.vendorsService.findOne(id);
   }
 
-  @Patch('profile')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update vendor profile' })
-  @ApiResponse({
-    status: 200,
-    description: 'Vendor profile updated successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Insufficient permissions',
-  })
-  @ApiResponse({ status: 404, description: 'Vendor not found' })
-  updateProfile(@CurrentUser() user, @Body() updateVendorDto: UpdateVendorDto) {
-    return this.vendorsService.updateProfile(user.id, updateVendorDto);
-  }
-
-  @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update a vendor (admin only)' })
-  @ApiParam({ name: 'id', description: 'Vendor ID' })
-  @ApiResponse({ status: 200, description: 'Vendor updated successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Insufficient permissions',
-  })
-  @ApiResponse({ status: 404, description: 'Vendor not found' })
-  update(@Param('id') id: string, @Body() updateVendorDto: UpdateVendorDto) {
-    return this.vendorsService.update(id, updateVendorDto);
-  }
 }
