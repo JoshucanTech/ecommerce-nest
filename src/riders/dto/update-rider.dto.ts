@@ -64,4 +64,12 @@ export class UpdateRiderDto {
   @IsOptional()
   @IsNumber()
   currentLongitude?: number;
+
+  @ApiPropertyOptional({
+    description: 'Working radius in kilometers',
+    example: 10,
+  })
+  @IsOptional()
+  @IsNumber()
+  workingRadius?: number;
 }

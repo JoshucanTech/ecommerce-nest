@@ -757,9 +757,6 @@ export class DeliveriesService {
     userId: string,
     params: { radius?: number; page?: number; limit?: number },
   ) {
-    const { radius = 5, page = 1, limit = 10 } = params;
-    const skip = (page - 1) * limit;
-
     const rider = await this.prisma.rider.findUnique({
       where: { userId },
     });
@@ -771,6 +768,9 @@ export class DeliveriesService {
     if (!rider.currentLatitude || !rider.currentLongitude) {
       throw new BadRequestException('Rider location not updated');
     }
+
+    const { radius = rider.workingRadius || 10, page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
 
     const deliveries = await this.prisma.delivery.findMany({
       where: {

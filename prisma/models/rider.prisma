@@ -9,6 +9,7 @@ model Rider {
   isAvailable      Boolean           @default(false)
   currentLatitude  Float?
   currentLongitude Float?
+  workingRadius    Float             @default(10.0)
   rating           Float             @default(0)
   totalRatings     Int               @default(0)
   status           ApplicationStatus @default(PENDING)
