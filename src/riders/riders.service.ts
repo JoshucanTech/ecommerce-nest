@@ -115,6 +115,30 @@ export class RidersService {
     return application;
   }
 
+  async getRiderByUserId(userId: string) {
+    const rider = await this.prisma.rider.findUnique({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
+    if (!rider) {
+      throw new NotFoundException('Rider profile not found');
+    }
+
+    return rider;
+  }
+
   async getApplicationById(id: string) {
     const application = await this.prisma.riderApplication.findUnique({
       where: { id },

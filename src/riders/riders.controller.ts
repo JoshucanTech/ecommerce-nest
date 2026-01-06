@@ -274,18 +274,24 @@ export class RidersController {
     });
   }
 
-  @Get('applications/my')
+  @Get('me/application')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Get current user's rider application" })
-  @ApiResponse({
-    status: 200,
-    description: "Returns the user's rider application",
-  })
+  @ApiOperation({ summary: 'Get current user rider application' })
+  @ApiResponse({ status: 200, description: 'Return current user rider application.' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Application not found' })
   getMyApplication(@CurrentUser() user) {
     return this.ridersService.getApplicationByUserId(user.id);
+  }
+
+  @Get('me/profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user rider profile' })
+  @ApiResponse({ status: 200, description: 'Return current user rider profile.' })
+  getMyProfile(@CurrentUser() user) {
+    return this.ridersService.getRiderByUserId(user.id);
   }
 
   @Get('applications/:id')
