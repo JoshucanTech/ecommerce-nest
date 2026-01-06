@@ -294,6 +294,47 @@ export class RidersController {
     return this.ridersService.getRiderByUserId(user.id);
   }
 
+  @Get('me/earnings')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user rider earnings' })
+  @ApiResponse({ status: 200, description: 'Returns the rider earnings' })
+  getEarnings(
+    @CurrentUser() user,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.ridersService.getEarnings(user.id, {
+      page: page || 1,
+      limit: limit || 10,
+    });
+  }
+
+  @Get('me/payouts')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user rider payouts' })
+  @ApiResponse({ status: 200, description: 'Returns the rider payouts' })
+  getPayouts(
+    @CurrentUser() user,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.ridersService.getPayouts(user.id, {
+      page: page || 1,
+      limit: limit || 10,
+    });
+  }
+
+  @Get('me/earnings/stats')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user rider earnings stats' })
+  @ApiResponse({ status: 200, description: 'Returns the rider earnings stats' })
+  getEarningsStats(@CurrentUser() user) {
+    return this.ridersService.getEarningsStats(user.id);
+  }
+
   @Get('applications/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')

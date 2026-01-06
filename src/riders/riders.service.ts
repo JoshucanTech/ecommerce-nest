@@ -493,4 +493,107 @@ export class RidersService {
       data: updateRiderDto,
     });
   }
+
+  async getEarnings(userId: string, params: { page: number; limit: number }) {
+    const rider = await this.prisma.rider.findUnique({ where: { userId } });
+    if (!rider) throw new NotFoundException('Rider profile not found');
+
+    const { page, limit } = params;
+    const skip = (page - 1) * limit;
+
+    const [earnings, total] = await Promise.all([
+      this.prisma.riderEarning.findMany({
+        where: { riderId: rider.id },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: { delivery: { include: { order: true } } },
+      }),
+      this.prisma.riderEarning.count({ where: { riderId: rider.id } }),
+    ]);
+
+    return {
+      data: earnings,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async getPayouts(userId: string, params: { page: number; limit: number }) {
+    const rider = await this.prisma.rider.findUnique({ where: { userId } });
+    if (!rider) throw new NotFoundException('Rider profile not found');
+
+    const { page, limit } = params;
+    const skip = (page - 1) * limit;
+
+    const [payouts, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: { riderId: rider.id, paymentType: 'RIDER_PAYMENT' },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.payment.count({
+        where: { riderId: rider.id, paymentType: 'RIDER_PAYMENT' },
+      }),
+    ]);
+
+    return {
+      data: payouts,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async getEarningsStats(userId: string) {
+    const rider = await this.prisma.rider.findUnique({ where: { userId } });
+    if (!rider) throw new NotFoundException('Rider profile not found');
+
+    const [totalEarnings, pendingEarnings, completedDeliveries] = await Promise.all([
+      this.prisma.riderEarning.aggregate({
+        where: { riderId: rider.id },
+        _sum: { amount: true },
+      }),
+      this.prisma.riderEarning.aggregate({
+        where: { riderId: rider.id, status: 'PENDING' },
+        _sum: { amount: true },
+      }),
+      this.prisma.delivery.count({
+        where: { riderId: rider.id, status: 'DELIVERED' },
+      }),
+    ]);
+
+    // Graph data for last 7 days
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      const startOfDay = new Date(dateStr);
+      const endOfDay = new Date(dateStr);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const dayEarnings = await this.prisma.riderEarning.aggregate({
+        where: {
+          riderId: rider.id,
+          createdAt: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
+        },
+        _sum: { amount: true },
+      });
+
+      last7Days.push({
+        date: dateStr,
+        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        earnings: dayEarnings._sum.amount || 0,
+      });
+    }
+
+    return {
+      lifetimeEarnings: totalEarnings._sum.amount || 0,
+      pendingEarnings: pendingEarnings._sum.amount || 0,
+      completedDeliveries,
+      last7Days,
+    };
+  }
 }
