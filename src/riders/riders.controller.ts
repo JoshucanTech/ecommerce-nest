@@ -32,7 +32,7 @@ import { Public } from '../auth/decorators/public.decorator';
 @ApiTags('riders')
 @Controller('riders')
 export class RidersController {
-  constructor(private readonly ridersService: RidersService) {}
+  constructor(private readonly ridersService: RidersService) { }
 
   @Post('apply')
   @UseGuards(JwtAuthGuard)
@@ -497,7 +497,11 @@ export class RidersController {
     @CurrentUser() user,
     @Body() updateLocationDto: UpdateLocationDto,
   ) {
-    return this.ridersService.updateLocation(user.id, updateLocationDto);
+    return this.ridersService.updateLocation(
+      user.id,
+      updateLocationDto.currentLatitude,
+      updateLocationDto.currentLongitude,
+    );
   }
 
   @Patch('availability')
