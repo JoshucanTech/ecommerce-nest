@@ -299,6 +299,7 @@ export class DeliveriesService {
                   businessPhone: true,
                 },
               },
+              items: true,
             },
           },
         },
