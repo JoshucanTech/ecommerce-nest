@@ -167,12 +167,14 @@ export class ProductsController {
 
   @Get('vendor')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles('VENDOR', 'ADMIN')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all products for the logged-in vendor' })
+  @ApiOperation({ summary: 'Get all products for a specific vendor' })
+  @ApiQuery({ name: 'vendorUserId', required: false, description: 'User ID of the vendor (Admin only)' })
   @ApiResponse({ status: 200, description: 'Returns vendor products' })
-  getVendorProducts(@CurrentUser() user) {
-    return this.productsService.getVendorProducts(user.id);
+  getVendorProducts(@CurrentUser() user, @Query('vendorUserId') vendorUserId?: string) {
+    const targetUserId = user.role === 'ADMIN' && vendorUserId ? vendorUserId : user.id;
+    return this.productsService.getVendorProducts(targetUserId);
   }
 
   @Get()

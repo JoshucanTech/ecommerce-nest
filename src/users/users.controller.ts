@@ -314,7 +314,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Get user addresses',
     description:
-      'Retrieve all addresses associated with the currently authenticated user',
+      'Retrieve all addresses associated with a specific user (Admin only) or the current user',
   })
   @ApiHeader({
     name: 'Authorization',
@@ -322,60 +322,27 @@ export class UsersController {
     required: true,
     example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID to fetch addresses for (Admin only)' })
   @ApiResponse({
     status: 200,
     description: 'Returns user addresses',
-    content: {
-      'application/json': {
-        schema: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: {
-                type: 'string',
-                example: '123e4567-e89b-12d3-a456-426614174000',
-              },
-              street: { type: 'string', example: '123 Main St' },
-              city: { type: 'string', example: 'New York' },
-              state: { type: 'string', example: 'NY' },
-              postalCode: { type: 'string', example: '10001' },
-              country: { type: 'string', example: 'USA' },
-              isDefault: { type: 'boolean', example: true },
-              userId: {
-                type: 'string',
-                example: '123e4567-e89b-12d3-a456-426614174001',
-              },
-              createdAt: {
-                type: 'string',
-                format: 'date-time',
-                example: '2023-01-01T00:00:00Z',
-              },
-              updatedAt: {
-                type: 'string',
-                format: 'date-time',
-                example: '2023-01-01T00:00:00Z',
-              },
-            },
-          },
-        },
-      },
-    },
   })
   @ApiResponse({
     status: 401,
     description: 'Unauthorized - Missing or invalid authentication token',
   })
-  getAddresses(@CurrentUser() user) {
-    return this.usersService.getAddresses(user.id);
+  getAddresses(@CurrentUser() user, @Query('userId') userId?: string) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.usersService.getAddresses(targetUserId);
   }
 
   @Post('addresses')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR', 'ADMIN', 'RIDER')
   @ApiOperation({
     summary: 'Create a new address',
     description:
-      "Add a new address to the currently authenticated user's address book",
+      "Add a new address to a specific user's address book (Admin only) or the current user's",
   })
   @ApiHeader({
     name: 'Authorization',
@@ -383,59 +350,9 @@ export class UsersController {
     required: true,
     example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
-  @ApiBody({
-    description: 'Address creation data',
-    examples: {
-      basic: {
-        summary: 'Basic address',
-        value: {
-          street: '123 Main St',
-          city: 'New York',
-          state: 'NY',
-          postalCode: '10001',
-          country: 'USA',
-          isDefault: false,
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Address created successfully',
-    content: {
-      'application/json': {
-        schema: {
-          type: 'object',
-          properties: {
-            id: {
-              type: 'string',
-              example: '123e4567-e89b-12d3-a456-426614174000',
-            },
-            street: { type: 'string', example: '123 Main St' },
-            city: { type: 'string', example: 'New York' },
-            state: { type: 'string', example: 'NY' },
-            postalCode: { type: 'string', example: '10001' },
-            country: { type: 'string', example: 'USA' },
-            isDefault: { type: 'boolean', example: false },
-            userId: {
-              type: 'string',
-              example: '123e4567-e89b-12d3-a456-426614174001',
-            },
-            createdAt: {
-              type: 'string',
-              format: 'date-time',
-              example: '2023-01-01T00:00:00Z',
-            },
-            updatedAt: {
-              type: 'string',
-              format: 'date-time',
-              example: '2023-01-01T00:00:00Z',
-            },
-          },
-        },
-      },
-    },
-  })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID to create address for (Admin only)' })
+  // ... (ApiBody and ApiResponse omitted)
+  @ApiResponse({ status: 201, description: 'Address created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid input data' })
   @ApiResponse({
     status: 401,
@@ -444,16 +361,19 @@ export class UsersController {
   createAddress(
     @CurrentUser() user,
     @Body() createAddressDto: CreateAddressDto,
+    @Query('userId') userId?: string,
   ) {
-    return this.usersService.createAddress(user.id, createAddressDto);
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.usersService.createAddress(targetUserId, createAddressDto);
   }
 
   @Patch('addresses/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR', 'ADMIN', 'RIDER')
   @ApiOperation({
     summary: 'Update an address',
     description:
-      "Update an existing address in the currently authenticated user's address book",
+      "Update an existing address in a specific user's address book (Admin only) or the current user's",
   })
   @ApiHeader({
     name: 'Authorization',
@@ -466,58 +386,9 @@ export class UsersController {
     description: 'Unique identifier of the address',
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  @ApiBody({
-    description: 'Address update data',
-    examples: {
-      update: {
-        summary: 'Update address details',
-        value: {
-          street: '456 Oak Ave',
-          city: 'Los Angeles',
-          state: 'CA',
-          postalCode: '90210',
-          isDefault: true,
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Address updated successfully',
-    content: {
-      'application/json': {
-        schema: {
-          type: 'object',
-          properties: {
-            id: {
-              type: 'string',
-              example: '123e4567-e89b-12d3-a456-426614174000',
-            },
-            street: { type: 'string', example: '456 Oak Ave' },
-            city: { type: 'string', example: 'Los Angeles' },
-            state: { type: 'string', example: 'CA' },
-            postalCode: { type: 'string', example: '90210' },
-            country: { type: 'string', example: 'USA' },
-            isDefault: { type: 'boolean', example: true },
-            userId: {
-              type: 'string',
-              example: '123e4567-e89b-12d3-a456-426614174001',
-            },
-            createdAt: {
-              type: 'string',
-              format: 'date-time',
-              example: '2023-01-01T00:00:00Z',
-            },
-            updatedAt: {
-              type: 'string',
-              format: 'date-time',
-              example: '2023-01-02T00:00:00Z',
-            },
-          },
-        },
-      },
-    },
-  })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the address owner (Admin only)' })
+  // ... (ApiBody and ApiResponse omitted)
+  @ApiResponse({ status: 200, description: 'Address updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid input data' })
   @ApiResponse({
     status: 401,
@@ -528,16 +399,19 @@ export class UsersController {
     @CurrentUser() user,
     @Param('id') id: string,
     @Body() updateAddressDto: UpdateAddressDto,
+    @Query('userId') userId?: string,
   ) {
-    return this.usersService.updateAddress(user.id, id, updateAddressDto);
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.usersService.updateAddress(targetUserId, id, updateAddressDto);
   }
 
   @Delete('addresses/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR', 'ADMIN', 'RIDER')
   @ApiOperation({
     summary: 'Delete an address',
     description:
-      "Remove an address from the currently authenticated user's address book",
+      "Remove an address from a specific user's address book (Admin only) or the current user's",
   })
   @ApiHeader({
     name: 'Authorization',
@@ -550,53 +424,62 @@ export class UsersController {
     description: 'Unique identifier of the address',
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the address owner (Admin only)' })
   @ApiResponse({ status: 200, description: 'Address deleted successfully' })
   @ApiResponse({
     status: 401,
     description: 'Unauthorized - Missing or invalid authentication token',
   })
   @ApiResponse({ status: 404, description: 'Address not found' })
-  removeAddress(@CurrentUser() user, @Param('id') id: string) {
-    return this.usersService.removeAddress(user.id, id);
+  removeAddress(
+    @CurrentUser() user,
+    @Param('id') id: string,
+    @Query('userId') userId?: string,
+  ) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.usersService.removeAddress(targetUserId, id);
   }
 
   @Post('shipping-addresses')
-  @UseGuards(JwtAuthGuard)
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('BUYER', 'VENDOR')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR', 'ADMIN', 'RIDER')
   @ApiOperation({
-    summary: 'Create a new shipping address with Amazon-level features',
+    summary: 'Create a new shipping address',
   })
   @ApiBody({ type: CreateShippingAddressDto })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID to create shipping address for (Admin only)' })
   @ApiResponse({ status: 201, description: 'Shipping address created' })
   @ApiResponse({ status: 409, description: 'Address already exists' })
-  @ApiParam({ name: 'userId', description: 'User ID' })
   createShippingAddress(
     @CurrentUser() user: any,
     @Body() createShippingAddressDto: CreateShippingAddressDto,
+    @Query('userId') userId?: string,
   ) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
     return this.usersService.createShippingAddress(
-      user.id,
+      targetUserId,
       createShippingAddressDto,
     );
   }
 
   @Get('shipping-addresses')
-  // @UseGuards(JwtAuthGuard)
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('BUYER', 'VENDOR')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR', 'ADMIN', 'RIDER')
   @ApiOperation({
-    summary: 'Get all saved shipping addresses with Amazon-level filtering',
+    summary: 'Get all saved shipping addresses',
   })
   @ApiQuery({ name: 'type', enum: AddressType, required: false })
   @ApiQuery({ name: 'shared', type: Boolean, required: false })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID to fetch shipping addresses for (Admin only)' })
   @ApiResponse({ status: 200, description: 'List of shipping addresses' })
   getShippingAddresses(
     @CurrentUser() user: any,
     @Query('type') type?: AddressType,
     @Query('shared') shared?: boolean,
+    @Query('userId') userId?: string,
   ) {
-    return this.usersService.getShippingAddresses(user.id, type, shared);
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.usersService.getShippingAddresses(targetUserId, type, shared);
   }
 
   @Get(':id')
@@ -669,26 +552,31 @@ export class UsersController {
   }
 
   @Get('shipping-addresses/:id')
-  @UseGuards(JwtAuthGuard)
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('BUYER', 'VENDOR')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR', 'ADMIN', 'RIDER')
   @ApiOperation({ summary: 'Get a specific shipping address' })
   @ApiParam({ name: 'id', description: 'Address ID' })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the address owner (Admin only)' })
   @ApiResponse({ status: 200, description: 'Shipping address details' })
   @ApiResponse({ status: 404, description: 'Shipping address not found' })
-  getShippingAddress(@CurrentUser() user: any, @Param('id') id: string) {
-    return this.usersService.getShippingAddress(user.id, id);
+  getShippingAddress(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Query('userId') userId?: string,
+  ) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.usersService.getShippingAddress(targetUserId, id);
   }
 
   @Patch('shipping-addresses/:id')
-  @UseGuards(JwtAuthGuard)
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('BUYER', 'VENDOR')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR', 'ADMIN', 'RIDER')
   @ApiOperation({
-    summary: 'Update a shipping address with Amazon-level features',
+    summary: 'Update a shipping address',
   })
   @ApiParam({ name: 'id', description: 'Address ID' })
   @ApiBody({ type: UpdateShippingAddressDto })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the address owner (Admin only)' })
   @ApiResponse({ status: 200, description: 'Shipping address updated' })
   @ApiResponse({ status: 404, description: 'Shipping address not found' })
   @ApiResponse({ status: 409, description: 'Address conflict' })
@@ -696,24 +584,31 @@ export class UsersController {
     @CurrentUser() user: any,
     @Param('id') id: string,
     @Body() updateShippingAddressDto: UpdateShippingAddressDto,
+    @Query('userId') userId?: string,
   ) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
     return this.usersService.updateShippingAddress(
-      user.id,
+      targetUserId,
       id,
       updateShippingAddressDto,
     );
   }
 
   @Delete('shipping-addresses/:id')
-  @UseGuards(JwtAuthGuard)
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('BUYER', 'VENDOR')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER', 'VENDOR', 'ADMIN', 'RIDER')
   @ApiOperation({ summary: 'Delete a shipping address' })
   @ApiParam({ name: 'id', description: 'Address ID' })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the address owner (Admin only)' })
   @ApiResponse({ status: 200, description: 'Shipping address deleted' })
   @ApiResponse({ status: 404, description: 'Shipping address not found' })
-  deleteShippingAddress(@CurrentUser() user: any, @Param('id') id: string) {
-    return this.usersService.deleteShippingAddress(user.id, id);
+  deleteShippingAddress(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Query('userId') userId?: string,
+  ) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.usersService.deleteShippingAddress(targetUserId, id);
   }
 
   @Post('shipping-addresses/:id/share')

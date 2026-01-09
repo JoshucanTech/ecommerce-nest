@@ -62,45 +62,62 @@ export class VendorsController {
 
   @Get('branches')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles('VENDOR', 'ADMIN')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all branches for the current vendor' })
-  getBranches(@CurrentUser() user) {
-    return this.vendorsService.getBranches(user.id);
+  @ApiOperation({ summary: 'Get all branches for a vendor' })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the vendor (Admin only)' })
+  getBranches(@CurrentUser() user, @Query('userId') userId?: string) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.vendorsService.getBranches(targetUserId);
   }
 
   @Post('branches')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles('VENDOR', 'ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Add a new branch' })
-  addBranch(@CurrentUser() user, @Body() branchDto: VendorBranchDto) {
-    console.log('addBranch hit with user:', user.id, 'and dto:', branchDto);
-    return this.vendorsService.addBranch(user.id, branchDto);
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the vendor (Admin only)' })
+  addBranch(
+    @CurrentUser() user,
+    @Body() branchDto: VendorBranchDto,
+    @Query('userId') userId?: string,
+  ) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    console.log('addBranch hit with user:', targetUserId, 'and dto:', branchDto);
+    return this.vendorsService.addBranch(targetUserId, branchDto);
   }
 
   @Patch('branches/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles('VENDOR', 'ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a branch' })
   @ApiParam({ name: 'id', description: 'Branch address ID' })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the vendor (Admin only)' })
   updateBranch(
     @CurrentUser() user,
     @Param('id') id: string,
     @Body() branchDto: VendorBranchDto,
+    @Query('userId') userId?: string,
   ) {
-    return this.vendorsService.updateBranch(user.id, id, branchDto);
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.vendorsService.updateBranch(targetUserId, id, branchDto);
   }
 
   @Delete('branches/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles('VENDOR', 'ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a branch' })
   @ApiParam({ name: 'id', description: 'Branch address ID' })
-  deleteBranch(@CurrentUser() user, @Param('id') id: string) {
-    return this.vendorsService.deleteBranch(user.id, id);
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the vendor (Admin only)' })
+  deleteBranch(
+    @CurrentUser() user,
+    @Param('id') id: string,
+    @Query('userId') userId?: string,
+  ) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.vendorsService.deleteBranch(targetUserId, id);
   }
 
   @Patch(':id')
@@ -123,15 +140,17 @@ export class VendorsController {
 
   @Get('dashboard/stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles('VENDOR', 'ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get vendor dashboard statistics' })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the vendor (Admin only)' })
   @ApiResponse({
     status: 200,
     description: 'Returns filtered dashboard statistics including sales, orders, and customer counts'
   })
-  getDashboardStats(@CurrentUser() user) {
-    return this.vendorsService.getDashboardStats(user.id);
+  getDashboardStats(@CurrentUser() user, @Query('userId') userId?: string) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.vendorsService.getDashboardStats(targetUserId);
   }
 
   @Get('orders')
@@ -139,20 +158,19 @@ export class VendorsController {
   @Roles('VENDOR', 'SUB_ADMIN', 'ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get vendor orders' })
-  @ApiResponse({
-    status: 200,
-    description: 'Returns paginated orders for the vendor',
-  })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the vendor (Admin only)' })
   getVendorOrders(
     @CurrentUser() user,
     @Query('page') page = 1,
     @Query('limit') limit = 10,
     @Query('status') status?: string,
+    @Query('userId') userId?: string,
   ) {
-    return this.ordersService.findDashboardOrders(user.id, {
+    const targetUserId = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') && userId ? userId : user.id;
+    return this.ordersService.findDashboardOrders(targetUserId, {
       page: +page,
       limit: +limit,
       status,

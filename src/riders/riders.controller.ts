@@ -509,13 +509,12 @@ export class RidersController {
 
   @Patch('profile')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('RIDER')
+  @Roles('RIDER', 'ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update rider profile' })
-  @ApiResponse({
-    status: 200,
-    description: 'Rider profile updated successfully',
-  })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the rider (Admin only)' })
+  // ... (ApiResponse omitted for brevity in chunk but preserved in file)
+  @ApiResponse({ status: 200, description: 'Rider profile updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({
@@ -523,15 +522,21 @@ export class RidersController {
     description: 'Forbidden - Insufficient permissions',
   })
   @ApiResponse({ status: 404, description: 'Rider not found' })
-  updateProfile(@CurrentUser() user, @Body() updateRiderDto: UpdateRiderDto) {
-    return this.ridersService.updateProfile(user.id, updateRiderDto);
+  updateProfile(
+    @CurrentUser() user,
+    @Body() updateRiderDto: UpdateRiderDto,
+    @Query('userId') userId?: string,
+  ) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.ridersService.updateProfile(targetUserId, updateRiderDto);
   }
 
   @Patch('location')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('RIDER')
+  @Roles('RIDER', 'ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update rider location' })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the rider (Admin only)' })
   @ApiResponse({ status: 200, description: 'Location updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -543,9 +548,11 @@ export class RidersController {
   updateLocation(
     @CurrentUser() user,
     @Body() updateLocationDto: UpdateLocationDto,
+    @Query('userId') userId?: string,
   ) {
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
     return this.ridersService.updateLocation(
-      user.id,
+      targetUserId,
       updateLocationDto.currentLatitude,
       updateLocationDto.currentLongitude,
     );
@@ -553,9 +560,10 @@ export class RidersController {
 
   @Patch('availability')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('RIDER')
+  @Roles('RIDER', 'ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Toggle rider availability' })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the rider (Admin only)' })
   @ApiResponse({
     status: 200,
     description: 'Availability updated successfully',
@@ -569,8 +577,10 @@ export class RidersController {
   toggleAvailability(
     @CurrentUser() user,
     @Body() body: { isAvailable: boolean },
+    @Query('userId') userId?: string,
   ) {
-    return this.ridersService.toggleAvailability(user.id, body.isAvailable);
+    const targetUserId = user.role === 'ADMIN' && userId ? userId : user.id;
+    return this.ridersService.toggleAvailability(targetUserId, body.isAvailable);
   }
 
   @Patch(':id')

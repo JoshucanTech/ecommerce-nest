@@ -61,11 +61,13 @@ export class OrdersController {
     @Query('page') page = 1,
     @Query('limit') limit = 10,
     @Query('status') status?: string,
+    @Query('userId') userId?: string,
   ) {
-    return this.ordersService.findAll('', {
+    return this.ordersService.findAllAdmin({
       page: Number(page),
       limit: Number(limit),
       status,
+      userId: (user.role === UserRole.ADMIN || user.role === UserRole.SUB_ADMIN) && userId ? userId : undefined,
     });
   }
 

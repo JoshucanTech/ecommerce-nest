@@ -9,7 +9,7 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(private reflector: Reflector) { }
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<string[]>(
@@ -25,6 +25,11 @@ export class RolesGuard implements CanActivate {
 
     if (!user) {
       throw new ForbiddenException('User not authenticated');
+    }
+
+    // Admin bypass: Admins have access to all protected routes
+    if (user.role === 'ADMIN') {
+      return true;
     }
 
     const hasRole = requiredRoles.some((role) => user.role === role);
