@@ -31,7 +31,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 @ApiTags('orders')
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(private readonly ordersService: OrdersService) { }
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -132,6 +132,18 @@ export class OrdersController {
     @CurrentUser() user,
   ) {
     return this.ordersService.findByTransactionRef(transactionRef, user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUB_ADMIN)
+  @Get('dashboard/stats')
+  @ApiOperation({ summary: 'Get dashboard statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Return dashboard statistics.',
+  })
+  getDashboardStats(@CurrentUser() user) {
+    return this.ordersService.getDashboardStats(user.id);
   }
 
   @UseGuards(JwtAuthGuard)

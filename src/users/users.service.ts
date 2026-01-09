@@ -257,6 +257,15 @@ export class UsersService {
         rider: true,
         settings: true,
         shippingAddresses: true,
+        roles: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
       },
     });
 
