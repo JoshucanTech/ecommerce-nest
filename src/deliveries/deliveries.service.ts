@@ -253,19 +253,29 @@ export class DeliveriesService {
     const { page, limit, status } = params;
     const skip = (page - 1) * limit;
 
-    // Get rider ID
+    // Get rider ID if user is a rider
     const rider = await this.prisma.rider.findUnique({
       where: { userId },
     });
 
-    if (!rider) {
-      throw new ForbiddenException('User is not a rider');
-    }
-
     // Build where conditions
-    const where: any = {
-      riderId: rider.id,
-    };
+    const where: any = {};
+
+    if (rider) {
+      // If rider exists, filter by riderId
+      where.riderId = rider.id;
+    } else {
+      // If no rider profile, check if user is admin/sub-admin
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user || (user.role !== 'ADMIN' && user.role !== 'SUB_ADMIN')) {
+        throw new ForbiddenException('User is not a rider');
+      }
+      // For admins without specifying a rider, return all deliveries
+      // (no riderId filter, so all deliveries are returned)
+    }
 
     if (status) {
       where.status = status;
@@ -300,6 +310,19 @@ export class DeliveriesService {
                 },
               },
               items: true,
+            },
+          },
+          rider: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                },
+              },
             },
           },
         },

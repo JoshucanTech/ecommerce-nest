@@ -151,8 +151,9 @@ export class DeliveriesController {
 
   @Get('rider')
   @UseGuards(RolesGuard)
-  @Roles('RIDER')
+  @Roles('RIDER', 'ADMIN', 'SUB_ADMIN')
   @ApiOperation({ summary: 'Get rider deliveries' })
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID of the rider (Admin/Sub-Admin only)' })
   @ApiResponse({
     status: 200,
     description: 'Returns paginated rider deliveries',
@@ -162,8 +163,10 @@ export class DeliveriesController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('status') status?: string,
+    @Query('userId') userId?: string,
   ) {
-    return this.deliveriesService.findRiderDeliveries(user.id, {
+    const targetUserId = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') && userId ? userId : user.id;
+    return this.deliveriesService.findRiderDeliveries(targetUserId, {
       page: page || 1,
       limit: limit || 10,
       status,
