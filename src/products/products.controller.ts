@@ -173,7 +173,12 @@ export class ProductsController {
   @ApiQuery({ name: 'vendorUserId', required: false, description: 'User ID of the vendor (Admin only)' })
   @ApiResponse({ status: 200, description: 'Returns vendor products' })
   getVendorProducts(@CurrentUser() user, @Query('vendorUserId') vendorUserId?: string) {
-    const targetUserId = user.role === 'ADMIN' && vendorUserId ? vendorUserId : user.id;
+    let targetUserId: string | undefined;
+    if (user.role === 'ADMIN') {
+      targetUserId = vendorUserId; // Can be undefined, effectively fetching all products
+    } else {
+      targetUserId = user.id;
+    }
     return this.productsService.getVendorProducts(targetUserId);
   }
 

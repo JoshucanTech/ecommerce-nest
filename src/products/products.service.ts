@@ -186,18 +186,23 @@ export class ProductsService {
     };
   }
 
-  async getVendorProducts(userId: string) {
-    // Get vendor ID
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { userId },
-    });
+  async getVendorProducts(userId?: string) {
+    let where: any = {};
 
-    if (!vendor) {
-      throw new ForbiddenException('User is not a vendor');
+    if (userId) {
+      // Get vendor ID
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { userId },
+      });
+
+      if (!vendor) {
+        throw new ForbiddenException('User is not a vendor');
+      }
+      where = { vendorId: vendor.id };
     }
 
     const products = await this.prisma.product.findMany({
-      where: { vendorId: vendor.id },
+      where,
       orderBy: { createdAt: 'desc' },
       include: {
         category: true,

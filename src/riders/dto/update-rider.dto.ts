@@ -72,4 +72,12 @@ export class UpdateRiderDto {
   @IsOptional()
   @IsNumber()
   workingRadius?: number;
+
+  @ApiPropertyOptional({
+    description: 'Rider status (active, suspended, etc.)',
+    example: 'active',
+  })
+  @IsOptional()
+  @IsString()
+  status?: string;
 }

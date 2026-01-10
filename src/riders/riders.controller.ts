@@ -437,10 +437,10 @@ export class RidersController {
     description: 'Search term',
   })
   @ApiQuery({
-    name: 'isAvailable',
+    name: 'status',
     required: false,
-    type: Boolean,
-    description: 'Filter by availability',
+    type: String,
+    description: 'Filter by status (active, suspended, inactive)',
   })
   @ApiResponse({ status: 200, description: 'Returns paginated riders' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -453,12 +453,14 @@ export class RidersController {
     @Query('limit') limit?: number,
     @Query('search') search?: string,
     @Query('isAvailable') isAvailable?: boolean,
+    @Query('status') status?: string,
   ) {
     return this.ridersService.findAll({
       page: page || 1,
       limit: limit || 10,
       search,
       isAvailable,
+      status,
     });
   }
 

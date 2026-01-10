@@ -278,8 +278,9 @@ export class RidersService {
     limit: number;
     search?: string;
     isAvailable?: boolean;
+    status?: string;
   }) {
-    const { page, limit, search, isAvailable } = params;
+    const { page, limit, search, isAvailable, status } = params;
     const skip = (page - 1) * limit;
 
     // Build where conditions
@@ -300,6 +301,17 @@ export class RidersService {
       where.isAvailable = isAvailable;
     }
 
+    if (status) {
+      if (status === 'suspended') {
+        where.user = { ...where.user, status: 'SUSPENDED' };
+      } else if (status === 'inactive') {
+        where.user = { ...where.user, status: 'INACTIVE' };
+      } else if (status === 'active') {
+        where.user = { ...where.user, status: 'ACTIVE' };
+        where.status = 'APPROVED';
+      }
+    }
+
     // Get riders with pagination
     const [riders, total] = await Promise.all([
       this.prisma.rider.findMany({
@@ -316,6 +328,7 @@ export class RidersService {
               email: true,
               phone: true,
               avatar: true,
+              status: true,
             },
           },
           _count: {
@@ -329,11 +342,28 @@ export class RidersService {
     ]);
 
     // Process riders
-    const processedRiders = riders.map((rider) => ({
-      ...rider,
-      deliveryCount: rider._count.deliveries,
-      _count: undefined,
-    }));
+    const processedRiders = riders.map((rider) => {
+      let displayStatus = 'active'; // Default to active if everything checks out
+      if (rider.user.status === 'SUSPENDED') {
+        displayStatus = 'suspended';
+      } else if (rider.user.status === 'INACTIVE') {
+        displayStatus = 'inactive';
+      } else if (rider.status === 'PENDING') {
+        displayStatus = 'pending';
+      } else if (rider.status === 'REJECTED') {
+        displayStatus = 'rejected';
+      } else if (rider.status === 'APPROVED' && rider.user.status === 'ACTIVE') {
+        displayStatus = 'active';
+      }
+
+      return {
+        ...rider,
+        status: displayStatus, // Override the Rider enum status with our computed string
+        originalStatus: rider.status, // Keep original if needed
+        deliveryCount: rider._count.deliveries,
+        _count: undefined,
+      };
+    });
 
     return {
       data: processedRiders,
@@ -406,6 +436,7 @@ export class RidersService {
             email: true,
             phone: true,
             avatar: true,
+            status: true,
           },
         },
         _count: {
@@ -427,7 +458,7 @@ export class RidersService {
     };
   }
 
-  async updateProfile(userId: string, updateRiderDto: Prisma.RiderUpdateInput) {
+  async updateProfile(userId: string, updateRiderDto: any) {
     const rider = await this.prisma.rider.findUnique({
       where: { userId },
     });
@@ -436,11 +467,14 @@ export class RidersService {
       throw new NotFoundException('Rider profile not found');
     }
 
+    const { status, ...data } = updateRiderDto; // Strip status as it cannot be updated via profile
+
     return this.prisma.rider.update({
       where: { id: rider.id },
-      data: updateRiderDto,
+      data,
     });
   }
+
 
   async updateLocation(userId: string, latitude: number, longitude: number) {
     const rider = await this.prisma.rider.findUnique({
@@ -479,7 +513,7 @@ export class RidersService {
     });
   }
 
-  async update(id: string, updateRiderDto: Prisma.RiderUpdateInput) {
+  async update(id: string, updateRiderDto: any) {
     const rider = await this.prisma.rider.findUnique({
       where: { id },
     });
@@ -488,10 +522,45 @@ export class RidersService {
       throw new NotFoundException(`Rider with ID ${id} not found`);
     }
 
-    return this.prisma.rider.update({
-      where: { id },
-      data: updateRiderDto,
-    });
+    const { status, ...rest } = updateRiderDto;
+
+    // Handle status updates affecting User model
+    if (status) {
+      let userStatus = undefined;
+      let riderStatus = undefined;
+
+      if (status === 'suspended') {
+        userStatus = 'SUSPENDED';
+      } else if (status === 'active') {
+        userStatus = 'ACTIVE';
+        riderStatus = 'APPROVED';
+      } else if (status === 'inactive') {
+        userStatus = 'INACTIVE';
+      }
+
+      if (userStatus) {
+        await this.prisma.user.update({
+          where: { id: rider.userId },
+          data: { status: userStatus as any },
+        });
+      }
+
+      if (riderStatus) {
+        await this.prisma.rider.update({
+          where: { id },
+          data: { status: riderStatus as any }
+        });
+      }
+    }
+
+    if (Object.keys(rest).length > 0) {
+      return this.prisma.rider.update({
+        where: { id },
+        data: rest,
+      });
+    }
+
+    return this.prisma.rider.findUnique({ where: { id } });
   }
 
   async getEarnings(userId: string, params: { page: number; limit: number }) {
