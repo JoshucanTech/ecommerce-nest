@@ -54,6 +54,8 @@ model User {
   vendor                Vendor?
   wishlistItems         WishlistItem[]
   roles                 Role[]                  @relation("UserRoles")
+  subAdminProfile       SubAdminProfile?
+  auditLogs             AuditLog[]
 
   @@map("users")
 }

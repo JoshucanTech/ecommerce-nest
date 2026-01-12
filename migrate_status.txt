@@ -1,0 +1,21 @@
+Loaded Prisma config from "C:\Users\titan\Documents\commerce\nest\prisma.config.ts".
+Prisma config detected, skipping environment variable loading.
+Prisma schema loaded from prisma
+Datasource "db": PostgreSQL database "ecommerce", schema "public" at "localhost:5432"
+
+36 migrations found in prisma/migrations
+Following migration have failed:
+20260103151521_init_rbac
+
+During development if the failed migration(s) have not been deployed to a production database you can then fix the migration(s) and run prisma migrate dev.
+
+The failed migration(s) can be marked as rolled back or applied:
+      
+- If you rolled back the migration(s) manually:
+prisma migrate resolve --rolled-back "20260103151521_init_rbac"
+
+- If you fixed the database manually (hotfix):
+prisma migrate resolve --applied "20260103151521_init_rbac"
+
+Read more about how to resolve migration issues in a production database:
+https://pris.ly/d/migrate-resolve

@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto, OrderItemDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
-import { OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
+import { OrderStatus, PaymentStatus, UserRole, PermissionResource, PermissionAction } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { PaymentsService } from '../payments/payments.service';
 import { RedisService } from '../redis/redis.service';
@@ -573,8 +573,8 @@ export class OrdersService {
 
       const orderPermissions = permissions.filter(
         (p) =>
-          p.resource === 'ORDERS' &&
-          (p.action === 'READ' || p.action === 'MANAGE'),
+          p.resource === PermissionResource.ORDERS &&
+          (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE),
       );
 
       if (orderPermissions.length === 0) {
@@ -1173,8 +1173,8 @@ export class OrdersService {
 
       const orderPermissions = permissions.filter(
         (p) =>
-          p.resource === 'ORDERS' &&
-          (p.action === 'READ' || p.action === 'MANAGE'),
+          p.resource === PermissionResource.ORDERS &&
+          (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE),
       );
 
       if (orderPermissions.length === 0) {

@@ -14,7 +14,7 @@ import { CreateShippingAddressDto } from './dto/create-shipping-address.dto';
 import { UpdateShippingAddressDto } from './dto/update-shipping-address.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { AddressType } from './enums/address-type.enum';
-import { Prisma, UserRole } from '@prisma/client';
+import { Prisma, UserRole, PermissionResource, PermissionAction } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 
@@ -126,8 +126,8 @@ export class UsersService {
     } else if (actor.role === UserRole.SUB_ADMIN) {
       const permissions = actor.roles.flatMap(r => r.permissions.map(rp => rp.permission));
       const customerPermissions = permissions.filter(p =>
-        (p.resource === 'CUSTOMERS' || p.resource === 'ORDERS') &&
-        (p.action === 'READ' || p.action === 'MANAGE')
+        (p.resource === PermissionResource.USERS || p.resource === PermissionResource.ORDERS) &&
+        (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE)
       );
 
       if (customerPermissions.length === 0) {

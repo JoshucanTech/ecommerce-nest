@@ -1989,7 +1989,7 @@ async function main() {
     data: {
       name: 'Read Orders (Global)',
       description: 'Can view all orders',
-      action: 'READ',
+      action: 'VIEW',
       resource: 'ORDERS',
     },
   });

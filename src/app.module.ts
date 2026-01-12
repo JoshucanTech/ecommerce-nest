@@ -40,6 +40,7 @@ import { join } from 'path';
 import { UploadsModule } from './uploads/uploads.module';
 import { SupportModule } from './support/support.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { AdminModule } from './admin/admin.module';
 
 //
 //
@@ -75,6 +76,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     UploadsModule,
     SupportModule,
     AnalyticsModule,
+    AdminModule,
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
