@@ -20,6 +20,11 @@ import * as bcrypt from 'bcryptjs';
 // const bcrypt = require('bcryptjs');
 
 import { faker, LoremModule } from '@faker-js/faker';
+import { seedVendors } from './seeds/vendors.seed';
+import { seedRiders } from './seeds/riders.seed';
+import { seedProducts } from './seeds/products.seed';
+import { seedOrders } from './seeds/orders.seed';
+import { seedAnalytics } from './seeds/analytics.seed';
 
 const prisma = new PrismaClient();
 
@@ -2042,6 +2047,13 @@ async function main() {
       },
     },
   });
+
+  // New Advanced Seeds
+  await seedVendors(prisma, salt);
+  await seedRiders(prisma, salt);
+  await seedProducts(prisma);
+  await seedOrders(prisma);
+  await seedAnalytics(prisma);
 
   console.log('Created roles and permissions, assigned HD role to sub-admin');
 
