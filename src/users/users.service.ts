@@ -105,9 +105,9 @@ export class UsersService {
       where: { id: userId },
       include: {
         vendor: true,
-        roles: {
+        positions: {
           include: {
-            permissions: {
+            positionPermissions: {
               include: {
                 permission: true,
               },
@@ -124,7 +124,7 @@ export class UsersService {
     if (actor.role === UserRole.VENDOR) {
       orderWhere.vendorId = actor.vendor?.id;
     } else if (actor.role === UserRole.SUB_ADMIN) {
-      const permissions = actor.roles.flatMap(r => r.permissions.map(rp => rp.permission));
+      const permissions = actor.positions.flatMap(p => p.positionPermissions.map(pp => pp.permission));
       const customerPermissions = permissions.filter(p =>
         (p.resource === PermissionResource.USERS || p.resource === PermissionResource.ORDERS) &&
         (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE)
@@ -257,9 +257,9 @@ export class UsersService {
         rider: true,
         settings: true,
         shippingAddresses: true,
-        roles: {
+        positions: {
           include: {
-            permissions: {
+            positionPermissions: {
               include: {
                 permission: true,
               },

@@ -1,23 +1,23 @@
 import { IsString, IsOptional, IsBoolean, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class CreateRoleDto {
-    @ApiProperty({ description: 'Role name', example: 'Regional Manager' })
+export class CreatePositionDto {
+    @ApiProperty({ description: 'Position name', example: 'Regional Manager' })
     @IsString()
     name: string;
 
-    @ApiPropertyOptional({ description: 'Role description' })
+    @ApiPropertyOptional({ description: 'Position description' })
     @IsString()
     @IsOptional()
     description?: string;
 
-    @ApiPropertyOptional({ description: 'Is role active', default: true })
+    @ApiPropertyOptional({ description: 'Is position active', default: true })
     @IsBoolean()
     @IsOptional()
     isActive?: boolean;
 
     @ApiPropertyOptional({
-        description: 'Permission IDs to assign to this role',
+        description: 'Permission IDs to assign to this position',
         type: [String],
         example: ['perm-id-1', 'perm-id-2'],
     })

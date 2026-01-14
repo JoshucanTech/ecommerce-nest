@@ -72,9 +72,11 @@ async function main() {
   await prisma.category.deleteMany();
   await prisma.rider.deleteMany();
   await prisma.vendor.deleteMany();
-  await prisma.rolePermission.deleteMany();
+  await prisma.positionPermission.deleteMany();
   await prisma.permission.deleteMany();
-  await prisma.role.deleteMany();
+  await prisma.position.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await prisma.vendorApplication.deleteMany();
   await prisma.user.deleteMany();
 
   console.log('Seeding database...');
@@ -520,9 +522,9 @@ async function main() {
 
   // Seed Products with Faker
   const products = await Promise.all(
-    Array.from({ length: 6 }).map(() => {
+    Array.from({ length: 6 }).map((_, index) => {
       const name = faker.commerce.productName();
-      const slug = faker.helpers.slugify(name.toLowerCase());
+      const slug = `${faker.helpers.slugify(name.toLowerCase())}-${Date.now()}-${index}`;
       const price = parseFloat(faker.commerce.price({ min: 200, max: 500 }));
 
       return prisma.product.create({
@@ -554,9 +556,9 @@ async function main() {
 
   // Seed Flash Sale Products with Faker
   const flashSaleProducts = await Promise.all(
-    Array.from({ length: 6 }).map(() => {
+    Array.from({ length: 6 }).map((_, index) => {
       const name = faker.commerce.productName();
-      const slug = faker.helpers.slugify(name.toLowerCase());
+      const slug = `${faker.helpers.slugify(name.toLowerCase())}-flash-${Date.now()}-${index}`;
       const price = parseFloat(faker.commerce.price({ min: 200, max: 500 }));
 
       return prisma.product.create({
@@ -587,9 +589,9 @@ async function main() {
 
   // Seed featured Products with Faker
   const featuredProducts = await Promise.all(
-    Array.from({ length: 6 }).map(() => {
+    Array.from({ length: 6 }).map((_, index) => {
       const name = faker.commerce.productName();
-      const slug = faker.helpers.slugify(name.toLowerCase());
+      const slug = `${faker.helpers.slugify(name.toLowerCase())}-feat-${Date.now()}-${index}`;
       const price = parseFloat(faker.commerce.price({ min: 200, max: 500 }));
 
       return prisma.product.create({
@@ -1988,8 +1990,8 @@ async function main() {
   ]);
   console.log('Created conversations and messages');
 
-  // Seed Roles and Permissions
-  console.log('Seeding Roles and Permissions...');
+  // Seed Positions and Permissions
+  console.log('Seeding Positions and Permissions...');
   const orderReadPermission = await prisma.permission.create({
     data: {
       name: 'Read Orders (Global)',
@@ -2013,11 +2015,11 @@ async function main() {
     },
   });
 
-  const hdRole = await prisma.role.create({
+  const hdPosition = await prisma.position.create({
     data: {
       name: 'HD',
-      description: 'Help Desk Role',
-      permissions: {
+      description: 'Help Desk Position',
+      positionPermissions: {
         create: [
           { permissionId: orderManageNYPermission.id },
         ],
@@ -2025,11 +2027,11 @@ async function main() {
     },
   });
 
-  const adminRole = await prisma.role.create({
+  const adminPosition = await prisma.position.create({
     data: {
       name: 'Super Admin',
       description: 'Full system access',
-      permissions: {
+      positionPermissions: {
         create: [
           { permissionId: orderReadPermission.id },
         ],
@@ -2037,13 +2039,13 @@ async function main() {
     },
   });
 
-  // Assign HD role to the sub-admin user created earlier
+  // Assign HD position to the sub-admin user created earlier
   await prisma.user.update({
     where: { id: subAdmin.id },
     data: {
       role: 'SUB_ADMIN', // Update enum role as well
-      roles: {
-        connect: [{ id: hdRole.id }],
+      positions: {
+        connect: [{ id: hdPosition.id }],
       },
     },
   });
@@ -2055,7 +2057,7 @@ async function main() {
   await seedOrders(prisma);
   await seedAnalytics(prisma);
 
-  console.log('Created roles and permissions, assigned HD role to sub-admin');
+  console.log('Created positions and permissions, assigned HD position to sub-admin');
 
   console.log('Database seeded successfully!');
   console.log('Seed completed \ud83c\udf31');

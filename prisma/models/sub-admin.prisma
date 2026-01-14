@@ -30,8 +30,8 @@ model AuditLog {
   id         String   @id @default(uuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id])
-  action     String   // 'CREATE_ROLE', 'ASSIGN_PERMISSION', etc.
-  resource   String   // 'Role', 'Permission', 'SubAdmin'
+  action     String   // 'CREATE_POSITION', 'ASSIGN_PERMISSION', etc.
+  resource   String   // 'Position', 'Permission', 'SubAdmin'
   resourceId String?
   changes    Json?    // Before/after values
   ipAddress  String?

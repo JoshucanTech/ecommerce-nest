@@ -33,13 +33,13 @@ export class CreateSubAdminDto {
     phone?: string;
 
     @ApiProperty({
-        description: 'Role IDs to assign',
+        description: 'Position IDs to assign',
         type: [String],
-        example: ['role-id-1', 'role-id-2'],
+        example: ['position-id-1', 'position-id-2'],
     })
     @IsArray()
     @IsString({ each: true })
-    roleIds: string[];
+    positionIds: string[];
 
     @ApiPropertyOptional({
         description: 'Allowed cities (empty = all)',

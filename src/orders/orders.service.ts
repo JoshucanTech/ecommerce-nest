@@ -539,9 +539,9 @@ export class OrdersService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        roles: {
+        positions: {
           include: {
-            permissions: {
+            positionPermissions: {
               include: {
                 permission: true,
               },
@@ -567,8 +567,8 @@ export class OrdersService {
       where.vendorId = vendor.id;
     } else if (user.role === UserRole.SUB_ADMIN) {
       // Dynamic Permission Handling
-      const permissions = user.roles.flatMap((r) =>
-        r.permissions.map((rp) => rp.permission),
+      const permissions = user.positions.flatMap((p) =>
+        p.positionPermissions.map((pp) => pp.permission),
       );
 
       const orderPermissions = permissions.filter(
@@ -1141,9 +1141,9 @@ export class OrdersService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        roles: {
+        positions: {
           include: {
-            permissions: {
+            positionPermissions: {
               include: {
                 permission: true,
               },
@@ -1167,8 +1167,8 @@ export class OrdersService {
 
     if (user.role === UserRole.SUB_ADMIN) {
       // Dynamic Permission Handling
-      const permissions = user.roles.flatMap((r) =>
-        r.permissions.map((rp) => rp.permission),
+      const permissions = user.positions.flatMap((p) =>
+        p.positionPermissions.map((pp) => pp.permission),
       );
 
       const orderPermissions = permissions.filter(

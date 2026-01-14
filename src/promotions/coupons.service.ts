@@ -142,11 +142,11 @@ export class CouponsService {
     if (user.role === UserRole.VENDOR) {
       where.vendorId = user.vendor.id;
     } else if (user.role === UserRole.SUB_ADMIN) {
-      if (!user.roles) {
+      if (!user.positions) {
         // Should have been populated by guard/decorator, effectively no permissions if missing
         throw new ForbiddenException('No permissions found');
       }
-      const permissions = user.roles.flatMap(r => r.permissions.map(rp => rp.permission));
+      const permissions = user.positions.flatMap(p => p.positionPermissions.map(pp => pp.permission));
       // Look for permissions related to PROMOTIONS or COUPONS resource
       const couponPermissions = permissions.filter(p =>
         (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS') &&
@@ -233,7 +233,7 @@ export class CouponsService {
     if (user.role === UserRole.SUB_ADMIN) {
       // ... reuse scope check logic or trust findAll filter usually. 
       // For direct IDs, strict check:
-      const permissions = user.roles.flatMap(r => r.permissions.map(rp => rp.permission));
+      const permissions = user.positions.flatMap(p => p.positionPermissions.map(pp => pp.permission));
       const canManage = permissions.some(p =>
         (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS') && p.action === 'MANAGE'
       );
@@ -306,13 +306,13 @@ export class CouponsService {
       if (fullUser?.vendor) {
         user.vendor = fullUser.vendor;
       }
-    } else if (user.role === UserRole.SUB_ADMIN && !user.roles) {
+    } else if (user.role === UserRole.SUB_ADMIN && !user.positions) {
       const fullUser = await this.prisma.user.findUnique({
         where: { id: user.id },
         include: {
-          roles: {
+          positions: {
             include: {
-              permissions: {
+              positionPermissions: {
                 include: {
                   permission: true,
                 },
@@ -321,8 +321,8 @@ export class CouponsService {
           },
         },
       });
-      if (fullUser?.roles) {
-        user.roles = fullUser.roles;
+      if (fullUser?.positions) {
+        user.positions = fullUser.positions;
       }
     }
   }

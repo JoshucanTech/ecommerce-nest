@@ -53,7 +53,7 @@ model User {
   vendorApplication     VendorApplication?      @relation(fields: [vendorApplicationId], references: [id])
   vendor                Vendor?
   wishlistItems         WishlistItem[]
-  roles                 Role[]                  @relation("UserRoles")
+  positions             Position[]              @relation("UserPositions")
   subAdminProfile       SubAdminProfile?
   auditLogs             AuditLog[]
 

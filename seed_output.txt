@@ -1,0 +1,95 @@
+Loaded Prisma config from "C:\Users\titan\Documents\commerce\nest\prisma.config.ts".
+Prisma config detected, skipping environment variable loading.
+Running seed command `tsx prisma/seed.ts` ...
+Seeding database...
+bcrypt {
+  default: {
+    setRandomFallback: [Function: setRandomFallback],
+    genSaltSync: [Function: genSaltSync],
+    genSalt: [Function: genSalt],
+    hashSync: [Function: hashSync],
+    hash: [Function: hash],
+    compareSync: [Function: compareSync],
+    compare: [Function: compare],
+    getRounds: [Function: getRounds],
+    getSalt: [Function: getSalt],
+    truncates: [Function: truncates],
+    encodeBase64: [Function: encodeBase64],
+    decodeBase64: [Function: decodeBase64]
+  },
+  setRandomFallback: [Getter],
+  genSaltSync: [Getter],
+  genSalt: [Getter],
+  hashSync: [Getter],
+  hash: [Getter],
+  compareSync: [Getter],
+  compare: [Getter],
+  getRounds: [Getter],
+  getSalt: [Getter],
+  truncates: [Getter],
+  encodeBase64: [Getter],
+  decodeBase64: [Getter]
+}
+Created admin user: admin@example.com
+Created Sub admin user: subAdmin@example.com
+Created vendor user: vendor@example.com
+Created buyer user: buyer@example.com
+Created rider user: rider@example.com
+Created additional shipping addresses for buyer
+Created shared shipping address
+Created categories: Electronics & Gadgets Parent 1, Clothing Parent 2, Home & Kitchen Parent 3
+Created subcategories: Smartphones Child 1, Laptops Child 2
+Created products: Fantastic Concrete Shoes, Frozen Ceramic Shirt, Oriental Silk Bacon, Fantastic Ceramic Table, Gorgeous Plastic Bacon, Small Rubber Gloves
+Created shipping methods
+Created shipping zones with detailed pricing
+Created vendor shipping associations with varied pricing
+Created reviews for buyer: 6
+Created cart for buyer: buyer@example.com
+Created wishlist for buyer: buyer@example.com
+Created order for Vendor 1 (Quality Products Inc.): ORD-20231027-001
+Created order shipping record for Vendor 1: 7f9ca3e7-5c4c-4f2e-b6f2-065011430280
+Created order for Vendor 2 (Tech Gadgets Co.): ORD-20231027-002
+Created order shipping record for Vendor 2: d4568e4c-7b0b-412e-a1ed-adff8b50c224
+Created order for Vendor 3 (Fashion Style House): ORD-20231027-003
+Created order shipping record for Vendor 3: 391376b0-bab5-4d40-ae33-3732c11f77ea
+Created international order for Vendor 1: ORD-20231027-004
+Created international order shipping record for Vendor 1: 54683871-86fa-4554-91c0-24a26853c269
+Created delivery for order 1: b8714468-6ee9-4dd7-ab59-bfda021be80d
+Created delivery for order 2: 63b824af-25aa-4888-927e-c1ee4f29a32a
+Created delivery for order 3: 223b2a68-ecee-4058-a440-eac2a19b421c
+Created delivery for international order: 067cfef5-47d1-44cd-b5db-55024e47a629
+Created payment: 58d560c4-679c-49ae-83c5-3a2906f8e718
+Created notification: Order Placed
+Created flash sale: Summer Sale
+Created coupon: SUMMER20
+Created flashSaleItems: 6
+Created featuredProduct advert: 6
+Created recently viewed products: [
+  '68180c4e-0f15-4669-9a75-3bb7378f8889',
+  '87ff6a3c-f001-4a0e-bd4b-6231a124a730',
+  '430ad67e-0a3f-4543-b732-0cee2e5fbd8f'
+]
+Created recently viewed products for guest: [
+  '2a59ce06-e70c-46d7-abb0-42cb60b284bd',
+  '28d208f2-0bac-48ef-86c3-edc238b740b4',
+  '64b50211-d62e-4521-8d94-234f81272d2d'
+]
+Created FAQs: 2
+Created support users
+Created conversations and messages
+Seeding Roles and Permissions...
+Seeding Vendors (NG & USA)...
+Vendors seeding completed!
+Seeding Riders (NG & USA)...
+Riders seeding completed!
+Seeding Products with Org Metadata...
+Products seeding completed!
+Seeding Orders for Geo-Scope Testing...
+Orders seeding completed!
+Seeding Analytics & Audit Logs...
+Analytics seeding completed!
+Created roles and permissions, assigned HD role to sub-admin
+Database seeded successfully!
+Seed completed ­ƒî▒
+
+The seed command has been executed.

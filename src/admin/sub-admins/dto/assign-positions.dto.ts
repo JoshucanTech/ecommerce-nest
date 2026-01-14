@@ -1,13 +1,13 @@
 import { IsArray, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class AssignRolesDto {
+export class AssignPositionsDto {
     @ApiProperty({
-        description: 'Array of role IDs to assign',
+        description: 'Array of position IDs to assign',
         type: [String],
-        example: ['role-id-1', 'role-id-2'],
+        example: ['position-id-1', 'position-id-2'],
     })
     @IsArray()
     @IsString({ each: true })
-    roleIds: string[];
+    positionIds: string[];
 }

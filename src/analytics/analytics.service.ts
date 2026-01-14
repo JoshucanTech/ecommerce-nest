@@ -21,7 +21,7 @@ export class AnalyticsService {
         if (user.role === UserRole.VENDOR) {
             where.vendorId = user.vendor.id;
         } else if (user.role === UserRole.SUB_ADMIN) {
-            const permissions = user.roles.flatMap(r => r.permissions.map(rp => rp.permission));
+            const permissions = user.positions.flatMap(p => p.positionPermissions.map(pp => pp.permission));
             const analyticsPermissions = permissions.filter(p =>
                 (p.resource === 'ANALYTICS' || p.resource === 'DASHBOARD') &&
                 (p.action === 'READ' || p.action === 'MANAGE')
@@ -204,12 +204,12 @@ export class AnalyticsService {
                 include: { vendor: true },
             });
             if (fullUser?.vendor) user.vendor = fullUser.vendor;
-        } else if (user.role === UserRole.SUB_ADMIN && !user.roles) {
+        } else if (user.role === UserRole.SUB_ADMIN && !user.positions) {
             const fullUser = await this.prisma.user.findUnique({
                 where: { id: user.id },
-                include: { roles: { include: { permissions: { include: { permission: true } } } } },
+                include: { positions: { include: { positionPermissions: { include: { permission: true } } } } },
             });
-            if (fullUser?.roles) user.roles = fullUser.roles;
+            if (fullUser?.positions) user.positions = fullUser.positions;
         }
     }
 }

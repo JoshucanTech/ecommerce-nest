@@ -61,7 +61,7 @@ export class PermissionsService {
                 ],
                 include: {
                     _count: {
-                        select: { roles: true },
+                        select: { positionPermissions: true },
                     },
                 },
             }),
@@ -83,9 +83,9 @@ export class PermissionsService {
         const permission = await this.prisma.permission.findUnique({
             where: { id },
             include: {
-                roles: {
+                positionPermissions: {
                     include: {
-                        role: {
+                        position: {
                             select: {
                                 id: true,
                                 name: true,
@@ -130,14 +130,14 @@ export class PermissionsService {
     async remove(id: string) {
         await this.findOne(id); // Verify exists
 
-        // Check if permission is assigned to any roles
-        const rolesCount = await this.prisma.rolePermission.count({
+        // Check if permission is assigned to any positions
+        const positionsCount = await this.prisma.positionPermission.count({
             where: { permissionId: id },
         });
 
-        if (rolesCount > 0) {
+        if (positionsCount > 0) {
             throw new ConflictException(
-                `Cannot delete permission. It is assigned to ${rolesCount} role(s). Remove it from all roles first.`,
+                `Cannot delete permission. It is assigned to ${positionsCount} position(s). Remove it from all positions first.`,
             );
         }
 

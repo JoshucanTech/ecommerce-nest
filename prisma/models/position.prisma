@@ -1,0 +1,72 @@
+enum PermissionAction {
+  VIEW
+  CREATE
+  EDIT
+  DELETE
+  MANAGE
+  APPROVE
+  REJECT
+  EXPORT
+  IMPORT
+}
+
+enum PermissionResource {
+  USERS
+  VENDORS
+  RIDERS
+  ORDERS
+  PRODUCTS
+  DELIVERIES
+  PAYMENTS
+  ANALYTICS
+  SETTINGS
+  PERMISSIONS
+  POSITIONS
+  SUB_ADMINS
+  SUPPORT_TICKETS
+  ADVERTISEMENTS
+  CATEGORIES
+  REVIEWS
+}
+
+model Position {
+  id          String               @id @default(uuid())
+  name        String               @unique
+  description String?
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  positionPermissions PositionPermission[]
+  users               User[]               @relation("UserPositions")
+
+  @@map("positions")
+}
+
+model Permission {
+  id          String               @id @default(uuid())
+  name        String               @unique
+  description String?
+  action      PermissionAction
+  resource    PermissionResource
+  scope       Json? // { type: 'GEOGRAPHIC' | 'ORGANIZATIONAL', value: {...} }
+  level       Int                  @default(0) // Hierarchy level (0 = lowest)
+  category    String? // Group permissions (e.g., 'User Management', 'Content')
+  conditions  Json? // Advanced rules (time-based, conditional)
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  positionPermissions PositionPermission[]
+
+  @@index([resource, action])
+  @@map("permissions")
+}
+
+model PositionPermission {
+  positionId   String
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  position     Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@id([positionId, permissionId])
+  @@map("position_permissions")
+}

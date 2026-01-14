@@ -65,8 +65,8 @@ async function main() {
         // RBAC Management (Admin only)
         { name: 'view_permissions', action: PermissionAction.VIEW, resource: PermissionResource.PERMISSIONS, category: 'RBAC Management', description: 'View permissions', level: 2 },
         { name: 'manage_permissions', action: PermissionAction.MANAGE, resource: PermissionResource.PERMISSIONS, category: 'RBAC Management', description: 'Manage permissions', level: 3 },
-        { name: 'view_roles', action: PermissionAction.VIEW, resource: PermissionResource.ROLES, category: 'RBAC Management', description: 'View roles', level: 2 },
-        { name: 'manage_roles', action: PermissionAction.MANAGE, resource: PermissionResource.ROLES, category: 'RBAC Management', description: 'Manage roles', level: 3 },
+        { name: 'view_positions', action: PermissionAction.VIEW, resource: PermissionResource.POSITIONS, category: 'RBAC Management', description: 'View positions', level: 2 },
+        { name: 'manage_positions', action: PermissionAction.MANAGE, resource: PermissionResource.POSITIONS, category: 'RBAC Management', description: 'Manage positions', level: 3 },
         { name: 'view_sub_admins', action: PermissionAction.VIEW, resource: PermissionResource.SUB_ADMINS, category: 'RBAC Management', description: 'View sub-admins', level: 2 },
         { name: 'manage_sub_admins', action: PermissionAction.MANAGE, resource: PermissionResource.SUB_ADMINS, category: 'RBAC Management', description: 'Manage sub-admins', level: 3 },
     ];
@@ -81,8 +81,8 @@ async function main() {
         });
     }
 
-    // Define default roles
-    const rolesData = [
+    // Define default positions
+    const positionsData = [
         {
             name: 'Regional Manager',
             description: 'Manages users, vendors, and riders in assigned regions',
@@ -124,35 +124,35 @@ async function main() {
         },
     ];
 
-    // Create roles and assign permissions
-    console.log('Creating roles...');
-    for (const roleData of rolesData) {
-        const role = await prisma.role.upsert({
-            where: { name: roleData.name },
-            update: { description: roleData.description },
+    // Create positions and assign permissions
+    console.log('Creating positions...');
+    for (const positionData of positionsData) {
+        const position = await prisma.position.upsert({
+            where: { name: positionData.name },
+            update: { description: positionData.description },
             create: {
-                name: roleData.name,
-                description: roleData.description,
+                name: positionData.name,
+                description: positionData.description,
             },
         });
 
-        // Assign permissions to role
-        for (const permName of roleData.permissions) {
+        // Assign permissions to position
+        for (const permName of positionData.permissions) {
             const permission = await prisma.permission.findUnique({
                 where: { name: permName },
             });
 
             if (permission) {
-                await prisma.rolePermission.upsert({
+                await prisma.positionPermission.upsert({
                     where: {
-                        roleId_permissionId: {
-                            roleId: role.id,
+                        positionId_permissionId: {
+                            positionId: position.id,
                             permissionId: permission.id,
                         },
                     },
                     update: {},
                     create: {
-                        roleId: role.id,
+                        positionId: position.id,
                         permissionId: permission.id,
                     },
                 });

@@ -29,7 +29,7 @@ export class AuthService {
     private eventEmitter: EventEmitter2,
     private usersService: UsersService,
     @Inject(REQUEST) private readonly request: Request,
-  ) {}
+  ) { }
 
   async register(registerDto: RegisterDto) {
     const { email, password, firstName, lastName, phone, role } = registerDto;
@@ -59,6 +59,7 @@ export class AuthService {
       },
       include: {
         profile: true,
+        positions: true,
       },
     });
 
@@ -72,7 +73,8 @@ export class AuthService {
     }
 
     // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const positions = user.positions.map((p) => p.name);
+    const tokens = await this.generateTokens(user.id, user.email, user.role, positions);
 
     // Save refresh token
     await this.saveRefreshToken(
@@ -98,6 +100,7 @@ export class AuthService {
       where: { email },
       include: {
         profile: true,
+        positions: true,
       },
     });
 
@@ -139,7 +142,8 @@ export class AuthService {
     });
 
     // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const positions = user.positions.map((p) => p.name);
+    const tokens = await this.generateTokens(user.id, user.email, user.role, positions);
 
     // Save refresh token
     await this.saveRefreshToken(
@@ -169,7 +173,13 @@ export class AuthService {
       // Check if token exists in database
       const storedToken = await this.prisma.userTokens.findUnique({
         where: { refreshToken },
-        include: { user: true },
+        include: {
+          user: {
+            include: {
+              positions: true
+            }
+          }
+        },
       });
 
       if (!storedToken) {
@@ -191,10 +201,12 @@ export class AuthService {
       }
 
       // Generate new tokens
+      const positions = storedToken.user.positions.map((p) => p.name);
       const tokens = await this.generateTokens(
         storedToken.user.id,
         storedToken.user.email,
         storedToken.user.role,
+        positions,
       );
 
       // Delete old refresh token
@@ -246,14 +258,20 @@ export class AuthService {
 
     let user = await this.prisma.user.findUnique({
       where: { googleId: profile.id },
-      include: { profile: true },
+      include: {
+        profile: true,
+        positions: true
+      },
     });
 
     if (!user) {
       // Check if email exists
       user = await this.prisma.user.findUnique({
         where: { email },
-        include: { profile: true },
+        include: {
+          profile: true,
+          positions: true
+        },
       });
 
       if (user) {
@@ -261,7 +279,10 @@ export class AuthService {
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: { googleId: profile.id },
-          include: { profile: true },
+          include: {
+            profile: true,
+            positions: true
+          },
         });
       } else {
         // Create user
@@ -278,7 +299,10 @@ export class AuthService {
               },
             },
           },
-          include: { profile: true },
+          include: {
+            profile: true,
+            positions: true
+          },
         });
       }
     }
@@ -314,13 +338,14 @@ export class AuthService {
     return token;
   }
 
-  private async generateTokens(userId: string, email: string, role: string) {
+  private async generateTokens(userId: string, email: string, role: string, positions: string[]) {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
         {
           sub: userId,
           email,
           role,
+          positions,
         },
         {
           secret: this.configService.get('JWT_ACCESS_SECRET'),
@@ -359,13 +384,13 @@ export class AuthService {
     const refreshExpiresAt = new Date();
     refreshExpiresAt.setTime(
       refreshExpiresAt.getTime() +
-        this.parseExpirationTime(refreshExpiresIn) * 1000,
+      this.parseExpirationTime(refreshExpiresIn) * 1000,
     );
 
     const accessExpiresAt = new Date();
     accessExpiresAt.setTime(
       accessExpiresAt.getTime() +
-        this.parseExpirationTime(accessExpiresIn) * 1000,
+      this.parseExpirationTime(accessExpiresIn) * 1000,
     );
 
     // Save refresh token

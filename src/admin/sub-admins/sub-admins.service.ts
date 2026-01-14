@@ -7,7 +7,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateSubAdminDto } from './dto/create-sub-admin.dto';
 import { UpdateSubAdminDto } from './dto/update-sub-admin.dto';
-import { AssignRolesDto } from './dto/assign-roles.dto';
+import { AssignPositionsDto } from './dto/assign-positions.dto';
 import { UpdateScopeDto } from './dto/update-scope.dto';
 import * as bcrypt from 'bcrypt';
 
@@ -22,7 +22,7 @@ export class SubAdminsService {
             firstName,
             lastName,
             phone,
-            roleIds,
+            positionIds,
             allowedCities,
             allowedStates,
             allowedRegions,
@@ -44,13 +44,13 @@ export class SubAdminsService {
             throw new ConflictException('User with this email already exists');
         }
 
-        // Verify all roles exist
-        const roles = await this.prisma.role.findMany({
-            where: { id: { in: roleIds } },
+        // Verify all positions exist
+        const positions = await this.prisma.position.findMany({
+            where: { id: { in: positionIds } },
         });
 
-        if (roles.length !== roleIds.length) {
-            throw new BadRequestException('One or more role IDs are invalid');
+        if (positions.length !== positionIds.length) {
+            throw new BadRequestException('One or more position IDs are invalid');
         }
 
         // Hash password
@@ -87,12 +87,12 @@ export class SubAdminsService {
             },
         });
 
-        // Assign roles
+        // Assign positions
         await this.prisma.user.update({
             where: { id: user.id },
             data: {
-                roles: {
-                    connect: roleIds.map((id) => ({ id })),
+                positions: {
+                    connect: positionIds.map((id) => ({ id })),
                 },
             },
         });
@@ -105,7 +105,7 @@ export class SubAdminsService {
                 resource: 'SubAdmin',
                 resourceId: user.id,
                 changes: {
-                    roles: roleIds,
+                    positions: positionIds,
                     scope: {
                         cities: allowedCities,
                         states: allowedStates,
@@ -150,7 +150,7 @@ export class SubAdminsService {
                     isActive: true,
                     createdAt: true,
                     updatedAt: true,
-                    roles: {
+                    positions: {
                         select: {
                             id: true,
                             name: true,
@@ -202,12 +202,12 @@ export class SubAdminsService {
                 createdAt: true,
                 updatedAt: true,
                 lastLogin: true,
-                roles: {
+                positions: {
                     select: {
                         id: true,
                         name: true,
                         description: true,
-                        permissions: {
+                        positionPermissions: {
                             include: {
                                 permission: {
                                     select: {
@@ -230,22 +230,35 @@ export class SubAdminsService {
             throw new NotFoundException(`Sub-admin with ID ${id} not found`);
         }
 
-        // Transform roles to include permissions directly
-        const transformedRoles = subAdmin.roles.map((role) => ({
-            ...role,
-            permissions: role.permissions.map((rp) => rp.permission),
+        // Transform positions to include permissions directly
+        const transformedPositions = subAdmin.positions.map((position) => ({
+            ...position,
+            permissions: position.positionPermissions.map((pp) => pp.permission),
         }));
+
+        // Remove helper field before returning
+        const safePositions = transformedPositions.map(pos => {
+            const { positionPermissions, ...rest } = pos;
+            return rest;
+        });
 
         return {
             ...subAdmin,
-            roles: transformedRoles,
+            positions: safePositions,
         };
     }
 
     async update(id: string, updateSubAdminDto: UpdateSubAdminDto) {
         await this.findOne(id); // Verify exists
 
-        const { roleIds, ...updateData } = updateSubAdminDto;
+        // Handling positionIds is tricky with PartialType(OmitType(...)) since it's not explicitly in UpdateSubAdminDto class def
+        // But since it extends CreateSubAdminDto (minus sensitive fields), it should have positionIds optional
+        const { ...updateData } = updateSubAdminDto;
+
+        // We need to cast updateData to check for positionIds existence as it might not be strictly typed or we access it directly
+        // However, based on DTO inheritance: UpdateSubAdminDto extends PartialType(OmitType(CreateSubAdminDto, ...))
+        // So positionIds should be there optionally.
+        const positionIds = (updateData as any).positionIds;
 
         // Update user basic info
         const user = await this.prisma.user.update({
@@ -258,24 +271,24 @@ export class SubAdminsService {
             },
         });
 
-        // Update roles if provided
-        if (roleIds) {
-            // Verify all roles exist
-            const roles = await this.prisma.role.findMany({
-                where: { id: { in: roleIds } },
+        // Update positions if provided
+        if (positionIds) {
+            // Verify all positions exist
+            const positions = await this.prisma.position.findMany({
+                where: { id: { in: positionIds } },
             });
 
-            if (roles.length !== roleIds.length) {
-                throw new BadRequestException('One or more role IDs are invalid');
+            if (positions.length !== positionIds.length) {
+                throw new BadRequestException('One or more position IDs are invalid');
             }
 
-            // Disconnect all existing roles and connect new ones
+            // Disconnect all existing positions and connect new ones
             await this.prisma.user.update({
                 where: { id },
                 data: {
-                    roles: {
+                    positions: {
                         set: [],
-                        connect: roleIds.map((roleId) => ({ id: roleId })),
+                        connect: positionIds.map((positionId: string) => ({ id: positionId })),
                     },
                 },
             });
@@ -327,23 +340,23 @@ export class SubAdminsService {
         return { message: 'Sub-admin deactivated successfully' };
     }
 
-    async assignRoles(id: string, dto: AssignRolesDto) {
+    async assignPositions(id: string, dto: AssignPositionsDto) {
         await this.findOne(id); // Verify exists
 
-        // Verify all roles exist
-        const roles = await this.prisma.role.findMany({
-            where: { id: { in: dto.roleIds } },
+        // Verify all positions exist
+        const positions = await this.prisma.position.findMany({
+            where: { id: { in: dto.positionIds } },
         });
 
-        if (roles.length !== dto.roleIds.length) {
-            throw new BadRequestException('One or more role IDs are invalid');
+        if (positions.length !== dto.positionIds.length) {
+            throw new BadRequestException('One or more position IDs are invalid');
         }
 
         await this.prisma.user.update({
             where: { id },
             data: {
-                roles: {
-                    connect: dto.roleIds.map((roleId) => ({ id: roleId })),
+                positions: {
+                    connect: dto.positionIds.map((positionId) => ({ id: positionId })),
                 },
             },
         });
@@ -351,19 +364,19 @@ export class SubAdminsService {
         return this.findOne(id);
     }
 
-    async removeRole(id: string, roleId: string) {
+    async removePosition(id: string, positionId: string) {
         await this.findOne(id); // Verify exists
 
         await this.prisma.user.update({
             where: { id },
             data: {
-                roles: {
-                    disconnect: { id: roleId },
+                positions: {
+                    disconnect: { id: positionId },
                 },
             },
         });
 
-        return { message: 'Role removed from sub-admin successfully' };
+        return { message: 'Position removed from sub-admin successfully' };
     }
 
     async updateScope(id: string, dto: UpdateScopeDto) {

@@ -20,7 +20,7 @@ import {
 import { SubAdminsService } from './sub-admins.service';
 import { CreateSubAdminDto } from './dto/create-sub-admin.dto';
 import { UpdateSubAdminDto } from './dto/update-sub-admin.dto';
-import { AssignRolesDto } from './dto/assign-roles.dto';
+import { AssignPositionsDto } from './dto/assign-positions.dto';
 import { UpdateScopeDto } from './dto/update-scope.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -89,23 +89,23 @@ export class SubAdminsController {
         return this.subAdminsService.remove(id);
     }
 
-    @Post(':id/roles')
-    @ApiOperation({ summary: 'Assign roles to sub-admin' })
+    @Post(':id/positions')
+    @ApiOperation({ summary: 'Assign positions to sub-admin' })
     @ApiParam({ name: 'id', description: 'Sub-admin ID' })
-    @ApiResponse({ status: 200, description: 'Roles assigned successfully' })
+    @ApiResponse({ status: 200, description: 'Positions assigned successfully' })
     @ApiResponse({ status: 404, description: 'Sub-admin not found' })
-    assignRoles(@Param('id') id: string, @Body() assignRolesDto: AssignRolesDto) {
-        return this.subAdminsService.assignRoles(id, assignRolesDto);
+    assignPositions(@Param('id') id: string, @Body() assignPositionsDto: AssignPositionsDto) {
+        return this.subAdminsService.assignPositions(id, assignPositionsDto);
     }
 
-    @Delete(':id/roles/:roleId')
-    @ApiOperation({ summary: 'Remove role from sub-admin' })
+    @Delete(':id/positions/:positionId')
+    @ApiOperation({ summary: 'Remove position from sub-admin' })
     @ApiParam({ name: 'id', description: 'Sub-admin ID' })
-    @ApiParam({ name: 'roleId', description: 'Role ID' })
-    @ApiResponse({ status: 200, description: 'Role removed successfully' })
-    @ApiResponse({ status: 404, description: 'Sub-admin or role not found' })
-    removeRole(@Param('id') id: string, @Param('roleId') roleId: string) {
-        return this.subAdminsService.removeRole(id, roleId);
+    @ApiParam({ name: 'positionId', description: 'Position ID' })
+    @ApiResponse({ status: 200, description: 'Position removed successfully' })
+    @ApiResponse({ status: 404, description: 'Sub-admin or position not found' })
+    removePosition(@Param('id') id: string, @Param('positionId') positionId: string) {
+        return this.subAdminsService.removePosition(id, positionId);
     }
 
     @Patch(':id/scope')
