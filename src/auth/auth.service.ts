@@ -332,6 +332,10 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
+  async deleteUser(userId: string) {
+    return this.usersService.remove(userId);
+  }
+
   async getToken() {
     const authHeader = this.request.headers['authorization'] || '';
     const token = authHeader.replace('Bearer ', '');

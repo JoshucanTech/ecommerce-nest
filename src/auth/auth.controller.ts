@@ -8,7 +8,12 @@ import {
   UseGuards,
   Get,
   Req,
+  Delete,
+  Param,
 } from '@nestjs/common';
+import { Roles } from './decorators/roles.decorator';
+import { RolesGuard } from './guards/roles.guard';
+import { UserRole } from '@prisma/client';
 import {
   ApiTags,
   ApiOperation,
@@ -17,6 +22,7 @@ import {
   ApiBody,
   ApiHeader,
   ApiProperty,
+  ApiParam,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -31,7 +37,7 @@ import { Public } from './decorators/public.decorator';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('register')
   @Public()
@@ -553,5 +559,21 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   googleAuthRedirect(@Req() req) {
     return this.authService.login(req.user);
+  }
+
+  @Delete('delete-user/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Delete a user',
+    description: 'Delete a user by ID. Requires ADMIN role.',
+  })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  deleteUser(@Param('id') id: string) {
+    return this.authService.deleteUser(id);
   }
 }

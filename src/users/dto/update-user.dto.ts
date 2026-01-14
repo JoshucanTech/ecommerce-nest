@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEmail, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsBoolean, IsEnum } from 'class-validator';
+import { UserRole, UserStatus } from '@prisma/client';
 
 export class UpdateUserDto {
   @ApiPropertyOptional({
@@ -48,6 +49,24 @@ export class UpdateUserDto {
   avatar?: string;
 
   @ApiPropertyOptional({
+    description: 'User Role',
+    enum: UserRole,
+    example: UserRole.BUYER,
+  })
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
+
+  @ApiPropertyOptional({
+    description: 'User Status',
+    enum: UserStatus,
+    example: UserStatus.ACTIVE,
+  })
+  @IsOptional()
+  @IsEnum(UserStatus)
+  status?: UserStatus;
+
+  @ApiPropertyOptional({
     description: 'Whether the user account is active',
     example: true,
     type: Boolean,
@@ -55,6 +74,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
   @ApiPropertyOptional({
     description: 'Nested profile data',
     type: Object,

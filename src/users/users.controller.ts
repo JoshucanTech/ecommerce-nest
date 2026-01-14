@@ -148,16 +148,19 @@ export class UsersController {
     description: 'Forbidden - Insufficient permissions (admin role required)',
   })
   findAll(
+    @CurrentUser() user: any,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('search') search?: string,
     @Query('role') role?: string,
+    @Query('status') status?: string,
   ) {
-    return this.usersService.findAll({
+    return this.usersService.findAll(user.id, {
       page: page || 1,
       limit: limit || 10,
       search,
       role,
+      status,
     });
   }
 
@@ -720,4 +723,5 @@ export class UsersController {
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(id, updateUserDto);
   }
+
 }

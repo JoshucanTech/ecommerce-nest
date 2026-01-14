@@ -14,7 +14,7 @@ import { CreateShippingAddressDto } from './dto/create-shipping-address.dto';
 import { UpdateShippingAddressDto } from './dto/update-shipping-address.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { AddressType } from './enums/address-type.enum';
-import { Prisma, UserRole, PermissionResource, PermissionAction } from '@prisma/client';
+import { Prisma, UserRole, UserStatus, PermissionResource, PermissionAction } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 
@@ -22,29 +22,109 @@ import * as bcrypt from 'bcryptjs';
 export class UsersService {
   constructor(private prisma: PrismaService) { }
 
-  async findAll(params: {
+  async findAll(userId: string, params: {
     page: number;
     limit: number;
     search?: string;
     role?: string;
+    status?: string;
   }) {
-    const { page, limit, search, role } = params;
+    const { page, limit, search, role, status } = params;
     const skip = (page - 1) * limit;
+
+    // Fetch actor with positions and permissions
+    const actor = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        positions: {
+          include: {
+            positionPermissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+        subAdminProfile: true,
+      },
+    });
+
+    if (!actor) throw new NotFoundException('User not found');
 
     // Build where conditions
     const where: any = {};
 
+    // Apply RBAC filtering for SUB_ADMIN
+    if (actor.role === UserRole.SUB_ADMIN) {
+      const permissions = actor.positions.flatMap(p => p.positionPermissions.map(pp => pp.permission));
+      const userPermissions = permissions.filter(p =>
+        p.resource === PermissionResource.USERS &&
+        (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE)
+      );
+
+      if (userPermissions.length === 0) {
+        throw new ForbiddenException('No permission to access users');
+      }
+
+      // Check if permissions have scope restrictions
+      const hasGlobal = userPermissions.some(p => !p.scope);
+      if (!hasGlobal && actor.subAdminProfile) {
+        const { allowedCities, allowedStates } = actor.subAdminProfile;
+
+        if (allowedCities.length > 0 || allowedStates.length > 0) {
+          const scopeConditions = [];
+
+          if (allowedStates.length > 0) {
+            scopeConditions.push({ assignedState: { in: allowedStates, mode: 'insensitive' } });
+          }
+          if (allowedCities.length > 0) {
+            scopeConditions.push({ assignedCity: { in: allowedCities, mode: 'insensitive' } });
+          }
+
+          if (scopeConditions.length > 0) {
+            where.OR = scopeConditions;
+          } else {
+            // No scope defined, return empty result
+            return {
+              data: [],
+              meta: { total: 0, page, limit, totalPages: 0 },
+            };
+          }
+        }
+      }
+    } else if (actor.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
+    // Add search filter
     if (search) {
-      where.OR = [
+      const searchConditions = [
         { email: { contains: search, mode: 'insensitive' } },
         { firstName: { contains: search, mode: 'insensitive' } },
         { lastName: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search, mode: 'insensitive' } },
       ];
+
+      if (where.OR) {
+        // Combine scope OR with search OR using AND
+        where.AND = [
+          { OR: where.OR },
+          { OR: searchConditions },
+        ];
+        delete where.OR;
+      } else {
+        where.OR = searchConditions;
+      }
     }
 
+    // Add role filter
     if (role) {
-      where.role = role;
+      where.role = role.toUpperCase().replace('-', '_') as UserRole;
+    }
+
+    // Add status filter
+    if (status) {
+      where.status = status.toUpperCase() as UserStatus;
     }
 
     // Get users with pagination
@@ -64,6 +144,9 @@ export class UsersService {
           role: true,
           isActive: true,
           emailVerified: true,
+          status: true,
+          assignedCity: true,
+          assignedState: true,
           createdAt: true,
           updatedAt: true,
           vendor: {
@@ -316,6 +399,20 @@ export class UsersService {
     const { password, ...userWithoutPassword } = updatedUser;
 
     return userWithoutPassword;
+  }
+
+  async remove(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    return this.prisma.user.delete({
+      where: { id },
+    });
   }
 
   async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
