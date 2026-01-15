@@ -1,43 +1,35 @@
 model SubAdminProfile {
   id               String    @id @default(uuid())
   userId           String    @unique
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Geographic Scope
-  allowedCities    String[]  // Empty = all cities
-  allowedStates    String[]  // Empty = all states
-  allowedRegions   String[]  // Empty = all regions
-  allowedCountries String[]  // Empty = all countries
-  
-  // Organizational Scope
+  allowedCities    String[]
+  allowedStates    String[]
+  allowedRegions   String[]
+  allowedCountries String[]
   departments      String[]
   teams            String[]
-  
-  // Time Restrictions
   validFrom        DateTime?
   validUntil       DateTime?
-  
-  // Metadata
   notes            String?
   isActive         Boolean   @default(true)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-  
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("sub_admin_profiles")
 }
 
 model AuditLog {
   id         String   @id @default(uuid())
   userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  action     String   // 'CREATE_POSITION', 'ASSIGN_PERMISSION', etc.
-  resource   String   // 'Position', 'Permission', 'SubAdmin'
+  action     String
+  resource   String
   resourceId String?
-  changes    Json?    // Before/after values
+  changes    Json?
   ipAddress  String?
   userAgent  String?
   createdAt  DateTime @default(now())
-  
+  user       User     @relation(fields: [userId], references: [id])
+
   @@index([userId])
   @@index([action])
   @@index([createdAt])

@@ -5,8 +5,6 @@ model ShippingAddress {
   state        String
   postalCode   String
   country      String
-  latitude     Float?
-  longitude    Float?
   isDefault    Boolean           @default(false)
   nickname     String?
   addressType  AddressType       @default(OTHER)
@@ -19,6 +17,8 @@ model ShippingAddress {
   firstName    String            @default("")
   lastName     String            @default("")
   phone        Int               @default(0)
+  latitude     Float?
+  longitude    Float?
   orders       Order[]
   sharedWith   SharedAddress[]
   sharedFrom   ShippingAddress?  @relation("SharedAddressRelation", fields: [sharedFromId], references: [id])

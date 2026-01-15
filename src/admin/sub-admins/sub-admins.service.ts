@@ -251,14 +251,8 @@ export class SubAdminsService {
     async update(id: string, updateSubAdminDto: UpdateSubAdminDto) {
         await this.findOne(id); // Verify exists
 
-        // Handling positionIds is tricky with PartialType(OmitType(...)) since it's not explicitly in UpdateSubAdminDto class def
-        // But since it extends CreateSubAdminDto (minus sensitive fields), it should have positionIds optional
-        const { ...updateData } = updateSubAdminDto;
-
-        // We need to cast updateData to check for positionIds existence as it might not be strictly typed or we access it directly
-        // However, based on DTO inheritance: UpdateSubAdminDto extends PartialType(OmitType(CreateSubAdminDto, ...))
-        // So positionIds should be there optionally.
-        const positionIds = (updateData as any).positionIds;
+        // positionIds is now explicitly typed in UpdateSubAdminDto
+        const { positionIds, ...updateData } = updateSubAdminDto;
 
         // Update user basic info
         const user = await this.prisma.user.update({
@@ -314,9 +308,22 @@ export class SubAdminsService {
         if (updateData.notes !== undefined) scopeData.notes = updateData.notes;
 
         if (Object.keys(scopeData).length > 0) {
-            await this.prisma.subAdminProfile.update({
+            await this.prisma.subAdminProfile.upsert({
                 where: { userId: id },
-                data: scopeData,
+                update: scopeData,
+                create: {
+                    userId: id,
+                    allowedCities: scopeData.allowedCities || [],
+                    allowedStates: scopeData.allowedStates || [],
+                    allowedRegions: scopeData.allowedRegions || [],
+                    allowedCountries: scopeData.allowedCountries || [],
+                    departments: scopeData.departments || [],
+                    teams: scopeData.teams || [],
+                    validFrom: scopeData.validFrom || null,
+                    validUntil: scopeData.validUntil || null,
+                    notes: scopeData.notes || '',
+                    isActive: true,
+                },
             });
         }
 

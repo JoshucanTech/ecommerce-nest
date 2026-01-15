@@ -63,11 +63,11 @@ export class OrdersController {
     @Query('status') status?: string,
     @Query('userId') userId?: string,
   ) {
-    return this.ordersService.findAllAdmin({
+    return this.ordersService.findAllAuthorized(user, {
       page: Number(page),
       limit: Number(limit),
       status,
-      userId: (user.role === UserRole.ADMIN || user.role === UserRole.SUB_ADMIN) && userId ? userId : undefined,
+      userId,
     });
   }
 
@@ -160,7 +160,7 @@ export class OrdersController {
     description: 'Order not found.',
   })
   findOne(@Param('id') id: string, @CurrentUser() user) {
-    return this.ordersService.findOne(id, user.id);
+    return this.ordersService.findOne(id, user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -176,7 +176,7 @@ export class OrdersController {
     @Body() updateOrderStatusDto: UpdateOrderStatusDto,
     @CurrentUser() user,
   ) {
-    return this.ordersService.updateStatus(id, updateOrderStatusDto, user.id);
+    return this.ordersService.updateStatus(id, updateOrderStatusDto, user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

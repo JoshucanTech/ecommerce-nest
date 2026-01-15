@@ -58,6 +58,20 @@ export class PositionsService {
                 take: limit,
                 orderBy: { name: 'asc' },
                 include: {
+                    positionPermissions: {
+                        include: {
+                            permission: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    resource: true,
+                                    action: true,
+                                    description: true,
+                                    category: true,
+                                },
+                            },
+                        },
+                    },
                     _count: {
                         select: {
                             positionPermissions: true,
@@ -69,8 +83,20 @@ export class PositionsService {
             this.prisma.position.count({ where }),
         ]);
 
+        const mappedPositions = positions.map((position) => {
+            const { positionPermissions, _count, ...rest } = position;
+            return {
+                ...rest,
+                permissions: positionPermissions.map((pp) => pp.permission),
+                _count: {
+                    permissions: _count.positionPermissions,
+                    users: _count.users,
+                },
+            };
+        });
+
         return {
-            data: positions,
+            data: mappedPositions,
             meta: {
                 total,
                 page,

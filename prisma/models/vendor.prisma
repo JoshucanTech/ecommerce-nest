@@ -61,19 +61,19 @@ model VendorApplication {
 
 model VendorAddress {
   id                  String             @id @default(uuid())
-  nickname            String?
   street              String
   city                String
   state               String
   postalCode          String
   country             String
-  latitude            Float?
-  longitude           Float?
   isDefault           Boolean            @default(false)
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   vendorId            String?
   vendorApplicationId String?
+  latitude            Float?
+  longitude           Float?
+  nickname            String?
   VendorApplication   VendorApplication? @relation(fields: [vendorApplicationId], references: [id])
   Vendor              Vendor?            @relation(fields: [vendorId], references: [id])
 

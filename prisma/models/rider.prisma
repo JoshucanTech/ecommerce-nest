@@ -9,12 +9,12 @@ model Rider {
   isAvailable      Boolean           @default(false)
   currentLatitude  Float?
   currentLongitude Float?
-  workingRadius    Float             @default(10.0)
   rating           Float             @default(0)
   totalRatings     Int               @default(0)
   status           ApplicationStatus @default(PENDING)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  workingRadius    Float             @default(10.0)
   deliveries       Delivery[]
   orders           Order[]
   payments         Payment[]
@@ -61,11 +61,7 @@ model Delivery {
   riderId               String?
   status                DeliveryStatus @default(PENDING)
   pickupAddress         String
-  pickupLatitude        Float?
-  pickupLongitude       Float?
   deliveryAddress       String
-  deliveryLatitude      Float?
-  deliveryLongitude     Float?
   estimatedDeliveryTime DateTime?
   actualDeliveryTime    DateTime?
   trackingNumber        String         @unique
@@ -74,6 +70,10 @@ model Delivery {
   updatedAt             DateTime       @updatedAt
   pickupTime            DateTime?
   userId                String?
+  deliveryLatitude      Float?
+  deliveryLongitude     Float?
+  pickupLatitude        Float?
+  pickupLongitude       Float?
   order                 Order          @relation(fields: [orderId], references: [id])
   rider                 Rider?         @relation(fields: [riderId], references: [id])
   User                  User?          @relation(fields: [userId], references: [id])

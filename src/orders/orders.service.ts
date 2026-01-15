@@ -31,6 +31,71 @@ export class OrdersService {
     private shippingCostService: ShippingCostService,
   ) { }
 
+  private async checkSubAdminOrderAccess(order: any, userId: string, actions: PermissionAction[]) {
+    const fullUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        subAdminProfile: true,
+        positions: {
+          include: {
+            positionPermissions: {
+              include: { permission: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!fullUser) throw new NotFoundException('User not found');
+
+    const permissions = fullUser.positions.flatMap((p) =>
+      p.positionPermissions.map((pp) => pp.permission),
+    );
+
+    const relevantPermissions = permissions.filter(
+      (p) =>
+        p.resource === PermissionResource.ORDERS &&
+        actions.includes(p.action),
+    );
+
+    if (relevantPermissions.length === 0) {
+      throw new ForbiddenException(`No permission to perform ${actions.join('/')} on orders`);
+    }
+
+    const hasGlobalPermission = relevantPermissions.some((p) => !p.scope);
+    const profileCities = fullUser.subAdminProfile?.allowedCities || [];
+    const profileStates = fullUser.subAdminProfile?.allowedStates || [];
+    const profileCountries = fullUser.subAdminProfile?.allowedCountries || [];
+    const hasProfileRestrictions = profileCities.length > 0 || profileStates.length > 0 || profileCountries.length > 0;
+
+    const address = order.shippingAddress || order.address;
+    if (!address) throw new ForbiddenException('Order has no address to verify scope');
+
+    const matchesScope = (addr: any, cities: string[], states: string[], countries: string[]) => {
+      const cityMatch = cities.length === 0 || cities.some(c => c.toLowerCase() === addr.city?.toLowerCase());
+      const stateMatch = states.length === 0 || states.some(s => s.toLowerCase() === addr.state?.toLowerCase());
+      const countryMatch = countries.length === 0 || countries.some(c => c.toLowerCase() === addr.country?.toLowerCase());
+      return cityMatch && stateMatch && countryMatch;
+    };
+
+    // 1. Profile boundary check (Intersection)
+    if (hasProfileRestrictions && !matchesScope(address, profileCities, profileStates, profileCountries)) {
+      throw new ForbiddenException('Order is outside your assigned profile scope');
+    }
+
+    // 2. Permission boundary check (Union of allowed scopes, then intersected with profile)
+    if (!hasGlobalPermission) {
+      const anyPermissionMatch = relevantPermissions.some(p => {
+        const scope = p.scope as any;
+        if (!scope?.location) return false;
+        return matchesScope(address, scope.location.cities || [], scope.location.states || [], scope.location.countries || []);
+      });
+      if (!anyPermissionMatch) {
+        throw new ForbiddenException('Order is outside your permitted scope');
+      }
+    }
+  }
+
   @CacheInvalidate('order:', 'user-orders:')
   async create(createOrderDto: CreateOrderDto, userId: string) {
     // Extract and validate address information
@@ -539,6 +604,7 @@ export class OrdersService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
+        subAdminProfile: true,
         positions: {
           include: {
             positionPermissions: {
@@ -574,37 +640,54 @@ export class OrdersService {
       const orderPermissions = permissions.filter(
         (p) =>
           p.resource === PermissionResource.ORDERS &&
-          (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE),
+          (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE || p.action === PermissionAction.EDIT),
       );
 
       if (orderPermissions.length === 0) {
         throw new ForbiddenException('No permission to access stats');
       }
 
-      // Check for global access (no scope)
-      const hasGlobalAccess = orderPermissions.some((p) => !p.scope);
+      // Build scope filters
+      const profileCities = user.subAdminProfile?.allowedCities || [];
+      const profileStates = user.subAdminProfile?.allowedStates || [];
+      const profileCountries = user.subAdminProfile?.allowedCountries || [];
+      const hasProfileRestrictions = profileCities.length > 0 || profileStates.length > 0 || profileCountries.length > 0;
 
-      if (!hasGlobalAccess) {
-        const cities: string[] = [];
-        const states: string[] = [];
+      const profileFilter = hasProfileRestrictions ? {
+        AND: [
+          ...(profileCities.length > 0 ? [{ city: { in: profileCities, mode: 'insensitive' as const } }] : []),
+          ...(profileStates.length > 0 ? [{ state: { in: profileStates, mode: 'insensitive' as const } }] : []),
+          ...(profileCountries.length > 0 ? [{ country: { in: profileCountries, mode: 'insensitive' as const } }] : []),
+        ]
+      } : null;
 
-        for (const p of orderPermissions) {
-          const scope = p.scope as any;
-          if (scope?.location?.cities) cities.push(...scope.location.cities);
-          if (scope?.location?.states) states.push(...scope.location.states);
-        }
+      const hasGlobalPermission = orderPermissions.some(p => !p.scope);
+      const permissionScopes = orderPermissions
+        .filter(p => p.scope)
+        .map(p => p.scope as any);
 
-        if (cities.length > 0 || states.length > 0) {
-          where.shippingAddress = {
-            OR: [
-              { city: { in: cities, mode: 'insensitive' } },
-              { state: { in: states, mode: 'insensitive' } },
-            ],
-          };
-        } else {
-          // If scope is defined but empty, maybe return 0 stats?
-          // For now assume empty scope means no access if strict
-        }
+      const permissionFilter = (!hasGlobalPermission && permissionScopes.length > 0) ? {
+        OR: permissionScopes.map(scope => ({
+          AND: [
+            ...(scope.location?.cities?.length > 0 ? [{ city: { in: scope.location.cities, mode: 'insensitive' as const } }] : []),
+            ...(scope.location?.states?.length > 0 ? [{ state: { in: scope.location.states, mode: 'insensitive' as const } }] : []),
+            ...(scope.location?.countries?.length > 0 ? [{ country: { in: scope.location.countries, mode: 'insensitive' as const } }] : []),
+          ].filter(Boolean)
+        }))
+      } : null;
+
+      if (profileFilter || (permissionFilter && !hasGlobalPermission)) {
+        const combinedLocationFilter = {
+          AND: [
+            ...(profileFilter ? [profileFilter] : []),
+            ...(permissionFilter && !hasGlobalPermission ? [permissionFilter] : []),
+          ].filter(Boolean)
+        };
+
+        where.OR = [
+          { shippingAddress: combinedLocationFilter },
+          { address: combinedLocationFilter }
+        ];
       }
     }
     // implicit else: ADMIN -> no filter (global access)
@@ -895,6 +978,7 @@ export class OrdersService {
           },
         },
         address: true,
+        shippingAddress: true,
         coupon: true,
         delivery: {
           include: {
@@ -921,11 +1005,22 @@ export class OrdersService {
     }
 
     // Check if user is authorized to view this order
-    if (
-      user.role !== 'ADMIN' &&
-      order.userId !== user.id &&
-      order.vendor?.userId !== user.id
-    ) {
+    if (user.role === 'ADMIN') return order;
+
+    if (user.role === 'VENDOR') {
+      if (order.vendor?.userId !== user.id) {
+        throw new ForbiddenException('You do not have permission to view this order');
+      }
+      return order;
+    }
+
+    if (user.role === 'SUB_ADMIN') {
+      await this.checkSubAdminOrderAccess(order, user.id, [PermissionAction.VIEW, PermissionAction.MANAGE, PermissionAction.EDIT]);
+      return order;
+    }
+
+    // Default check for customers
+    if (order.userId !== user.id) {
       throw new ForbiddenException(
         'You do not have permission to view this order',
       );
@@ -947,6 +1042,8 @@ export class OrdersService {
       where: { id },
       include: {
         vendor: true,
+        address: true,
+        shippingAddress: true,
       },
     });
 
@@ -955,10 +1052,13 @@ export class OrdersService {
     }
 
     // Check if user is authorized to update this order
-    if (
-      user.role !== 'ADMIN' &&
-      (user.role !== 'VENDOR' || order.vendor?.userId !== user.id)
-    ) {
+    if (user.role === 'ADMIN') {
+      // Admin bypass
+    } else if (user.role === 'VENDOR' && order.vendor?.userId === user.id) {
+      // Vendor owner check
+    } else if (user.role === 'SUB_ADMIN') {
+      await this.checkSubAdminOrderAccess(order, user.id, [PermissionAction.MANAGE, PermissionAction.EDIT]);
+    } else {
       throw new ForbiddenException(
         'You do not have permission to update this order',
       );
@@ -1049,7 +1149,21 @@ export class OrdersService {
     }
 
     // Check if user is authorized to cancel this order
-    if (user.role !== 'ADMIN' && order.userId !== user.id) {
+    if (user.role === 'ADMIN') {
+      // Admin bypass
+    } else if (user.role === 'VENDOR') {
+      // Check if vendor owns the order
+      const vendor = await this.prisma.vendor.findUnique({ where: { userId: user.id } });
+      if (order.vendorId !== vendor?.id) {
+        throw new ForbiddenException('You do not have permission to cancel this order');
+      }
+    } else if (user.role === 'SUB_ADMIN') {
+      const orderWithFullInfo = await this.prisma.order.findUnique({
+        where: { id },
+        include: { shippingAddress: true, address: true, vendor: true }
+      });
+      await this.checkSubAdminOrderAccess(orderWithFullInfo, user.id, [PermissionAction.MANAGE, PermissionAction.EDIT]);
+    } else if (order.userId !== user.id) {
       throw new ForbiddenException(
         'You do not have permission to cancel this order',
       );
@@ -1123,6 +1237,21 @@ export class OrdersService {
     }
   }
 
+  /**
+   * Main entry point for admin-like order list access
+   */
+  async findAllAuthorized(user: any, params: any) {
+    if (user.role === UserRole.ADMIN) {
+      return this.findAllAdmin({ ...params, userId: params.userId });
+    }
+
+    if (user.role === UserRole.SUB_ADMIN) {
+      return this.findDashboardOrders(user.id, params);
+    }
+
+    throw new ForbiddenException('Unauthorized access to order list');
+  }
+
   private generateOrderNumber(): string {
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.floor(Math.random() * 1000)
@@ -1141,6 +1270,7 @@ export class OrdersService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
+        subAdminProfile: true,
         positions: {
           include: {
             positionPermissions: {
@@ -1174,48 +1304,62 @@ export class OrdersService {
       const orderPermissions = permissions.filter(
         (p) =>
           p.resource === PermissionResource.ORDERS &&
-          (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE),
+          (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE || p.action === PermissionAction.EDIT),
       );
 
       if (orderPermissions.length === 0) {
         throw new ForbiddenException('No permission to access orders');
       }
 
-      // Check for global access (no scope)
-      const hasGlobalAccess = orderPermissions.some((p) => !p.scope);
+      // Build scope filters
+      const profileCities = user.subAdminProfile?.allowedCities || [];
+      const profileStates = user.subAdminProfile?.allowedStates || [];
+      const profileCountries = user.subAdminProfile?.allowedCountries || [];
+      const hasProfileRestrictions = profileCities.length > 0 || profileStates.length > 0 || profileCountries.length > 0;
 
-      if (hasGlobalAccess) {
-        return this.findAllAdmin({ ...params, userId: undefined });
-      }
+      const profileFilter = hasProfileRestrictions ? {
+        AND: [
+          ...(profileCities.length > 0 ? [{ city: { in: profileCities, mode: 'insensitive' as const } }] : []),
+          ...(profileStates.length > 0 ? [{ state: { in: profileStates, mode: 'insensitive' as const } }] : []),
+          ...(profileCountries.length > 0 ? [{ country: { in: profileCountries, mode: 'insensitive' as const } }] : []),
+        ]
+      } : null;
 
-      // Aggregate specific scopes
-      const cities: string[] = [];
-      const states: string[] = [];
+      const hasGlobalPermission = orderPermissions.some(p => !p.scope);
+      const permissionScopes = orderPermissions
+        .filter(p => p.scope)
+        .map(p => p.scope as any);
 
-      for (const p of orderPermissions) {
-        const scope = p.scope as any; // Assuming JSON structure
-        if (scope?.location?.cities) {
-          cities.push(...scope.location.cities);
-        }
-        if (scope?.location?.states) {
-          states.push(...scope.location.states);
-        }
-      }
+      const permissionFilter = (!hasGlobalPermission && permissionScopes.length > 0) ? {
+        OR: permissionScopes.map(scope => ({
+          AND: [
+            ...(scope.location?.cities?.length > 0 ? [{ city: { in: scope.location.cities, mode: 'insensitive' as const } }] : []),
+            ...(scope.location?.states?.length > 0 ? [{ state: { in: scope.location.states, mode: 'insensitive' as const } }] : []),
+            ...(scope.location?.countries?.length > 0 ? [{ country: { in: scope.location.countries, mode: 'insensitive' as const } }] : []),
+          ].filter(Boolean)
+        }))
+      } : null;
 
-      if (cities.length === 0 && states.length === 0) {
-        return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
-      }
-
-      // Build location filter
       const where: any = {};
       if (params.status) where.status = params.status;
 
-      where.shippingAddress = {
-        OR: [
-          { city: { in: cities, mode: 'insensitive' } },
-          { state: { in: states, mode: 'insensitive' } },
-        ],
-      };
+      if (profileFilter || (permissionFilter && !hasGlobalPermission)) {
+        const combinedLocationFilter = {
+          AND: [
+            ...(profileFilter ? [profileFilter] : []),
+            ...(permissionFilter && !hasGlobalPermission ? [permissionFilter] : []),
+          ].filter(Boolean)
+        };
+
+        where.OR = [
+          { shippingAddress: combinedLocationFilter },
+          { address: combinedLocationFilter }
+        ];
+      }
+
+      if (!hasGlobalPermission && permissionScopes.length === 0 && !profileFilter) {
+        return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+      }
 
       const skip = (params.page - 1) * params.limit;
 
@@ -1254,6 +1398,7 @@ export class OrdersService {
               },
             },
             shippingAddress: true,
+            address: true,
           },
         }),
         this.prisma.order.count({ where }),
