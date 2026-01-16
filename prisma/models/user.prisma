@@ -9,6 +9,8 @@ model User {
   role                  UserRole                @default(BUYER)
   isActive              Boolean                 @default(true)
   emailVerified         Boolean                 @default(false)
+  department            String?
+  team                  String?
   googleId              String?                 @unique
   facebookId            String?                 @unique
   createdAt             DateTime                @default(now())
@@ -23,6 +25,8 @@ model User {
   verificationToken     String?
   assignedCity          String?
   assignedState         String?
+  assignedCountry       String?
+  assignedRegion        String?
   AdUserInteraction     AdUserInteraction[]
   reviewedAds           Advertisement[]         @relation("AdReviewer")
   adClicks              AdClick[]

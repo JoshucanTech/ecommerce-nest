@@ -792,13 +792,26 @@ export class OrdersService {
       growth = 100; // 100% growth if started from 0
     }
 
+    const activeScope: any = {};
+    if (user.role === UserRole.SUB_ADMIN && user.subAdminProfile) {
+      activeScope.locations = [
+        ...user.subAdminProfile.allowedCities,
+        ...user.subAdminProfile.allowedStates,
+        ...user.subAdminProfile.allowedRegions,
+        ...user.subAdminProfile.allowedCountries,
+      ].filter(Boolean);
+      activeScope.departments = user.subAdminProfile.departments;
+      activeScope.teams = user.subAdminProfile.teams;
+    }
+
     return {
       totalOrders,
-      totalSales: currentTotalSales,
+      totalRevenue: currentTotalSales,
       recentOrdersCount,
       totalCustomers: customersRef.length,
       salesChart,
       growth: Math.round(growth * 10) / 10,
+      activeScope,
     };
   }
 

@@ -66,31 +66,73 @@ export class UsersService {
         throw new ForbiddenException('No permission to access users');
       }
 
-      // Check if permissions have scope restrictions
-      const hasGlobal = userPermissions.some(p => !p.scope);
-      if (!hasGlobal && actor.subAdminProfile) {
-        const { allowedCities, allowedStates } = actor.subAdminProfile;
+      // 1. Build Profile filters (Intersection within profile)
+      const {
+        allowedCities = [],
+        allowedStates = [],
+        allowedRegions = [],
+        allowedCountries = [],
+        departments = [],
+        teams = []
+      } = actor.subAdminProfile || {};
 
-        if (allowedCities.length > 0 || allowedStates.length > 0) {
-          const scopeConditions = [];
+      const hasProfileRestrictions = [
+        allowedCities, allowedStates, allowedRegions, allowedCountries, departments, teams
+      ].some(arr => arr.length > 0);
 
-          if (allowedStates.length > 0) {
-            scopeConditions.push({ assignedState: { in: allowedStates, mode: 'insensitive' } });
-          }
-          if (allowedCities.length > 0) {
-            scopeConditions.push({ assignedCity: { in: allowedCities, mode: 'insensitive' } });
-          }
+      const profileLocationFilter = (allowedCities.length > 0 || allowedStates.length > 0 || allowedRegions.length > 0 || allowedCountries.length > 0) ? {
+        OR: [
+          ...(allowedCities.length > 0 ? [{ assignedCity: { in: allowedCities, mode: 'insensitive' as const } }] : []),
+          ...(allowedStates.length > 0 ? [{ assignedState: { in: allowedStates, mode: 'insensitive' as const } }] : []),
+          ...(allowedRegions.length > 0 ? [{ assignedRegion: { in: allowedRegions, mode: 'insensitive' as const } }] : []),
+          ...(allowedCountries.length > 0 ? [{ assignedCountry: { in: allowedCountries, mode: 'insensitive' as const } }] : []),
+        ]
+      } : null;
 
-          if (scopeConditions.length > 0) {
-            where.OR = scopeConditions;
-          } else {
-            // No scope defined, return empty result
-            return {
-              data: [],
-              meta: { total: 0, page, limit, totalPages: 0 },
-            };
-          }
-        }
+      const profileOrgFilter = (departments.length > 0 || teams.length > 0) ? {
+        OR: [
+          ...(departments.length > 0 ? [{ department: { in: departments, mode: 'insensitive' as const } }] : []),
+          ...(teams.length > 0 ? [{ team: { in: teams, mode: 'insensitive' as const } }] : []),
+        ]
+      } : null;
+
+      // Profile filter is (Location Match AND Org Match) if both are defined
+      const profileFilter = (profileLocationFilter || profileOrgFilter) ? {
+        AND: [
+          ...(profileLocationFilter ? [profileLocationFilter] : []),
+          ...(profileOrgFilter ? [profileOrgFilter] : []),
+        ]
+      } : null;
+
+      // 2. Build Permission filters
+      const hasGlobalPermission = userPermissions.some(p => !p.scope);
+      const permissionScopes = userPermissions.filter(p => p.scope).map(p => p.scope as any);
+
+      const permissionFilter = (!hasGlobalPermission && permissionScopes.length > 0) ? {
+        OR: permissionScopes.map(scope => ({
+          AND: [
+            ...(scope.location?.cities?.length > 0 ? [{ assignedCity: { in: scope.location.cities, mode: 'insensitive' as const } }] : []),
+            ...(scope.location?.states?.length > 0 ? [{ assignedState: { in: scope.location.states, mode: 'insensitive' as const } }] : []),
+            ...(scope.location?.regions?.length > 0 ? [{ assignedRegion: { in: scope.location.regions, mode: 'insensitive' as const } }] : []),
+            ...(scope.location?.countries?.length > 0 ? [{ assignedCountry: { in: scope.location.countries, mode: 'insensitive' as const } }] : []),
+            ...(scope.departments?.length > 0 ? [{ department: { in: scope.departments, mode: 'insensitive' as const } }] : []),
+            ...(scope.teams?.length > 0 ? [{ team: { in: scope.teams, mode: 'insensitive' as const } }] : []),
+          ].filter(Boolean)
+        }))
+      } : null;
+
+      // 3. Combine Profile and Permission filters (Intersection)
+      if (profileFilter || (permissionFilter && !hasGlobalPermission)) {
+        where.AND = [
+          ...(profileFilter ? [profileFilter] : []),
+          ...(permissionFilter && !hasGlobalPermission ? [permissionFilter] : []),
+        ].filter(Boolean);
+      } else if (!hasGlobalPermission && permissionScopes.length === 0 && !hasProfileRestrictions) {
+        // No scope defined, return empty result
+        return {
+          data: [],
+          meta: { total: 0, page, limit, totalPages: 0 },
+        };
       }
     } else if (actor.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Insufficient permissions');
@@ -98,22 +140,25 @@ export class UsersService {
 
     // Add search filter
     if (search) {
-      const searchConditions = [
-        { email: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } },
-      ];
+      const searchConditions = {
+        OR: [
+          { email: { contains: search, mode: 'insensitive' as const } },
+          { firstName: { contains: search, mode: 'insensitive' as const } },
+          { lastName: { contains: search, mode: 'insensitive' as const } },
+          { phone: { contains: search, mode: 'insensitive' as const } },
+        ]
+      };
 
-      if (where.OR) {
-        // Combine scope OR with search OR using AND
+      if (where.AND) {
+        where.AND.push(searchConditions);
+      } else if (where.OR) {
         where.AND = [
           { OR: where.OR },
-          { OR: searchConditions },
+          searchConditions
         ];
         delete where.OR;
       } else {
-        where.OR = searchConditions;
+        where.OR = searchConditions.OR;
       }
     }
 
@@ -147,6 +192,10 @@ export class UsersService {
           status: true,
           assignedCity: true,
           assignedState: true,
+          assignedCountry: true,
+          assignedRegion: true,
+          department: true,
+          team: true,
           createdAt: true,
           updatedAt: true,
           vendor: {
