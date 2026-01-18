@@ -29,7 +29,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import { CreateShippingAddressDto } from './dto/create-shipping-address.dto';
 import { UpdateShippingAddressDto } from './dto/update-shipping-address.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -44,7 +44,7 @@ export class UsersController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles(UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiOperation({
     summary: 'Get all users (admin only)',
     description:
@@ -166,7 +166,7 @@ export class UsersController {
 
   @Get('dashboard/customers')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'VENDOR', 'SUB_ADMIN')
+  @Roles(UserRole.ADMIN, UserRole.VENDOR, UserRole.SUB_ADMIN)
   @ApiOperation({
     summary: 'Get customers for dashboard (Admin, Vendor, Sub-Admin)',
     description: 'Retrieve customers matching the user\'s role and scope.',
@@ -487,7 +487,7 @@ export class UsersController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles(UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiOperation({
     summary: 'Get a user by ID (admin only)',
     description:
@@ -677,7 +677,7 @@ export class UsersController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles(UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiOperation({
     summary: 'Update a user (admin only)',
     description:

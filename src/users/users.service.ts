@@ -16,11 +16,15 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { AddressType } from './enums/address-type.enum';
 import { Prisma, UserRole, UserStatus, PermissionResource, PermissionAction } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { RbacService } from '../common/rbac';
 
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private rbacService: RbacService,
+  ) { }
 
   async findAll(userId: string, params: {
     page: number;
@@ -52,89 +56,42 @@ export class UsersService {
     if (!actor) throw new NotFoundException('User not found');
 
     // Build where conditions
-    const where: any = {};
+    let where: any = {};
 
     // Apply RBAC filtering for SUB_ADMIN
     if (actor.role === UserRole.SUB_ADMIN) {
-      const permissions = actor.positions.flatMap(p => p.positionPermissions.map(pp => pp.permission));
-      const userPermissions = permissions.filter(p =>
-        p.resource === PermissionResource.USERS &&
-        (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE)
+      // Check permissions using RbacService
+      this.rbacService.checkPermission(
+        actor,
+        PermissionResource.USERS,
+        [PermissionAction.VIEW, PermissionAction.MANAGE]
       );
 
-      if (userPermissions.length === 0) {
-        throw new ForbiddenException('No permission to access users');
+      // Build scope filter using RbacService
+      const scopeFilter = this.rbacService.buildScopeFilter(
+        actor,
+        PermissionResource.USERS,
+        [PermissionAction.VIEW, PermissionAction.MANAGE],
+        {
+          includeLocation: true,
+          includeOrganization: true,
+          includeLevel: true,
+          userFields: {
+            city: 'assignedCity',
+            state: 'assignedState',
+            region: 'assignedRegion',
+            country: 'assignedCountry',
+            department: 'department',
+            team: 'team'
+          }
+        }
+      );
+
+      if (scopeFilter) {
+        where = { ...where, ...scopeFilter };
       }
-
-      // 1. Build Profile filters (Intersection within profile)
-      const {
-        allowedCities = [],
-        allowedStates = [],
-        allowedRegions = [],
-        allowedCountries = [],
-        departments = [],
-        teams = []
-      } = actor.subAdminProfile || {};
-
-      const hasProfileRestrictions = [
-        allowedCities, allowedStates, allowedRegions, allowedCountries, departments, teams
-      ].some(arr => arr.length > 0);
-
-      const profileLocationFilter = (allowedCities.length > 0 || allowedStates.length > 0 || allowedRegions.length > 0 || allowedCountries.length > 0) ? {
-        OR: [
-          ...(allowedCities.length > 0 ? [{ assignedCity: { in: allowedCities, mode: 'insensitive' as const } }] : []),
-          ...(allowedStates.length > 0 ? [{ assignedState: { in: allowedStates, mode: 'insensitive' as const } }] : []),
-          ...(allowedRegions.length > 0 ? [{ assignedRegion: { in: allowedRegions, mode: 'insensitive' as const } }] : []),
-          ...(allowedCountries.length > 0 ? [{ assignedCountry: { in: allowedCountries, mode: 'insensitive' as const } }] : []),
-        ]
-      } : null;
-
-      const profileOrgFilter = (departments.length > 0 || teams.length > 0) ? {
-        OR: [
-          ...(departments.length > 0 ? [{ department: { in: departments, mode: 'insensitive' as const } }] : []),
-          ...(teams.length > 0 ? [{ team: { in: teams, mode: 'insensitive' as const } }] : []),
-        ]
-      } : null;
-
-      // Profile filter is (Location Match AND Org Match) if both are defined
-      const profileFilter = (profileLocationFilter || profileOrgFilter) ? {
-        AND: [
-          ...(profileLocationFilter ? [profileLocationFilter] : []),
-          ...(profileOrgFilter ? [profileOrgFilter] : []),
-        ]
-      } : null;
-
-      // 2. Build Permission filters
-      const hasGlobalPermission = userPermissions.some(p => !p.scope);
-      const permissionScopes = userPermissions.filter(p => p.scope).map(p => p.scope as any);
-
-      const permissionFilter = (!hasGlobalPermission && permissionScopes.length > 0) ? {
-        OR: permissionScopes.map(scope => ({
-          AND: [
-            ...(scope.location?.cities?.length > 0 ? [{ assignedCity: { in: scope.location.cities, mode: 'insensitive' as const } }] : []),
-            ...(scope.location?.states?.length > 0 ? [{ assignedState: { in: scope.location.states, mode: 'insensitive' as const } }] : []),
-            ...(scope.location?.regions?.length > 0 ? [{ assignedRegion: { in: scope.location.regions, mode: 'insensitive' as const } }] : []),
-            ...(scope.location?.countries?.length > 0 ? [{ assignedCountry: { in: scope.location.countries, mode: 'insensitive' as const } }] : []),
-            ...(scope.departments?.length > 0 ? [{ department: { in: scope.departments, mode: 'insensitive' as const } }] : []),
-            ...(scope.teams?.length > 0 ? [{ team: { in: scope.teams, mode: 'insensitive' as const } }] : []),
-          ].filter(Boolean)
-        }))
-      } : null;
-
-      // 3. Combine Profile and Permission filters (Intersection)
-      if (profileFilter || (permissionFilter && !hasGlobalPermission)) {
-        where.AND = [
-          ...(profileFilter ? [profileFilter] : []),
-          ...(permissionFilter && !hasGlobalPermission ? [permissionFilter] : []),
-        ].filter(Boolean);
-      } else if (!hasGlobalPermission && permissionScopes.length === 0 && !hasProfileRestrictions) {
-        // No scope defined, return empty result
-        return {
-          data: [],
-          meta: { total: 0, page, limit, totalPages: 0 },
-        };
-      }
-    } else if (actor.role !== UserRole.ADMIN) {
+    }
+    else if (actor.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Insufficient permissions');
     }
 
@@ -196,6 +153,7 @@ export class UsersService {
           assignedRegion: true,
           department: true,
           team: true,
+          permissionLevel: true,
           createdAt: true,
           updatedAt: true,
           vendor: {

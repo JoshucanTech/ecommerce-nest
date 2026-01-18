@@ -34,6 +34,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { Session } from '../auth/decorators/session-id.decorator';
 import { RedisService } from 'src/redis/redis.service';
+import { UserRole } from '@prisma/client';
 
 @ApiTags('products')
 @Controller('products')
@@ -45,7 +46,7 @@ export class ProductsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR', 'ADMIN')
+  @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Create a new product',
@@ -167,14 +168,14 @@ export class ProductsController {
 
   @Get('vendor')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR', 'ADMIN')
+  @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all products for a specific vendor' })
   @ApiQuery({ name: 'vendorUserId', required: false, description: 'User ID of the vendor (Admin only)' })
   @ApiResponse({ status: 200, description: 'Returns vendor products' })
   getVendorProducts(@CurrentUser() user, @Query('vendorUserId') vendorUserId?: string) {
     let targetUserId: string | undefined;
-    if (user.role === 'ADMIN') {
+    if (user.role === UserRole.ADMIN || user.role === UserRole.SUB_ADMIN) {
       targetUserId = vendorUserId; // Can be undefined, effectively fetching all products
     } else {
       targetUserId = user.id;
@@ -526,7 +527,7 @@ export class ProductsController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR', 'ADMIN')
+  @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a product' })
   @ApiParam({ name: 'id', description: 'Product ID' })
@@ -548,7 +549,7 @@ export class ProductsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR', 'ADMIN')
+  @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a product' })
   @ApiParam({ name: 'id', description: 'Product ID' })

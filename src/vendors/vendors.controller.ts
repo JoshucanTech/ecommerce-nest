@@ -31,6 +31,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { UserRole } from '@prisma/client';
 
 @ApiTags('vendors')
 @Controller('vendors')
@@ -42,7 +43,7 @@ export class VendorsController {
 
   @Patch('profile')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR')
+  @Roles(UserRole.VENDOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update vendor profile' })
   @ApiResponse({
@@ -62,7 +63,7 @@ export class VendorsController {
 
   @Get('branches')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR', 'ADMIN')
+  @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all branches for a vendor' })
   @ApiQuery({ name: 'userId', required: false, description: 'User ID of the vendor (Admin only)' })
@@ -73,7 +74,7 @@ export class VendorsController {
 
   @Post('branches')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR', 'ADMIN')
+  @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Add a new branch' })
   @ApiQuery({ name: 'userId', required: false, description: 'User ID of the vendor (Admin only)' })
@@ -89,7 +90,7 @@ export class VendorsController {
 
   @Patch('branches/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR', 'ADMIN')
+  @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a branch' })
   @ApiParam({ name: 'id', description: 'Branch address ID' })
@@ -106,7 +107,7 @@ export class VendorsController {
 
   @Delete('branches/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR', 'ADMIN')
+  @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a branch' })
   @ApiParam({ name: 'id', description: 'Branch address ID' })
@@ -122,7 +123,7 @@ export class VendorsController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles(UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a vendor (admin only)' })
   @ApiParam({ name: 'id', description: 'Vendor ID' })
@@ -140,7 +141,7 @@ export class VendorsController {
 
   @Get('dashboard/stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR', 'ADMIN')
+  @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get vendor dashboard statistics' })
   @ApiQuery({ name: 'userId', required: false, description: 'User ID of the vendor (Admin only)' })
@@ -155,7 +156,7 @@ export class VendorsController {
 
   @Get('orders')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('VENDOR', 'SUB_ADMIN', 'ADMIN')
+  @Roles(UserRole.VENDOR, UserRole.SUB_ADMIN, UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get vendor orders' })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -169,7 +170,7 @@ export class VendorsController {
     @Query('status') status?: string,
     @Query('userId') userId?: string,
   ) {
-    const targetUserId = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') && userId ? userId : user.id;
+    const targetUserId = (user.role === UserRole.ADMIN || user.role === UserRole.SUB_ADMIN) && userId ? userId : user.id;
     return this.ordersService.findDashboardOrders(targetUserId, {
       page: +page,
       limit: +limit,
@@ -312,7 +313,7 @@ export class VendorsController {
 
   @Get('applications')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles(UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get all vendor applications (admin only)',
@@ -554,7 +555,7 @@ export class VendorsController {
 
   @Get('applications/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles(UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get a vendor application by ID (admin only)',
@@ -663,7 +664,7 @@ export class VendorsController {
 
   @Patch('applications/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles(UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a vendor application (admin only)' })
   @ApiParam({ name: 'id', description: 'Application ID' })
@@ -687,7 +688,7 @@ export class VendorsController {
 
   @Post('applications/:id/approve')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles(UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Approve a vendor application (admin only)' })
   @ApiParam({ name: 'id', description: 'Application ID' })
@@ -707,7 +708,7 @@ export class VendorsController {
 
   @Post('applications/:id/reject')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles(UserRole.ADMIN, UserRole.SUB_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Reject a vendor application (admin only)' })
   @ApiParam({ name: 'id', description: 'Application ID' })

@@ -8,6 +8,7 @@ import { ProductsModule } from '../products/products.module';
 import { PromotionsModule } from '../promotions/promotions.module';
 import { ShippingModule } from '../shipping/shipping.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { RbacModule } from '../common/rbac';
 
 @Module({
   controllers: [OrdersController],
@@ -18,8 +19,9 @@ import { PaymentsModule } from '../payments/payments.module';
     PromotionsModule,
     ShippingModule,
     PaymentsModule,
+    RbacModule,
   ],
   providers: [OrdersService, PrismaService],
   exports: [OrdersService],
 })
-export class OrdersModule {}
+export class OrdersModule { }

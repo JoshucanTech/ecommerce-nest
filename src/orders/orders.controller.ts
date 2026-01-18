@@ -180,7 +180,7 @@ export class OrdersController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUB_ADMIN)
   @Patch(':id/payment-status')
   @ApiOperation({ summary: 'Update payment status (Admin only)' })
   @ApiResponse({

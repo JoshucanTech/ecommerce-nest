@@ -81,5 +81,39 @@ export class UpdateUserDto {
   })
   @IsOptional()
   profile?: any;
+
+  @ApiPropertyOptional({ description: 'User department', example: 'Logistics' })
+  @IsOptional()
+  @IsString()
+  department?: string;
+
+  @ApiPropertyOptional({ description: 'User team', example: 'Fleet' })
+  @IsOptional()
+  @IsString()
+  team?: string;
+
+  @ApiPropertyOptional({ description: 'Minimum permission level required to manage this user', example: 5 })
+  @IsOptional()
+  permissionLevel?: number;
+
+  @ApiPropertyOptional({ description: 'Assigned City' })
+  @IsOptional()
+  @IsString()
+  assignedCity?: string;
+
+  @ApiPropertyOptional({ description: 'Assigned State' })
+  @IsOptional()
+  @IsString()
+  assignedState?: string;
+
+  @ApiPropertyOptional({ description: 'Assigned Country' })
+  @IsOptional()
+  @IsString()
+  assignedCountry?: string;
+
+  @ApiPropertyOptional({ description: 'Assigned Region' })
+  @IsOptional()
+  @IsString()
+  assignedRegion?: string;
 }
 

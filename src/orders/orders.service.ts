@@ -18,6 +18,7 @@ import { AddressService } from '../users/address.service';
 import { ProductValidationService } from '../products/product-validation.service';
 import { CouponsService } from '../promotions/coupons.service';
 import { ShippingCostService } from '../shipping/shipping-cost.service';
+import { RbacService } from '../common/rbac';
 
 @Injectable()
 export class OrdersService {
@@ -29,6 +30,7 @@ export class OrdersService {
     private productValidationService: ProductValidationService,
     private couponsService: CouponsService,
     private shippingCostService: ShippingCostService,
+    private rbacService: RbacService,
   ) { }
 
   private async checkSubAdminOrderAccess(order: any, userId: string, actions: PermissionAction[]) {
@@ -48,52 +50,19 @@ export class OrdersService {
 
     if (!fullUser) throw new NotFoundException('User not found');
 
-    const permissions = fullUser.positions.flatMap((p) =>
-      p.positionPermissions.map((pp) => pp.permission),
-    );
-
-    const relevantPermissions = permissions.filter(
-      (p) =>
-        p.resource === PermissionResource.ORDERS &&
-        actions.includes(p.action),
-    );
-
-    if (relevantPermissions.length === 0) {
-      throw new ForbiddenException(`No permission to perform ${actions.join('/')} on orders`);
-    }
-
-    const hasGlobalPermission = relevantPermissions.some((p) => !p.scope);
-    const profileCities = fullUser.subAdminProfile?.allowedCities || [];
-    const profileStates = fullUser.subAdminProfile?.allowedStates || [];
-    const profileCountries = fullUser.subAdminProfile?.allowedCountries || [];
-    const hasProfileRestrictions = profileCities.length > 0 || profileStates.length > 0 || profileCountries.length > 0;
-
     const address = order.shippingAddress || order.address;
-    if (!address) throw new ForbiddenException('Order has no address to verify scope');
-
-    const matchesScope = (addr: any, cities: string[], states: string[], countries: string[]) => {
-      const cityMatch = cities.length === 0 || cities.some(c => c.toLowerCase() === addr.city?.toLowerCase());
-      const stateMatch = states.length === 0 || states.some(s => s.toLowerCase() === addr.state?.toLowerCase());
-      const countryMatch = countries.length === 0 || countries.some(c => c.toLowerCase() === addr.country?.toLowerCase());
-      return cityMatch && stateMatch && countryMatch;
-    };
-
-    // 1. Profile boundary check (Intersection)
-    if (hasProfileRestrictions && !matchesScope(address, profileCities, profileStates, profileCountries)) {
-      throw new ForbiddenException('Order is outside your assigned profile scope');
+    if (!address) {
+      throw new ForbiddenException('Order has no address to verify scope');
     }
 
-    // 2. Permission boundary check (Union of allowed scopes, then intersected with profile)
-    if (!hasGlobalPermission) {
-      const anyPermissionMatch = relevantPermissions.some(p => {
-        const scope = p.scope as any;
-        if (!scope?.location) return false;
-        return matchesScope(address, scope.location.cities || [], scope.location.states || [], scope.location.countries || []);
-      });
-      if (!anyPermissionMatch) {
-        throw new ForbiddenException('Order is outside your permitted scope');
-      }
-    }
+    // Use generic RBAC service for validation
+    await this.rbacService.validateResourceAccess(
+      fullUser,
+      PermissionResource.ORDERS,
+      actions,
+      { shippingAddress: address, address },
+      { addressField: 'shippingAddress', includeLocation: true }
+    );
   }
 
   @CacheInvalidate('order:', 'user-orders:')
@@ -632,62 +601,46 @@ export class OrdersService {
       if (!vendor) throw new ForbiddenException('User is not a vendor');
       where.vendorId = vendor.id;
     } else if (user.role === UserRole.SUB_ADMIN) {
-      // Dynamic Permission Handling
+      // Check if user has any dashboard-level permissions
       const permissions = user.positions.flatMap((p) =>
         p.positionPermissions.map((pp) => pp.permission),
       );
 
-      const orderPermissions = permissions.filter(
-        (p) =>
-          p.resource === PermissionResource.ORDERS &&
-          (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE || p.action === PermissionAction.EDIT),
+      const canAccessDashboard = permissions.some(p =>
+        [PermissionResource.ORDERS, PermissionResource.USERS, PermissionResource.VENDORS, PermissionResource.DELIVERIES, PermissionResource.ANALYTICS].some(res => res === p.resource) &&
+        (p.action === PermissionAction.VIEW || p.action === PermissionAction.MANAGE)
       );
 
-      if (orderPermissions.length === 0) {
-        throw new ForbiddenException('No permission to access stats');
+      if (!canAccessDashboard) {
+        throw new ForbiddenException('No permission to access dashboard statistics');
       }
 
-      // Build scope filters
-      const profileCities = user.subAdminProfile?.allowedCities || [];
-      const profileStates = user.subAdminProfile?.allowedStates || [];
-      const profileCountries = user.subAdminProfile?.allowedCountries || [];
-      const hasProfileRestrictions = profileCities.length > 0 || profileStates.length > 0 || profileCountries.length > 0;
+      // Try to get order permissions
+      try {
+        this.rbacService.checkPermission(
+          user,
+          PermissionResource.ORDERS,
+          [PermissionAction.VIEW, PermissionAction.MANAGE, PermissionAction.EDIT]
+        );
 
-      const profileFilter = hasProfileRestrictions ? {
-        AND: [
-          ...(profileCities.length > 0 ? [{ city: { in: profileCities, mode: 'insensitive' as const } }] : []),
-          ...(profileStates.length > 0 ? [{ state: { in: profileStates, mode: 'insensitive' as const } }] : []),
-          ...(profileCountries.length > 0 ? [{ country: { in: profileCountries, mode: 'insensitive' as const } }] : []),
-        ]
-      } : null;
+        // Build scope filter using RbacService
+        const scopeFilter = this.rbacService.buildScopeFilter(
+          user,
+          PermissionResource.ORDERS,
+          [PermissionAction.VIEW, PermissionAction.MANAGE, PermissionAction.EDIT],
+          { addressField: 'shippingAddress', includeLocation: true }
+        );
 
-      const hasGlobalPermission = orderPermissions.some(p => !p.scope);
-      const permissionScopes = orderPermissions
-        .filter(p => p.scope)
-        .map(p => p.scope as any);
-
-      const permissionFilter = (!hasGlobalPermission && permissionScopes.length > 0) ? {
-        OR: permissionScopes.map(scope => ({
-          AND: [
-            ...(scope.location?.cities?.length > 0 ? [{ city: { in: scope.location.cities, mode: 'insensitive' as const } }] : []),
-            ...(scope.location?.states?.length > 0 ? [{ state: { in: scope.location.states, mode: 'insensitive' as const } }] : []),
-            ...(scope.location?.countries?.length > 0 ? [{ country: { in: scope.location.countries, mode: 'insensitive' as const } }] : []),
-          ].filter(Boolean)
-        }))
-      } : null;
-
-      if (profileFilter || (permissionFilter && !hasGlobalPermission)) {
-        const combinedLocationFilter = {
-          AND: [
-            ...(profileFilter ? [profileFilter] : []),
-            ...(permissionFilter && !hasGlobalPermission ? [permissionFilter] : []),
-          ].filter(Boolean)
-        };
-
-        where.OR = [
-          { shippingAddress: combinedLocationFilter },
-          { address: combinedLocationFilter }
-        ];
+        if (scopeFilter) {
+          // Apply filter to both shippingAddress and address fields
+          where.OR = [
+            { shippingAddress: scopeFilter },
+            { address: scopeFilter }
+          ];
+        }
+      } catch (error) {
+        // No order permissions: sub-admin shouldn't see any orders
+        where.id = 'none';
       }
     }
     // implicit else: ADMIN -> no filter (global access)

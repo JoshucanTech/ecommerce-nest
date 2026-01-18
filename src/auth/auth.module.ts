@@ -9,7 +9,6 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { PrismaModule } from '../prisma/prisma.module';
 import { UsersModule } from '../users/users.module';
-import { UsersService } from 'src/users/users.service';
 
 @Module({
   imports: [
@@ -30,11 +29,10 @@ import { UsersService } from 'src/users/users.service';
   controllers: [AuthController],
   providers: [
     AuthService,
-    UsersService,
     JwtStrategy,
     LocalStrategy,
     GoogleStrategy,
   ],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

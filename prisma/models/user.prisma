@@ -11,6 +11,7 @@ model User {
   emailVerified         Boolean                 @default(false)
   department            String?
   team                  String?
+  permissionLevel       Int                     @default(0)
   googleId              String?                 @unique
   facebookId            String?                 @unique
   createdAt             DateTime                @default(now())
