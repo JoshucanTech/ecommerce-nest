@@ -14,6 +14,7 @@ import { AdStatus, AdType, ApplicationStatus } from '@prisma/client';
 
 import { OrdersService } from '../orders/orders.service';
 import { ProductsService } from '../products/products.service';
+import { RbacService } from '../common/rbac';
 
 @Injectable()
 export class VendorsService {
@@ -21,6 +22,7 @@ export class VendorsService {
     private prisma: PrismaService,
     private ordersService: OrdersService,
     private productsService: ProductsService,
+    private rbacService: RbacService,
   ) { }
 
   async apply(
@@ -93,19 +95,66 @@ export class VendorsService {
    * @returns {Promise<{ data: VendorApplication[], meta: { total: number, page: number, limit: number, totalPages: number } }>}
    */
   /*******  bab8d9c7-566d-48a4-a486-2c4bb81f8484  *******/
-  async getApplications(params: {
-    page: number;
-    limit: number;
-    status?: string;
-  }) {
+  async getApplications(
+    userId: string,
+    params: {
+      page: number;
+      limit: number;
+      status?: string;
+    }
+  ) {
     const { page, limit, status } = params;
     const skip = (page - 1) * limit;
 
+    // Get user with permissions for RBAC
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        positions: {
+          include: {
+            positionPermissions: {
+              include: { permission: true },
+            },
+          },
+        },
+        subAdminProfile: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
     // Build where conditions
-    const where: any = {};
+    let where: any = {};
 
     if (status) {
       where.status = status;
+    }
+
+    // Apply RBAC filtering for SUB_ADMIN
+    if (user.role === 'SUB_ADMIN') {
+      // Check permissions
+      this.rbacService.checkPermission(
+        user,
+        'VENDORS' as any,
+        ['VIEW' as any, 'MANAGE' as any]
+      );
+
+      // Build scope filter for vendor business addresses
+      const scopeFilter = this.rbacService.buildScopeFilter(
+        user,
+        'VENDORS' as any,
+        ['VIEW' as any, 'MANAGE' as any],
+        {
+          addressField: 'businessAddress',
+          includeLocation: true,
+        }
+      );
+
+      if (scopeFilter) {
+        where = { ...where, ...scopeFilter };
+      }
     }
 
     // Get applications with pagination

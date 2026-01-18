@@ -5,9 +5,10 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { UsersModule } from 'src/users/users.module';
 import { OrdersModule } from 'src/orders/orders.module';
 import { ProductsModule } from 'src/products/products.module';
+import { RbacModule } from '../common/rbac';
 
 @Module({
-  imports: [PrismaModule, UsersModule, OrdersModule, ProductsModule],
+  imports: [PrismaModule, UsersModule, OrdersModule, ProductsModule, RbacModule],
   controllers: [VendorsController],
   providers: [VendorsService],
   exports: [VendorsService],

@@ -455,11 +455,12 @@ export class VendorsController {
     description: 'Forbidden - Insufficient permissions (admin role required)',
   })
   getApplications(
+    @CurrentUser() user,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('status') status?: string,
   ) {
-    return this.vendorsService.getApplications({
+    return this.vendorsService.getApplications(user.id, {
       page: page || 1,
       limit: limit || 10,
       status,
