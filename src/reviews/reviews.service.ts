@@ -7,10 +7,14 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
+import { RbacService } from '../common/rbac';
 
 @Injectable()
 export class ReviewsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private rbacService: RbacService,
+  ) { }
 
   async create(createReviewDto: CreateReviewDto, userId: string) {
     const { productId, rating, comment } = createReviewDto;
@@ -115,7 +119,7 @@ export class ReviewsService {
     const avgRating =
       reviews.length > 0
         ? reviews.reduce((sum, review) => sum + review.rating, 0) /
-          reviews.length
+        reviews.length
         : 0;
 
     return {
@@ -313,13 +317,13 @@ export class ReviewsService {
     const productAvgRating =
       productReviews.length > 0
         ? productReviews.reduce((sum, review) => sum + review.rating, 0) /
-          productReviews.length
+        productReviews.length
         : 0;
 
     const vendorAvgRating =
       vendorReviews.length > 0
         ? vendorReviews.reduce((sum, review) => sum + review.rating, 0) /
-          vendorReviews.length
+        vendorReviews.length
         : 0;
 
     // Update product and vendor

@@ -5,9 +5,10 @@ import { DeliveriesController } from './deliveries.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RidersModule } from '../riders/riders.module';
+import { RbacModule } from '../common/rbac';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, RidersModule],
+  imports: [PrismaModule, NotificationsModule, RidersModule, RbacModule],
   controllers: [DeliveriesController],
   providers: [DeliveriesService],
   exports: [DeliveriesService],

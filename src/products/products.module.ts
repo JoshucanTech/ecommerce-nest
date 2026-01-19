@@ -9,9 +9,10 @@ import { ProductRecommendationService } from './product-recommendation.service';
 import { ProductViewTrackerService } from './product-view-tracker.service';
 import { ShippingModule } from '../shipping/shipping.module';
 import { RedisModule } from '../redis/redis.module';
+import { RbacModule } from '../common/rbac';
 
 @Module({
-  imports: [ShippingModule, RedisModule],
+  imports: [ShippingModule, RedisModule, RbacModule],
   controllers: [ProductsController],
   providers: [
     ProductsService,
@@ -30,4 +31,4 @@ import { RedisModule } from '../redis/redis.module';
     ProductViewTrackerService,
   ],
 })
-export class ProductsModule {}
+export class ProductsModule { }

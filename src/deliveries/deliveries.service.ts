@@ -13,6 +13,7 @@ import { DeliveryStatus, OrderStatus } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RidersService } from '../riders/riders.service';
 import { calculateDistance } from '../utils/geo';
+import { RbacService } from '../common/rbac';
 
 @Injectable()
 export class DeliveriesService {
@@ -20,6 +21,7 @@ export class DeliveriesService {
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
     private ridersService: RidersService,
+    private rbacService: RbacService,
   ) { }
 
   async create(createDeliveryDto: CreateDeliveryDto, user: any) {
@@ -159,28 +161,56 @@ export class DeliveriesService {
     const skip = (page - 1) * limit;
 
     // Build where conditions
-    const where: any = {};
+    let where: any = {};
 
     if (status) {
       where.status = status;
     }
 
-    // Scoped access for SUB_ADMIN
+    // Apply RBAC filtering for SUB_ADMIN
     if (user?.role === 'SUB_ADMIN') {
-      const subAdmin = await this.prisma.user.findUnique({
+      // Get full user with permissions
+      const actor = await this.prisma.user.findUnique({
         where: { id: user.id },
+        include: {
+          positions: {
+            include: {
+              positionPermissions: {
+                include: { permission: true },
+              },
+            },
+          },
+          subAdminProfile: true,
+        },
       });
 
-      if (subAdmin?.assignedCity || subAdmin?.assignedState) {
-        where.OR = [];
-        if (subAdmin.assignedCity) {
-          where.OR.push({ pickupAddress: { contains: subAdmin.assignedCity, mode: 'insensitive' } });
-          where.OR.push({ deliveryAddress: { contains: subAdmin.assignedCity, mode: 'insensitive' } });
+      if (!actor) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Check permissions
+      this.rbacService.checkPermission(
+        actor,
+        'DELIVERIES' as any,
+        ['VIEW' as any, 'MANAGE' as any]
+      );
+
+      // Build scope filter for delivery addresses
+      const scopeFilter = this.rbacService.buildScopeFilter(
+        actor,
+        'DELIVERIES' as any,
+        ['VIEW' as any, 'MANAGE' as any],
+        {
+          includeLocation: true,
         }
-        if (subAdmin.assignedState) {
-          where.OR.push({ pickupAddress: { contains: subAdmin.assignedState, mode: 'insensitive' } });
-          where.OR.push({ deliveryAddress: { contains: subAdmin.assignedState, mode: 'insensitive' } });
-        }
+      );
+
+      if (scopeFilter) {
+        // Apply filter to both pickup and delivery addresses
+        where.OR = [
+          { pickupAddress: scopeFilter },
+          { deliveryAddress: scopeFilter }
+        ];
       }
     }
 

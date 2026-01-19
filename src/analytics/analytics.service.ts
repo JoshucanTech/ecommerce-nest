@@ -1,10 +1,14 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client';
+import { RbacService } from '../common/rbac';
 
 @Injectable()
 export class AnalyticsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private rbacService: RbacService,
+    ) { }
 
     async getDashboardStats(user: any, params: { startDate?: string; endDate?: string } = {}) {
         await this.hydrateUser(user);
@@ -21,24 +25,32 @@ export class AnalyticsService {
         if (user.role === UserRole.VENDOR) {
             where.vendorId = user.vendor.id;
         } else if (user.role === UserRole.SUB_ADMIN) {
-            const permissions = user.positions.flatMap(p => p.positionPermissions.map(pp => pp.permission));
-            const analyticsPermissions = permissions.filter(p =>
-                (p.resource === 'ANALYTICS' || p.resource === 'DASHBOARD') &&
-                (p.action === 'READ' || p.action === 'MANAGE')
+            // Check permissions using RbacService
+            this.rbacService.checkPermission(
+                user,
+                'ANALYTICS' as any,
+                ['VIEW' as any, 'MANAGE' as any]
             );
 
-            if (analyticsPermissions.length === 0) {
-                throw new ForbiddenException('No permission to access analytics');
-            }
-
-            const hasGlobal = analyticsPermissions.some(p => !p.scope);
-            if (!hasGlobal) {
-                const vendorIds = analyticsPermissions.flatMap(p => (p.scope as any)?.vendors || []);
-                if (vendorIds.length > 0) {
-                    where.vendorId = { in: vendorIds };
-                } else {
-                    return this.getEmptyStats();
+            // Build scope filter for analytics data
+            // Analytics is based on order data, so we filter orders by their addresses
+            const scopeFilter = this.rbacService.buildScopeFilter(
+                user,
+                'ANALYTICS' as any,
+                ['VIEW' as any, 'MANAGE' as any],
+                {
+                    addressField: 'shippingAddress',
+                    includeLocation: true,
+                    includeOrganization: true,
                 }
+            );
+
+            if (scopeFilter) {
+                // Apply scope filter to order queries
+                where.OR = [
+                    { shippingAddress: scopeFilter },
+                    { address: scopeFilter }
+                ];
             }
         }
 

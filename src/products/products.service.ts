@@ -9,6 +9,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { generateSlug } from '../utils/slug-generator';
 import { ProductValidationService } from './product-validation.service';
 import { ProductCalculatorService } from './product-calculator.service';
+import { RbacService } from '../common/rbac';
 
 @Injectable()
 export class ProductsService {
@@ -16,6 +17,7 @@ export class ProductsService {
     private prisma: PrismaService,
     private productValidationService: ProductValidationService,
     private productCalculatorService: ProductCalculatorService,
+    private rbacService: RbacService,
   ) { }
 
   async create(createProductDto: CreateProductDto, userId: string) {
@@ -186,19 +188,66 @@ export class ProductsService {
     };
   }
 
-  async getVendorProducts(userId?: string) {
+  async getVendorProducts(actorId: string, vendorUserId?: string) {
+    // Get actor with permissions for RBAC
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      include: {
+        positions: {
+          include: {
+            positionPermissions: {
+              include: { permission: true },
+            },
+          },
+        },
+        subAdminProfile: true,
+      },
+    });
+
+    if (!actor) {
+      throw new NotFoundException('User not found');
+    }
+
     let where: any = {};
 
-    if (userId) {
+    if (vendorUserId) {
       // Get vendor ID
       const vendor = await this.prisma.vendor.findUnique({
-        where: { userId },
+        where: { userId: vendorUserId },
       });
 
       if (!vendor) {
         throw new ForbiddenException('User is not a vendor');
       }
       where = { vendorId: vendor.id };
+    }
+
+    // Apply RBAC filtering for SUB_ADMIN
+    if (actor.role === 'SUB_ADMIN') {
+      // Check permissions
+      this.rbacService.checkPermission(
+        actor,
+        'PRODUCTS' as any,
+        ['VIEW' as any]
+      );
+
+      // For products, we need to filter by vendor's business address
+      // This requires a join through the vendor table
+      const scopeFilter = this.rbacService.buildScopeFilter(
+        actor,
+        'PRODUCTS' as any,
+        ['VIEW' as any],
+        {
+          includeLocation: true,
+        }
+      );
+
+      if (scopeFilter) {
+        // Apply filter through vendor relationship
+        where.vendor = {
+          businessAddress: scopeFilter
+        };
+      }
     }
 
     const products = await this.prisma.product.findMany({

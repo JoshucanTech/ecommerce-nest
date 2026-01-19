@@ -10,6 +10,7 @@ import { UpdateAdvertisementDto } from './dto/update-advertisement.dto';
 import { AdStatus, AdType, PricingModel, UserRole } from '@prisma/client';
 import { AdPlatformsService } from './ad-platforms.service';
 import { AdTargetingService } from './ad-targeting.service';
+import { RbacService } from '../common/rbac';
 
 @Injectable()
 export class AdvertisementsService {
@@ -17,7 +18,8 @@ export class AdvertisementsService {
     private prisma: PrismaService,
     private adPlatformsService: AdPlatformsService,
     private adTargetingService: AdTargetingService,
-  ) {}
+    private rbacService: RbacService,
+  ) { }
 
   async create(
     createAdvertisementDto: CreateAdvertisementDto,
@@ -105,16 +107,59 @@ export class AdvertisementsService {
     const skip = (page - 1) * limit;
 
     // Build where conditions
-    const where: any = {};
+    let where: any = {};
 
     if (status) {
       where.status = status;
     }
 
-    // If user is not an admin, they can only see their own vendor's ads
-    if (user.role !== UserRole.ADMIN) {
+    // Apply RBAC filtering
+    if (user.role === UserRole.VENDOR) {
       where.vendorId = user.vendorId;
-    } else if (vendorId) {
+    } else if (user.role === UserRole.SUB_ADMIN) {
+      // Get full user with permissions
+      const actor = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        include: {
+          positions: {
+            include: {
+              positionPermissions: {
+                include: { permission: true },
+              },
+            },
+          },
+          subAdminProfile: true,
+        },
+      });
+
+      if (!actor) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Check permissions
+      this.rbacService.checkPermission(
+        actor,
+        'ADVERTISEMENTS' as any,
+        ['VIEW' as any, 'MANAGE' as any]
+      );
+
+      // Build scope filter for vendor business addresses
+      const scopeFilter = this.rbacService.buildScopeFilter(
+        actor,
+        'ADVERTISEMENTS' as any,
+        ['VIEW' as any, 'MANAGE' as any],
+        {
+          includeLocation: true,
+        }
+      );
+
+      if (scopeFilter) {
+        // Apply filter through vendor relationship
+        where.vendor = {
+          businessAddress: scopeFilter
+        };
+      }
+    } else if (user.role === UserRole.ADMIN && vendorId) {
       where.vendorId = vendorId;
     }
 
@@ -815,9 +860,9 @@ export class AdvertisementsService {
       avgRating:
         item.product.reviews.length > 0
           ? item.product.reviews.reduce(
-              (sum, review) => sum + review.rating,
-              0,
-            ) / item.product.reviews.length
+            (sum, review) => sum + review.rating,
+            0,
+          ) / item.product.reviews.length
           : 0,
       advertisement: {
         id: item.advertisement.id,

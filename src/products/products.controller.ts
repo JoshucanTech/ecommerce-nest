@@ -180,7 +180,7 @@ export class ProductsController {
     } else {
       targetUserId = user.id;
     }
-    return this.productsService.getVendorProducts(targetUserId);
+    return this.productsService.getVendorProducts(user.id, targetUserId);
   }
 
   @Get()

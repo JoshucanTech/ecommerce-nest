@@ -17,9 +17,10 @@ import { GoogleAdsenseService as GoogleAdSenseService } from './platforms/google
 import { WhatsappAdService } from './platforms/whatsapp-ad.service';
 import { InAppAdService } from './platforms/in-app-ad.service';
 import { FeaturedProductsController } from './featured-products.controller';
+import { RbacModule } from '../common/rbac';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, RbacModule],
   controllers: [
     AdvertisementsController,
     AdPlatformConfigsController,
@@ -50,4 +51,4 @@ import { FeaturedProductsController } from './featured-products.controller';
     AdTargetingService,
   ],
 })
-export class AdvertisementsModule {}
+export class AdvertisementsModule { }

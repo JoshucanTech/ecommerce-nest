@@ -5,8 +5,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CouponsService } from './coupons.service';
 
 import { CouponsController } from './coupons.controller';
+import { RbacModule } from '../common/rbac';
 
 @Module({
+  imports: [RbacModule],
   controllers: [PromotionsController, CouponsController],
   providers: [PromotionsService, PrismaService, CouponsService],
   exports: [CouponsService],
