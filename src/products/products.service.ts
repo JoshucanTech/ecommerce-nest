@@ -474,9 +474,6 @@ export class ProductsService {
       this.prisma.product.findMany({
         where: {
           isPublished: true,
-          createdAt: {
-            gte: daysAgo,
-          },
         },
         skip,
         take: limit,
@@ -508,9 +505,6 @@ export class ProductsService {
       this.prisma.product.count({
         where: {
           isPublished: true,
-          createdAt: {
-            gte: daysAgo,
-          },
         },
       }),
     ]);

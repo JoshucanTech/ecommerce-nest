@@ -727,7 +727,7 @@ export class VendorsService {
           isVerified: true,
           advertisements: {
             some: {
-              status: AdStatus.COMPLETED,
+              status: AdStatus.ACTIVE,
               type: AdType.FEATURED_VENDOR,
               endDate: { gte: new Date() },
               budget: { gt: 0 },
@@ -736,6 +736,42 @@ export class VendorsService {
         },
       }),
     ]);
+
+    // Fallback: If no featured vendors by advertisement, get highly rated verified vendors
+    if (featuredVendors.length === 0) {
+      const [fallbackVendors, fallbackTotal] = await Promise.all([
+        this.prisma.vendor.findMany({
+          where: {
+            status: ApplicationStatus.APPROVED,
+            isVerified: true,
+          },
+          skip,
+          take: limit,
+          orderBy: { rating: 'desc' },
+          include: {
+            _count: {
+              select: { products: true },
+            },
+          },
+        }),
+        this.prisma.vendor.count({
+          where: {
+            status: ApplicationStatus.APPROVED,
+            isVerified: true,
+          },
+        }),
+      ]);
+
+      return {
+        data: fallbackVendors,
+        meta: {
+          total: fallbackTotal,
+          page,
+          limit,
+          totalPages: Math.ceil(fallbackTotal / limit),
+        },
+      };
+    }
 
     // Transform the data to make it more client-friendly
     // const transformedVendors = featuredVendors.map((item) => ({

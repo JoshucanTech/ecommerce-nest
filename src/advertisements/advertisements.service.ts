@@ -843,6 +843,71 @@ export class AdvertisementsService {
       }),
     ]);
 
+    // Fallback: If no featured products by advertisement, get highly rated products
+    if (featuredProducts.length === 0) {
+      const [fallbackProducts, fallbackTotal] = await Promise.all([
+        this.prisma.product.findMany({
+          where: {
+            isPublished: true,
+            ...(categoryId ? { categoryId } : {}),
+          },
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            category: {
+              select: { id: true, name: true },
+            },
+            reviews: {
+              select: { rating: true },
+            },
+            vendor: {
+              select: {
+                id: true,
+                businessName: true,
+                businessLogo: true,
+              },
+            },
+          },
+        }),
+        this.prisma.product.count({
+          where: {
+            isPublished: true,
+            ...(categoryId ? { categoryId } : {}),
+          },
+        }),
+      ]);
+
+      const processedFallback = fallbackProducts.map((product) => ({
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        discountPrice: product.discountPrice,
+        images: product.images,
+        category: product.category,
+        vendor: product.vendor,
+        reviewCount: product.reviews.length,
+        avgRating:
+          product.reviews.length > 0
+            ? product.reviews.reduce((sum, r) => sum + r.rating, 0) /
+              product.reviews.length
+            : 0,
+        isFeatured: false,
+      }));
+
+      return {
+        data: processedFallback,
+        meta: {
+          total: fallbackTotal,
+          page,
+          limit,
+          totalPages: Math.ceil(fallbackTotal / limit),
+        },
+      };
+    }
+
     // Transform the data to make it more client-friendly
     const transformedProducts = featuredProducts.map((item) => ({
       id: item.product.id,
@@ -860,9 +925,9 @@ export class AdvertisementsService {
       avgRating:
         item.product.reviews.length > 0
           ? item.product.reviews.reduce(
-            (sum, review) => sum + review.rating,
-            0,
-          ) / item.product.reviews.length
+              (sum, review) => sum + review.rating,
+              0,
+            ) / item.product.reviews.length
           : 0,
       advertisement: {
         id: item.advertisement.id,

@@ -204,6 +204,69 @@ export class FlashSalesService {
       };
     });
 
+    // Fallback: If no active flash sales, return products with discountPrice as "Hot Deals"
+    if (processedFlashSales.filter(fs => fs.status === 'ACTIVE').length === 0 && !includeExpired) {
+      const discountedProducts = await this.prisma.product.findMany({
+        where: {
+          isPublished: true,
+          discountPrice: { not: null },
+        },
+        take: 12, // Limit fallback items
+        orderBy: { createdAt: 'desc' },
+        include: {
+          vendor: {
+            select: {
+              id: true,
+              businessName: true,
+              slug: true,
+            },
+          },
+          reviews: {
+            select: {
+              rating: true,
+            },
+          },
+        },
+      });
+
+      if (discountedProducts.length > 0) {
+        // Create a virtual flash sale
+        const virtualFlashSale = {
+          id: 'virtual-hot-deals',
+          name: 'Hot Deals',
+          description: 'Top discounted products for you',
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+          isActive: true,
+          slug: 'hot-deals',
+          itemCount: discountedProducts.length,
+          status: 'ACTIVE',
+          items: discountedProducts.map((product) => ({
+            id: `virtual-item-${product.id}`,
+            productId: product.id,
+            discountPercentage: Math.round(
+              ((product.price - (product.discountPrice as number)) /
+                product.price) *
+                100,
+            ),
+            quantity: 100,
+            soldCount: 0,
+            product: product,
+          })),
+        };
+
+        return {
+          data: [virtualFlashSale as any],
+          meta: {
+            total: 1,
+            page: 1,
+            limit: 1,
+            totalPages: 1,
+          },
+        };
+      }
+    }
+
     return {
       data: processedFlashSales,
       meta: {
