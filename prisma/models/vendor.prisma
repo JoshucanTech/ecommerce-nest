@@ -20,6 +20,10 @@ model Vendor {
   isActive         Boolean             @default(true)
   socialMedia      Json?
   website          String?
+  themeColor       String?             @default("#000000")
+  accentColor      String?             @default("#ffffff")
+  tagline          String?
+  customCSS        String?
   userInteractions AdUserInteraction[]
   advertisements   Advertisement[]
   coupons          Coupon[]
@@ -52,6 +56,9 @@ model VendorApplication {
   reviewedAt      DateTime?
   reviewedBy      String?
   website         String?
+  themeColor      String?             @default("#000000")
+  accentColor     String?             @default("#ffffff")
+  tagline         String?
   documents       Json?
   User            User[]
   businessAddress VendorAddress[]

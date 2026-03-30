@@ -17,19 +17,26 @@ async function bootstrap() {
 
   // Enable CORS with proper configuration for credentials
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:2000',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:2000',
-      'https://staging-mkthub.vercel.app',
-      // For Render deployment
-      /\.onrender\.com$/,
-    ],
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const normalizedOrigin = origin.toLowerCase();
+      const isLocalhost = normalizedOrigin.includes('localhost') || normalizedOrigin.includes('127.0.0.1');
+      const isStaging = normalizedOrigin === 'https://staging-mkthub.vercel.app' || normalizedOrigin.endsWith('.onrender.com');
+
+      if (isLocalhost || isStaging) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type, Accept, Authorization, x-anonymous-id',
-    exposedHeaders: 'Authorization, x-anonymous-id',
+    allowedHeaders: 'Content-Type, Accept, Authorization, x-anonymous-id, x-storefront-vendor',
+    exposedHeaders: 'Authorization, x-anonymous-id, x-storefront-vendor',
   });
 
   // Global validation pipe

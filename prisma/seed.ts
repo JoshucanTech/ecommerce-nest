@@ -25,6 +25,7 @@ import { seedRiders } from './seeds/riders.seed';
 import { seedProducts } from './seeds/products.seed';
 import { seedOrders } from './seeds/orders.seed';
 import { seedAnalytics } from './seeds/analytics.seed';
+import { seedStorefronts } from './seeds/storefront.seed';
 
 const prisma = new PrismaClient();
 
@@ -2056,6 +2057,7 @@ async function main() {
   await seedProducts(prisma);
   await seedOrders(prisma);
   await seedAnalytics(prisma);
+  await seedStorefronts(prisma, salt);
 
   console.log('Created positions and permissions, assigned HD position to sub-admin');
 

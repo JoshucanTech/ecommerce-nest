@@ -21,7 +21,6 @@ export class ProductsService {
   ) { }
 
   async create(createProductDto: CreateProductDto, userId: string) {
-    // Get vendor ID from user
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
     });
@@ -30,7 +29,6 @@ export class ProductsService {
       throw new ForbiddenException('User is not a vendor');
     }
 
-    // Generate slug from product name
     const slug = await generateSlug(createProductDto.name, async (slug) => {
       const exists = await this.prisma.product.findUnique({
         where: { slug },
@@ -38,7 +36,6 @@ export class ProductsService {
       return !exists;
     });
 
-    // Create product
     const product = await this.prisma.product.create({
       data: {
         ...createProductDto,
@@ -46,15 +43,6 @@ export class ProductsService {
         vendorId: vendor.id,
       },
     });
-
-    // Create inventory record
-    // await this.prisma.inventory.create({
-    //   data: {
-    //     productId: product.id,
-    //     vendorId: vendor.id,
-    //     quantity: createProductDto.quantity,
-    //   },
-    // })
 
     return product;
   }
@@ -69,6 +57,7 @@ export class ProductsService {
     maxPrice?: number;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
+    storefrontVendorId?: string;
   }) {
     const {
       page,
@@ -80,10 +69,10 @@ export class ProductsService {
       maxPrice,
       sortBy,
       sortOrder,
+      storefrontVendorId,
     } = params;
     const skip = (page - 1) * limit;
 
-    // Build where conditions
     const where: any = {
       isPublished: true,
     };
@@ -123,7 +112,6 @@ export class ProductsService {
       };
     }
 
-    // Build orderBy
     const orderBy: any = {};
     if (sortBy) {
       orderBy[sortBy] = sortOrder || 'asc';
@@ -131,7 +119,6 @@ export class ProductsService {
       orderBy.createdAt = 'desc';
     }
 
-    // Get products with pagination
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
@@ -151,7 +138,6 @@ export class ProductsService {
               id: true,
               businessName: true,
               slug: true,
-              // rating: true,
             },
           },
           reviews: {
@@ -164,7 +150,6 @@ export class ProductsService {
       this.prisma.product.count({ where }),
     ]);
 
-    // Calculate average rating for each product
     const productsWithRating = products.map((product) => {
       const { avgRating, reviewCount } =
         this.productCalculatorService.calculateProductRatings(product.reviews);
@@ -177,8 +162,18 @@ export class ProductsService {
       };
     });
 
+    // storefrontVendorId prioritization logic
+    let processedProducts = productsWithRating;
+    if (storefrontVendorId) {
+      processedProducts = productsWithRating.sort((a, b) => {
+        if (a.vendorId === storefrontVendorId && b.vendorId !== storefrontVendorId) return -1;
+        if (a.vendorId !== storefrontVendorId && b.vendorId === storefrontVendorId) return 1;
+        return 0;
+      });
+    }
+
     return {
-      data: productsWithRating,
+      data: processedProducts,
       meta: {
         total,
         page,
@@ -189,7 +184,6 @@ export class ProductsService {
   }
 
   async getVendorProducts(actorId: string, vendorUserId?: string) {
-    // Get actor with permissions for RBAC
     const actor = await this.prisma.user.findUnique({
       where: { id: actorId },
       include: {
@@ -211,7 +205,6 @@ export class ProductsService {
     let where: any = {};
 
     if (vendorUserId) {
-      // Get vendor ID
       const vendor = await this.prisma.vendor.findUnique({
         where: { userId: vendorUserId },
       });
@@ -222,17 +215,13 @@ export class ProductsService {
       where = { vendorId: vendor.id };
     }
 
-    // Apply RBAC filtering for SUB_ADMIN
     if (actor.role === 'SUB_ADMIN') {
-      // Check permissions
       this.rbacService.checkPermission(
         actor,
         'PRODUCTS' as any,
         ['VIEW' as any]
       );
 
-      // For products, we need to filter by vendor's business address
-      // This requires a join through the vendor table
       const scopeFilter = this.rbacService.buildScopeFilter(
         actor,
         'PRODUCTS' as any,
@@ -243,7 +232,6 @@ export class ProductsService {
       );
 
       if (scopeFilter) {
-        // Apply filter through vendor relationship
         where.vendor = {
           businessAddress: scopeFilter
         };
@@ -263,7 +251,6 @@ export class ProductsService {
       },
     });
 
-    // Calculate ratings
     return products.map((product) => {
       const { avgRating, reviewCount } =
         this.productCalculatorService.calculateProductRatings(product.reviews);
@@ -294,7 +281,6 @@ export class ProductsService {
         specifications: true,
         inBoxItems: true,
         inventory: true,
-        // wishlistItems: true,
         vendor: {
           select: {
             id: true,
@@ -323,15 +309,9 @@ export class ProductsService {
         },
         shippingOptions: true,
         shippingPolicy: true,
-        // inventory: true,
         flashSaleItems: {
           include: {
             flashSale: {
-              // where: {
-              //   isActive: true,
-              //   startDate: { lte: new Date() },
-              //   endDate: { gte: new Date() },
-              // },
             },
           },
         },
@@ -383,7 +363,6 @@ export class ProductsService {
   }
 
   async update(id: string, updateProductDto: UpdateProductDto, user: any) {
-    // Check if product exists
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
@@ -395,14 +374,12 @@ export class ProductsService {
       throw new NotFoundException(`Product with ID ${id} not found`);
     }
 
-    // Check if user is the vendor of the product or an admin
     if (user.role !== 'ADMIN' && product.vendor.userId !== user.id) {
       throw new ForbiddenException(
         'You do not have permission to update this product',
       );
     }
 
-    // Update slug if name is changed
     let slug = product.slug;
     if (updateProductDto.name && updateProductDto.name !== product.name) {
       slug = await generateSlug(updateProductDto.name, async (newSlug) => {
@@ -416,7 +393,6 @@ export class ProductsService {
       });
     }
 
-    // Update product
     const updatedProduct = await this.prisma.product.update({
       where: { id },
       data: {
@@ -425,19 +401,10 @@ export class ProductsService {
       },
     });
 
-    // Update inventory if quantity is provided
-    if (updateProductDto.quantity !== undefined) {
-      // await this.prisma.inventory.update({
-      //   where: { productId: id },
-      //   data: { quantity: updateProductDto.quantity },
-      // })
-    }
-
     return updatedProduct;
   }
 
   async remove(id: string, user: any) {
-    // Check if product exists
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
@@ -449,14 +416,12 @@ export class ProductsService {
       throw new NotFoundException(`Product with ID ${id} not found`);
     }
 
-    // Check if user is the vendor of the product or an admin
     if (user.role !== 'ADMIN' && product.vendor.userId !== user.id) {
       throw new ForbiddenException(
         'You do not have permission to delete this product',
       );
     }
 
-    // Delete product
     await this.prisma.product.delete({
       where: { id },
     });
@@ -536,7 +501,6 @@ export class ProductsService {
     };
   }
 
-  // Record product view
   async recordView({
     productId,
     userId,
@@ -546,8 +510,6 @@ export class ProductsService {
     userId?: string;
     sessionId?: string;
   }) {
-    console.log('userId', userId);
-    console.log('sessionId', sessionId);
     if (!productId) {
       throw new Error('ProductId must be provided');
     }
@@ -558,7 +520,6 @@ export class ProductsService {
       );
     }
 
-    // Delete existing view to avoid duplicates
     await this.prisma.recentlyViewedProduct.deleteMany({
       where: {
         productId,
@@ -566,7 +527,6 @@ export class ProductsService {
       },
     });
 
-    // Create new view
     await this.prisma.recentlyViewedProduct.create({
       data: {
         productId,
@@ -576,7 +536,6 @@ export class ProductsService {
       },
     });
 
-    // Keep only the latest 10
     const views = await this.prisma.recentlyViewedProduct.findMany({
       where: userId ? { userId } : { sessionId },
       orderBy: { viewedAt: 'desc' },
@@ -592,9 +551,7 @@ export class ProductsService {
     return { success: true };
   }
 
-  // Get recently viewed products
   async getFrequentlyBoughtTogether(productId: string, limit = 5) {
-    // Find orders containing the given product
     const ordersWithProduct = await this.prisma.order.findMany({
       where: {
         items: {
@@ -616,7 +573,6 @@ export class ProductsService {
       return [];
     }
 
-    // Aggregate all other products from these orders
     const productFrequency = new Map<string, { product: any; count: number }>();
 
     for (const order of ordersWithProduct) {
@@ -634,7 +590,6 @@ export class ProductsService {
       }
     }
 
-    // Sort by frequency and take the top 'limit'
     const sortedProducts = Array.from(productFrequency.values())
       .sort((a, b) => b.count - a.count)
       .slice(0, limit)
@@ -647,8 +602,6 @@ export class ProductsService {
     if (!userId && !sessionId) {
       throw new Error('Either userId or sessionId must be provided');
     }
-
-    console.log('sessionId is now: ', sessionId);
 
     const views = await this.prisma.recentlyViewedProduct.findMany({
       where: userId ? { userId } : { sessionId },

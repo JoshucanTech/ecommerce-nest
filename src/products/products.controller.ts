@@ -23,7 +23,6 @@ import {
   ApiHeader,
 } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
-import { ProductCleanupService } from './product-cleanup.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { RecordViewDto } from './dto/recently-viewed.dto';
@@ -359,7 +358,9 @@ export class ProductsController {
     @Query('maxPrice') maxPrice?: number,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Req() req?: any,
   ) {
+    const storefrontVendorId = req.headers['x-storefront-vendor'];
     return this.productsService.findAll({
       page: page || 1,
       limit: limit || 10,
@@ -370,6 +371,7 @@ export class ProductsController {
       maxPrice,
       sortBy,
       sortOrder,
+      storefrontVendorId,
     });
   }
 

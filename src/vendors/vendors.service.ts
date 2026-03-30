@@ -77,24 +77,6 @@ export class VendorsService {
     });
   }
 
-  /*************  ✨ Windsurf Command ⭐  *************/
-  /**
-   * Get vendor applications with pagination.
-   *
-   * @param {number} page
-   * @param {number} limit
-   * @param {string} [status]
-   * @returns {Promise<{ data: VendorApplication[], meta: { total: number, page: number, limit: number, totalPages: number } }>}
-   */
-  /**
-   * Get vendor applications with pagination.
-   *
-   * @param {number} page
-   * @param {number} limit
-   * @param {string} [status]
-   * @returns {Promise<{ data: VendorApplication[], meta: { total: number, page: number, limit: number, totalPages: number } }>}
-   */
-  /*******  bab8d9c7-566d-48a4-a486-2c4bb81f8484  *******/
   async getApplications(
     userId: string,
     params: {
@@ -106,7 +88,6 @@ export class VendorsService {
     const { page, limit, status } = params;
     const skip = (page - 1) * limit;
 
-    // Get user with permissions for RBAC
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -125,23 +106,19 @@ export class VendorsService {
       throw new NotFoundException('User not found');
     }
 
-    // Build where conditions
     let where: any = {};
 
     if (status) {
       where.status = status;
     }
 
-    // Apply RBAC filtering for SUB_ADMIN
     if (user.role === 'SUB_ADMIN') {
-      // Check permissions
       this.rbacService.checkPermission(
         user,
         'VENDORS' as any,
         ['VIEW' as any, 'MANAGE' as any]
       );
 
-      // Build scope filter for vendor business addresses
       const scopeFilter = this.rbacService.buildScopeFilter(
         user,
         'VENDORS' as any,
@@ -157,7 +134,6 @@ export class VendorsService {
       }
     }
 
-    // Get applications with pagination
     const [applications, total] = await Promise.all([
       this.prisma.vendor.findMany({
         where,
@@ -231,7 +207,6 @@ export class VendorsService {
     id: string,
     updateVendorApplicationDto: UpdateVendorApplicationDto,
   ) {
-    // Check if application exists
     const application = await this.prisma.vendorApplication.findUnique({
       where: { id },
     });
@@ -244,7 +219,6 @@ export class VendorsService {
       throw new NotFoundException(`Vendor application with ID ${id} not found`);
     }
 
-    // Check if business email is unique if being updated
     if (
       updateVendorApplicationDto.businessEmail &&
       updateVendorApplicationDto.businessEmail !== application.businessEmail
@@ -261,7 +235,6 @@ export class VendorsService {
       }
     }
 
-    // Update application
     return this.prisma.vendorApplication.update({
       where: { id },
       data: {
@@ -283,7 +256,6 @@ export class VendorsService {
   }
 
   async approveApplication(id: string) {
-    // Check if application exists
     const application = await this.prisma.vendor.findUnique({
       where: { id },
       include: {
@@ -296,12 +268,10 @@ export class VendorsService {
       throw new NotFoundException(`Vendor application with ID ${id} not found`);
     }
 
-    // Check if application is already approved
     if (application.status === 'APPROVED') {
       throw new BadRequestException('Application is already approved');
     }
 
-    // Check if user is already a vendor
     const existingVendor = await this.prisma.vendor.findUnique({
       where: { userId: application.userId },
     });
@@ -310,7 +280,6 @@ export class VendorsService {
       throw new ConflictException('User is already a vendor');
     }
 
-    // Generate slug from business name
     const slug = await generateSlug(application.businessName, async (slug) => {
       const exists = await this.prisma.vendor.findUnique({
         where: { slug },
@@ -318,13 +287,11 @@ export class VendorsService {
       return !exists;
     });
 
-    // Update user role to VENDOR
     await this.prisma.user.update({
       where: { id: application.userId },
       data: { role: 'VENDOR' },
     });
 
-    // Create vendor
     const vendor = await this.prisma.vendor.create({
       data: {
         userId: application.userId,
@@ -346,7 +313,6 @@ export class VendorsService {
       },
     });
 
-    // Update application status
     await this.prisma.vendorApplication.update({
       where: { id },
       data: {
@@ -378,7 +344,6 @@ export class VendorsService {
   }
 
   async rejectApplication(id: string, notes?: string) {
-    // Check if application exists
     const application = await this.prisma.vendorApplication.findUnique({
       where: { id },
     });
@@ -387,12 +352,10 @@ export class VendorsService {
       throw new NotFoundException(`Vendor application with ID ${id} not found`);
     }
 
-    // Check if application is already rejected
     if (application.status === 'REJECTED') {
       throw new BadRequestException('Application is already rejected');
     }
 
-    // Update application status
     await this.prisma.vendorApplication.update({
       where: { id },
       data: {
@@ -416,7 +379,6 @@ export class VendorsService {
     const { page, limit, search, sortBy, sortOrder } = params;
     const skip = (page - 1) * limit;
 
-    // Build where conditions
     const where: any = {
       isVerified: true,
     };
@@ -428,7 +390,6 @@ export class VendorsService {
       ];
     }
 
-    // Build orderBy
     const orderBy: any = {};
     if (sortBy) {
       orderBy[sortBy] = sortOrder || 'asc';
@@ -436,7 +397,6 @@ export class VendorsService {
       orderBy.rating = 'desc';
     }
 
-    // Get vendors with pagination
     const [vendors, total] = await Promise.all([
       this.prisma.vendor.findMany({
         where,
@@ -454,7 +414,6 @@ export class VendorsService {
       this.prisma.vendor.count({ where }),
     ]);
 
-    // Process vendors
     const processedVendors = vendors.map((vendor) => ({
       ...vendor,
       productCount: vendor._count.products,
@@ -512,12 +471,39 @@ export class VendorsService {
     return {
       ...vendor,
       productCount: vendor._count.products,
-      _count: undefined,
+      _count: vendor._count,
     };
   }
 
+  async findBySlug(slug: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        businessName: true,
+        slug: true,
+        businessLogo: true,
+        coverImage: true,
+        themeColor: true,
+        accentColor: true,
+        tagline: true,
+        customCSS: true,
+        _count: {
+          select: {
+            products: true,
+          },
+        },
+      },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException(`Vendor with slug ${slug} not found`);
+    }
+
+    return vendor;
+  }
+
   async updateProfile(userId: string, updateVendorDto: UpdateVendorDto) {
-    // Get vendor by user ID
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
     });
@@ -526,7 +512,6 @@ export class VendorsService {
       throw new NotFoundException('Vendor profile not found');
     }
 
-    // Check if business email is unique if being updated
     if (
       updateVendorDto.businessEmail &&
       updateVendorDto.businessEmail !== vendor.businessEmail
@@ -543,7 +528,6 @@ export class VendorsService {
       }
     }
 
-    // Update slug if business name is changed
     let slug = vendor.slug;
     if (
       updateVendorDto.businessName &&
@@ -563,7 +547,6 @@ export class VendorsService {
       );
     }
 
-    // Update vendor
     const { businessAddress, ...updateData } = updateVendorDto;
 
     const vendorAddress = await this.prisma.vendorAddress.findFirst({
@@ -593,7 +576,6 @@ export class VendorsService {
   }
 
   async update(id: string, updateVendorDto: UpdateVendorDto) {
-    // Check if vendor exists
     const vendor = await this.prisma.vendor.findUnique({
       where: { id },
     });
@@ -602,7 +584,6 @@ export class VendorsService {
       throw new NotFoundException(`Vendor with ID ${id} not found`);
     }
 
-    // Check if business email is unique if being updated
     if (
       updateVendorDto.businessEmail &&
       updateVendorDto.businessEmail !== vendor.businessEmail
@@ -619,7 +600,6 @@ export class VendorsService {
       }
     }
 
-    // Update slug if business name is changed
     let slug = vendor.slug;
     if (
       updateVendorDto.businessName &&
@@ -639,7 +619,6 @@ export class VendorsService {
       );
     }
 
-    // Update vendor
     const { businessAddress, ...updateData } = updateVendorDto;
 
     const vendorAddress = await this.prisma.vendorAddress.findFirst({
@@ -676,16 +655,6 @@ export class VendorsService {
     const { page, limit, spotlight } = params;
     const skip = (page - 1) * limit;
 
-    // If spotlight is true, we want to get the top featured vendor
-    const orderBy = spotlight
-      ? [
-        { displayOrder: 'asc' },
-        { advertisement: { budget: 'desc' } },
-        { createdAt: 'desc' },
-      ]
-      : [{ displayOrder: 'asc' }, { createdAt: 'desc' }];
-
-    // Get featured vendors with pagination
     const [featuredVendors, total] = await Promise.all([
       this.prisma.vendor.findMany({
         where: {
@@ -702,7 +671,6 @@ export class VendorsService {
         },
         skip,
         take: limit,
-        // orderBy,
         include: {
           advertisements: {
             select: {
@@ -737,7 +705,6 @@ export class VendorsService {
       }),
     ]);
 
-    // Fallback: If no featured vendors by advertisement, get highly rated verified vendors
     if (featuredVendors.length === 0) {
       const [fallbackVendors, fallbackTotal] = await Promise.all([
         this.prisma.vendor.findMany({
@@ -763,7 +730,7 @@ export class VendorsService {
       ]);
 
       return {
-        data: fallbackVendors,
+        data: fallbackVendors.map(v => ({ ...v, productCount: v._count.products })),
         meta: {
           total: fallbackTotal,
           page,
@@ -773,44 +740,8 @@ export class VendorsService {
       };
     }
 
-    // Transform the data to make it more client-friendly
-    // const transformedVendors = featuredVendors.map((item) => ({
-    //   id: item.vendor.id,
-    //   name: item.customTitle || item.vendor.businessName,
-    //   description: item.customDescription || item.vendor.description,
-    //   logo: item.customImageUrl || item.vendor.businessLogo,
-    //   coverImage: item.vendor.coverImage,
-    //   isVerified: item.vendor.isVerified,
-    //   rating: item.vendor.rating,
-    //   productCount: item.vendor.products.length,
-    //   slug: item.vendor.slug,
-    //   location: item.vendor.businessAddress,
-    //   joinDate: item.vendor.createdAt,
-    //   // specialties: item.vendor.specialties,
-    //   advertisement: {
-    //     id: item.advertisement.id,
-    //     title: item.advertisement.title,
-    //     description: item.advertisement.description,
-    //     imageUrl: item.advertisement.imageUrl,
-    //   },
-    //   isFeatured: true,
-    //   displayOrder: item.displayOrder,
-    //   // Include featured products if this is a spotlight vendor
-    //   ...(spotlight && item.vendor.products
-    //     ? {
-    //         featuredProducts: item.vendor.products.map((product) => ({
-    //           id: product.id,
-    //           name: product.name,
-    //           image: product.images[0] || '/placeholder.svg',
-    //           price: product.price,
-    //           slug: product.slug,
-    //         })),
-    //       }
-    //     : {}),
-    // }));
-
     return {
-      data: featuredVendors,
+      data: featuredVendors.map(v => ({ ...v, productCount: v._count.products })),
       meta: {
         total,
         page,
@@ -824,14 +755,9 @@ export class VendorsService {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
     });
-
-    if (!vendor) {
-      throw new NotFoundException('Vendor profile not found');
-    }
-
+    if (!vendor) throw new NotFoundException('Vendor not found');
     return this.prisma.vendorAddress.findMany({
       where: { vendorId: vendor.id },
-      orderBy: { isDefault: 'desc' },
     });
   }
 
@@ -839,91 +765,33 @@ export class VendorsService {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
     });
-
-    if (!vendor) {
-      throw new NotFoundException('Vendor profile not found');
-    }
-
-    const { isDefault, ...addressData } = branchDto;
-
-    if (isDefault) {
-      // Unset existing default branch
-      await this.prisma.vendorAddress.updateMany({
-        where: { vendorId: vendor.id, isDefault: true },
-        data: { isDefault: false },
-      });
-    }
-
+    if (!vendor) throw new NotFoundException('Vendor not found');
     return this.prisma.vendorAddress.create({
       data: {
-        ...addressData,
-        isDefault: isDefault || false,
-        Vendor: { connect: { id: vendor.id } },
+        ...branchDto,
+        vendorId: vendor.id,
       },
     });
   }
 
-  async updateBranch(userId: string, addressId: string, branchDto: VendorBranchDto) {
+  async updateBranch(userId: string, id: string, branchDto: VendorBranchDto) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
     });
-
-    if (!vendor) {
-      throw new NotFoundException('Vendor profile not found');
-    }
-
-    const address = await this.prisma.vendorAddress.findFirst({
-      where: { id: addressId, vendorId: vendor.id },
-    });
-
-    if (!address) {
-      throw new NotFoundException('Branch address not found');
-    }
-
-    const { isDefault, ...addressData } = branchDto;
-
-    if (isDefault && !address.isDefault) {
-      // Set as default, unset others
-      await this.prisma.vendorAddress.updateMany({
-        where: { vendorId: vendor.id, isDefault: true },
-        data: { isDefault: false },
-      });
-    }
-
+    if (!vendor) throw new NotFoundException('Vendor not found');
     return this.prisma.vendorAddress.update({
-      where: { id: addressId },
-      data: {
-        ...addressData,
-        isDefault: isDefault !== undefined ? isDefault : address.isDefault,
-      },
+      where: { id },
+      data: branchDto,
     });
   }
 
-  async deleteBranch(userId: string, addressId: string) {
+  async deleteBranch(userId: string, id: string) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
     });
-
-    if (!vendor) {
-      throw new NotFoundException('Vendor profile not found');
-    }
-
-    const address = await this.prisma.vendorAddress.findFirst({
-      where: { id: addressId, vendorId: vendor.id },
+    if (!vendor) throw new NotFoundException('Vendor not found');
+    return this.prisma.vendorAddress.delete({
+      where: { id },
     });
-
-    if (!address) {
-      throw new NotFoundException('Branch address not found');
-    }
-
-    if (address.isDefault) {
-      throw new BadRequestException('Cannot delete the default branch. Set another branch as default first.');
-    }
-
-    await this.prisma.vendorAddress.delete({
-      where: { id: addressId },
-    });
-
-    return { message: 'Branch deleted successfully' };
   }
 }
