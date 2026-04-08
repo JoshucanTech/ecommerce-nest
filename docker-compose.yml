@@ -1,19 +1,16 @@
-# version: '3.8'
-
 services:
   backend:
     container_name: e-backend
     build:
       context: .
       dockerfile: Dockerfile
-      # target: dev
-    image: ecommerce-backend:latest
+      target: dev
+    image: ecommerce-backend:dev
     ports:
       - "4000:4000"
     environment:
       NODE_ENV: development
       RUN_SEED: 0
-
       DATABASE_URL: postgresql://postgres:secret2580@postgres:5432/ecommerce?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-cEVNBXuvqiPfH81BlmSZYcii/hnjqTibnbS6ye5vWgQ=}
       JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-7d}
@@ -26,10 +23,13 @@ services:
       PORT: 4000
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
-      NODE_OPTIONS: --max-old-space-size=1024
+      NEXT_TELEMETRY_DISABLED: "1"
+      FLUTTERWAVE_PUBLIC_KEY: ${FLUTTERWAVE_PUBLIC_KEY:-dummy_public_key}
+      FLUTTERWAVE_SECRET_KEY: ${FLUTTERWAVE_SECRET_KEY:-dummy_secret_key}
     restart: unless-stopped
     networks:
-      - ecommerce-network
+      - ecommerce-internal
+      - ecommerce-public
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,11 +39,11 @@ services:
       - .:/app
       - /app/node_modules
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 40s
 
   postgres:
     container_name: e-postgres
@@ -58,7 +58,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     networks:
-      - ecommerce-network
+      - ecommerce-internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -70,7 +70,7 @@ services:
     image: redis:alpine
     restart: unless-stopped
     networks:
-      - ecommerce-network
+      - ecommerce-internal
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes
@@ -88,24 +88,21 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev
-    image: ecommerce-backend:latest
+    image: ecommerce-backend:dev
     ports:
       - "5555:5555"
-    # depends_on:
-    #   postgres:
-    #     condition: service_healthy
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      # DATABASE_URL: postgresql://postgres:secret2580@postgres:5432/ecommerce?schema=public
-      DATABASE_URL: postgresql://postgres:secret2580@localhost:5432/ecommerce?schema=public
-      CHOKIDAR_USEPOLLING: "true"
+      DATABASE_URL: postgresql://postgres:secret2580@postgres:5432/ecommerce?schema=public
     working_dir: /app
     volumes:
       - .:/app
-      # sh -c "npx prisma generate && npx prisma studio --port 5555"  # This line is to replace the command below if you want to generate before starting studio
-    command: >
-      sh -c "npx prisma studio --port 5555"
+      - /app/node_modules
+    command: npx prisma studio --port 5555
     networks:
-      - ecommerce-network
+      - ecommerce-internal
 
   seed:
     container_name: e-seed
@@ -113,28 +110,29 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev
-    image: ecommerce-backend:latest
+    image: ecommerce-backend:dev
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://postgres:secret2580@postgres:5432/ecommerce?schema=public
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
     working_dir: /app
     volumes:
       - .:/app
-    command: >
-      sh -c "npx prisma generate && npx prisma db seed"
+      - /app/node_modules
+    command: sh -c "npx prisma generate && npx prisma db seed"
     networks:
-      - ecommerce-network
+      - ecommerce-internal
+    profiles:
+      - seed # Only runs when explicitly called or via --profile seed
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  ecommerce-network:
+  ecommerce-internal:
+    driver: bridge
+  ecommerce-public:
+    name: ecommerce-public
     driver: bridge

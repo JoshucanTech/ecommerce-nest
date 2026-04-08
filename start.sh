@@ -1,17 +1,22 @@
 #!/bin/sh
 set -e
 
-echo '=== Starting Application ==='
-echo "PORT: $PORT"
+echo "=== NestJS Production Startup ==="
+echo "Port: $PORT"
 
-# Always run migrations
-echo 'Running database migrations...'
-npx prisma migrate deploy
-echo '✅ Migrations completed successfully!'
+# Ensure migrations are applied before starting the service
+echo "🚀 Applying database migrations..."
+if npx prisma migrate deploy; then
+    echo "✅ Migrations applied successfully."
+else
+    echo "❌ Migration failed! Check your database connection and logs."
+    exit 1
+fi
 
-# Skip seeding entirely in production for now
-echo 'Skipping database seeding in production'
-echo 'To seed database, run manually: npx prisma db seed'
+# We skip automatic seeding in production to avoid accidental data resets
+echo "ℹ️  Skipping automatic database seeding."
+echo "   To seed manually: docker compose --profile seed up seed"
 
-echo 'Starting NestJS application...'
+echo "🏁 Starting NestJS Application..."
+# Using exec to replace the shell process with the Node process
 exec node dist/src/main.js

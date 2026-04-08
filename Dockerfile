@@ -1,68 +1,67 @@
-# Stage 1: Build the app
-FROM node:20-alpine AS builder
+# Stage 1: Base image
+FROM node:22-alpine AS base
 
+# Install libc6-compat for some Native Modules
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files first for better caching
-COPY package*.json ./
+# Stage 2: Dependencies
+FROM base AS deps
+COPY package.json package-lock.json* ./
+# Copy Prisma schema early to cache Prisma Client generation if schema hasn't changed
+COPY prisma ./prisma/
+RUN npm ci --legacy-peer-deps
 
-# Install all dependencies including dev dependencies for building
-RUN npm ci
-
-# Copy Prisma schema
-COPY prisma ./prisma
-COPY prisma.config.ts ./
-
-# Generate Prisma client
-RUN npx prisma generate
-
-# Copy all source files
+# Stage 3: Builder
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Build the NestJS app
+# npx prisma generate is usually fast, but we'll run it explicitly here 
+# just to be sure the dist build has access to it.
+RUN npx prisma generate
 RUN npm run build
 
-# Stage 2: Production image
-FROM node:20-alpine AS runner
+# Stage 4: Runner (Production)
+FROM base AS runner
+ENV NODE_ENV=production
 
-# Create app directory
+# Security: Create non-root user
+RUN addgroup --system --gid 1001 nestjs
+RUN adduser --system --uid 1001 nestjs
+
+# Copy built application and production node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/start.sh ./start.sh
+
+RUN chmod +x ./start.sh
+RUN chown -R nestjs:nestjs /app
+
+USER nestjs
+
+EXPOSE 4000
+ENV PORT=4000
+ENV HOST=0.0.0.0
+
+# Using a start script for migrations/health check logic
+CMD ["./start.sh"]
+
+# Stage 5: Development (HMR / Watch Mode)
+FROM deps AS dev
+ENV NODE_ENV=development
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# In development, we mount the host volume, so we don't need to COPY . .
+# but doing it here ensures the image is still usable independently.
+COPY . .
 
-# Install only production dependencies
-RUN npm ci --only=production
+# Ensure prisma client is up-to-date and run dev server
+EXPOSE 4000
+ENV PORT=4000
+ENV HOST=0.0.0.0
 
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
-
-# Copy Prisma files and generate client for production
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma.config.ts ./
-RUN npx prisma generate
-
-# Copy start script and make it executable
-COPY --from=builder /app/start.sh ./start.sh
-RUN chmod +x ./start.sh
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
-
-# Change ownership of app directory to non-root user
-RUN chown -R nextjs:nodejs /app
-USER nextjs
-
-# Set Node.js port (Render uses PORT environment variable)
-ENV PORT 3000
-
-# Expose the port the app runs on
-EXPOSE $PORT
-
-# Health check using the existing health endpoint
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:$PORT/api/health || exit 1
-
-# Start the application with the start script
-CMD ["./start.sh"]
+# Using npm run start:dev for NestJS watch mode
+# Using npx prisma migrate dev with auto-naming for smooth Docker dev workflow
+CMD ["sh", "-c", "npx prisma migrate dev --name sync_schema --skip-seed && npm run start:dev"]
