@@ -488,11 +488,29 @@ export class VendorsService {
         accentColor: true,
         tagline: true,
         customCSS: true,
+        description: true,
+        rating: true,
+        totalRatings: true,
+        isVerified: true,
+        createdAt: true,
+        businessEmail: true,
+        businessPhone: true,
+        website: true,
+        businessAddress: {
+          select: {
+            street: true,
+            city: true,
+            state: true,
+            postalCode: true,
+            country: true,
+          },
+        },
         _count: {
           select: {
             products: true,
           },
         },
+
       },
     });
 
