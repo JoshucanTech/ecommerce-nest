@@ -24,7 +24,7 @@ async function bootstrap() {
       }
 
       const normalizedOrigin = origin.toLowerCase();
-      const isLocalhost = normalizedOrigin.includes('localhost') || normalizedOrigin.includes('127.0.0.1');
+      const isLocalhost = normalizedOrigin.includes('localhost') || normalizedOrigin.includes('127.0.0.1') || normalizedOrigin.includes('myapp.local');
       const isStaging = normalizedOrigin === 'https://staging-mkthub.vercel.app' || normalizedOrigin.endsWith('.onrender.com');
 
       if (isLocalhost || isStaging) {
