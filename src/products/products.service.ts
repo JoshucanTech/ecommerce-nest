@@ -36,11 +36,18 @@ export class ProductsService {
       return !exists;
     });
 
+    const { categoryId, ...rest } = createProductDto;
+
     const product = await this.prisma.product.create({
       data: {
-        ...createProductDto,
+        ...rest,
         slug,
         vendorId: vendor.id,
+        ...(categoryId && {
+          category: {
+            connect: { id: categoryId }
+          }
+        })
       },
     });
 
@@ -85,17 +92,15 @@ export class ProductsService {
     }
 
     if (category) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(category);
       where.category = {
-        some: {
-          OR: [{ id: category }, { slug: category }],
-        },
+        some: isUuid ? { id: category } : { slug: category },
       };
     }
 
     if (vendor) {
-      where.vendor = {
-        OR: [{ id: vendor }, { slug: vendor }],
-      };
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vendor);
+      where.vendor = isUuid ? { id: vendor } : { slug: vendor };
     }
 
     if (minPrice !== undefined) {
@@ -393,11 +398,18 @@ export class ProductsService {
       });
     }
 
+    const { categoryId, ...rest } = updateProductDto;
+
     const updatedProduct = await this.prisma.product.update({
       where: { id },
       data: {
-        ...updateProductDto,
+        ...rest,
         slug,
+        ...(categoryId && {
+          category: {
+            set: [{ id: categoryId }]
+          }
+        })
       },
     });
 
