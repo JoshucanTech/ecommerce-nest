@@ -117,6 +117,7 @@ export class ProductRecommendationService {
 
       return {
         ...rest,
+        category: product.categories,
         avgRating,
         reviewCount: product.reviews.length,
       };

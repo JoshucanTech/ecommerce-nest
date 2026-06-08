@@ -567,6 +567,7 @@ export class ProductsController {
   }
 
   @Post(':id/viewers')
+  @Public()
   // @UseGuards(OptionalJwtGuard)
   @Session()
   addViewer(@Param('id') productId: string, @CurrentUser() user, @Req() req) {
@@ -583,6 +584,7 @@ export class ProductsController {
   }
 
   @Delete(':id/viewers')
+  @Public()
   // @Session()
   removeViewer(
     @Param('id') productId: string,

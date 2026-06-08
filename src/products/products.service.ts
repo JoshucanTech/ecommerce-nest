@@ -162,6 +162,7 @@ export class ProductsService {
 
       return {
         ...rest,
+        category: product.categories,
         avgRating,
         reviewCount,
       };
@@ -262,6 +263,7 @@ export class ProductsService {
       const { reviews, ...rest } = product;
       return {
         ...rest,
+        category: product.categories,
         avgRating,
         reviewCount,
       };
@@ -350,6 +352,7 @@ export class ProductsService {
 
     return {
       ...product,
+      category: product.categories,
       avgRating,
       reviewCount: product.reviews.length,
       ratingDistribution,
@@ -497,6 +500,7 @@ export class ProductsService {
 
       return {
         ...rest,
+        category: product.categories,
         avgRating,
         reviewCount: product.reviews.length,
       };
@@ -629,6 +633,13 @@ export class ProductsService {
       },
     });
 
-    return views.map((view) => view.product);
+    return views.map((view) => {
+      const { categories, ...rest } = view.product;
+      return {
+        ...rest,
+        categories,
+        category: categories,
+      };
+    });
   }
 }
