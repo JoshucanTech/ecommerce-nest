@@ -65,9 +65,11 @@ export class CreateProductDto {
   isPublished?: boolean;
 
   @ApiProperty({
-    description: 'Category ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'Array of Category IDs',
+    type: [String],
+    example: ['123e4567-e89b-12d3-a456-426614174000', '123e4567-e89b-12d3-a456-426614174001'],
   })
-  @IsUUID()
-  categoryId: string;
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  categoryIds: string[];
 }

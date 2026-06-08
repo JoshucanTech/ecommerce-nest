@@ -36,18 +36,18 @@ export class ProductsService {
       return !exists;
     });
 
-    const { categoryId, ...rest } = createProductDto;
+    const { categoryIds, ...rest } = createProductDto;
 
     const product = await this.prisma.product.create({
       data: {
         ...rest,
         slug,
         vendorId: vendor.id,
-        ...(categoryId && {
-          category: {
-            connect: { id: categoryId }
-          }
-        })
+        ...(categoryIds && categoryIds.length > 0 && {
+          categories: {
+            connect: categoryIds.map((id) => ({ id })),
+          },
+        }),
       },
     });
 
@@ -93,7 +93,7 @@ export class ProductsService {
 
     if (category) {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(category);
-      where.category = {
+      where.categories = {
         some: isUuid ? { id: category } : { slug: category },
       };
     }
@@ -131,7 +131,7 @@ export class ProductsService {
         take: limit,
         orderBy,
         include: {
-          category: {
+          categories: {
             select: {
               id: true,
               name: true,
@@ -247,7 +247,7 @@ export class ProductsService {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        category: true,
+        categories: true,
         reviews: {
           select: {
             rating: true,
@@ -274,7 +274,7 @@ export class ProductsService {
         OR: [{ id: idOrSlug }, { slug: idOrSlug }],
       },
       include: {
-        category: {
+        categories: {
           select: {
             name: true,
             slug: true,
@@ -398,18 +398,18 @@ export class ProductsService {
       });
     }
 
-    const { categoryId, ...rest } = updateProductDto;
+    const { categoryIds, ...rest } = updateProductDto;
 
     const updatedProduct = await this.prisma.product.update({
       where: { id },
       data: {
         ...rest,
         slug,
-        ...(categoryId && {
-          category: {
-            set: [{ id: categoryId }]
-          }
-        })
+        ...(categoryIds && {
+          categories: {
+            set: categoryIds.map((id) => ({ id })),
+          },
+        }),
       },
     });
 
@@ -458,7 +458,7 @@ export class ProductsService {
           createdAt: 'desc',
         },
         include: {
-          category: {
+          categories: {
             select: {
               id: true,
               name: true,
@@ -622,7 +622,7 @@ export class ProductsService {
       include: {
         product: {
           include: {
-            category: true,
+            categories: true,
             vendor: true,
           },
         },

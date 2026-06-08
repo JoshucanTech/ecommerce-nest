@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -204,8 +205,11 @@ export class CategoriesController {
       },
     },
   })
-  findAll() {
-    return this.categoriesService.findAll();
+  findAll(
+    @Query('vendorId') vendorId?: string,
+    @Query('vendorSlug') vendorSlug?: string,
+  ) {
+    return this.categoriesService.findAll(vendorId, vendorSlug);
   }
 
   @Get(':id')

@@ -12,6 +12,8 @@ model Category {
   parent          Category?         @relation("CategorySubCategories", fields: [parentId], references: [id])
   subCategories   Category[]        @relation("CategorySubCategories")
   user            User?             @relation(fields: [userId], references: [id])
+  vendorId        String?
+  vendor          Vendor?           @relation(fields: [vendorId], references: [id])
   ProductCategory ProductCategory[]
   products        Product[]         @relation("ProductCategories")
 

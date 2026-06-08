@@ -237,7 +237,7 @@ export class AdvertisementsService {
                 images: true,
                 price: true,
                 description: true,
-                category: true,
+                categories: true,
               },
             },
           },
@@ -813,7 +813,7 @@ export class AdvertisementsService {
               price: true,
               discountPrice: true,
               images: true,
-              category: {
+              categories: {
                 select: {
                   id: true,
                   name: true,
@@ -855,7 +855,7 @@ export class AdvertisementsService {
           take: limit,
           orderBy: { createdAt: 'desc' },
           include: {
-            category: {
+            categories: {
               select: { id: true, name: true },
             },
             reviews: {
@@ -886,7 +886,8 @@ export class AdvertisementsService {
         price: product.price,
         discountPrice: product.discountPrice,
         images: product.images,
-        category: product.category,
+        category: product.categories[0] || null,
+        categories: product.categories,
         vendor: product.vendor,
         reviewCount: product.reviews.length,
         avgRating:
@@ -919,7 +920,8 @@ export class AdvertisementsService {
       images: item.customImageUrl
         ? [item.customImageUrl, ...item.product.images]
         : item.product.images,
-      category: item.product.category,
+      category: item.product.categories[0] || null,
+      categories: item.product.categories,
       vendor: item.product.vendor,
       reviewCount: item.product.reviews.length,
       avgRating:

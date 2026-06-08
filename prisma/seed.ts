@@ -540,7 +540,7 @@ async function main() {
           images: [faker.image.url(), faker.image.url()],
           isPublished: true,
           vendorId,
-          category: {
+          categories: {
             connect: [{ id: categories[0].id }], // many-to-many association
           },
           inventory: {
@@ -574,7 +574,7 @@ async function main() {
           images: [faker.image.url(), faker.image.url()],
           isPublished: true,
           vendorId: vendor2Id, // Different vendor
-          category: {
+          categories: {
             connect: [{ id: categories[0].id }], // many-to-many association
           },
           inventory: {
@@ -611,7 +611,7 @@ async function main() {
           returnPolicy: faker.lorem.sentence(),
           soldCount: faker.number.int({ min: 50, max: 100 }),
           viewCount: faker.number.int({ min: 20, max: 1000 }),
-          category: {
+          categories: {
             connect: [{ id: categories[0].id }], // many-to-many association
           },
           inventory: {

@@ -18,8 +18,10 @@ export async function seedStorefronts(prisma: PrismaClient, salt: string) {
         { name: 'LuxuryWatch', slug: 'luxurywatch', theme: '#BF9B30', accent: '#1C1C1C', tagline: 'Timeless Elegance', bio: 'Exquisite timepieces for the discerning collector.' },
     ];
 
-    // Get categories to associate products with
-    const categories = await prisma.category.findMany();
+    // Get GLOBAL categories only to avoid cross-vendor pollution
+    const categories = await prisma.category.findMany({
+        where: { vendorId: null }
+    });
     if (categories.length === 0) {
         console.warn('No categories found. Products will be created without category associations.');
     }
@@ -101,7 +103,7 @@ export async function seedStorefronts(prisma: PrismaClient, salt: string) {
                     soldCount: faker.number.int({ min: 0, max: 500 }),
                     viewCount: faker.number.int({ min: 0, max: 2000 }),
                     ...(categories.length > 0 && {
-                        category: {
+                        categories: {
                             connect: [{ id: categories[Math.floor(Math.random() * categories.length)].id }]
                         }
                     }),

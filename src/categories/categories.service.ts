@@ -44,8 +44,23 @@ export class CategoriesService {
     });
   }
 
-  async findAll() {
+  async findAll(vendorId?: string, vendorSlug?: string) {
+    const where: any = {};
+
+    if (vendorId) {
+      where.OR = [
+        { vendorId },
+        { products: { some: { vendorId } } },
+      ];
+    } else if (vendorSlug) {
+      where.OR = [
+        { vendor: { slug: vendorSlug } },
+        { products: { some: { vendor: { slug: vendorSlug } } } },
+      ];
+    }
+
     const categories = await this.prisma.category.findMany({
+      where,
       include: {
         parent: {
           select: {
@@ -64,7 +79,13 @@ export class CategoriesService {
         },
         _count: {
           select: {
-            products: true,
+            products: vendorId || vendorSlug
+              ? {
+                  where: vendorId
+                    ? { vendorId }
+                    : { vendor: { slug: vendorSlug } },
+                }
+              : true,
           },
         },
       },

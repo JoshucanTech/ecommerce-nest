@@ -162,14 +162,14 @@ export class AnalyticsService {
         const productIds = data.map(d => d.productId);
         const products = await this.prisma.product.findMany({
             where: { id: { in: productIds } },
-            include: { category: true }
+            include: { categories: true }
         });
 
         const categories: Record<string, number> = {};
         data.forEach(d => {
             const p = products.find(prod => prod.id === d.productId);
-            if (p && p.category.length > 0) {
-                const catName = p.category[0].name;
+            if (p && p.categories.length > 0) {
+                const catName = p.categories[0].name;
                 categories[catName] = (categories[catName] || 0) + (d._sum.totalPrice || 0);
             }
         });

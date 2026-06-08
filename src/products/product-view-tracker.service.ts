@@ -70,7 +70,7 @@ export class ProductViewTrackerService {
       include: {
         product: {
           include: {
-            category: true,
+            categories: true,
             vendor: true,
           },
         },

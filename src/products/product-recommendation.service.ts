@@ -75,7 +75,7 @@ export class ProductRecommendationService {
           createdAt: 'desc',
         },
         include: {
-          category: {
+          categories: {
             select: {
               id: true,
               name: true,
