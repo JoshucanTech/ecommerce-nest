@@ -487,7 +487,7 @@ export class ProductsController {
   getViewed(@Req() req) {
     const userId = req.user?.id;
     // const sessionId = req.cookies['session_id']; // or generate if missing
-    const sessionId = 'sessionId-12345'; // or generate if missing
+    const sessionId = req?.headers['x-anonymous-id']?.toString() || 'sessionId-12345';
     return this.productsService.getRecentlyViewed(userId, sessionId);
   }
 
