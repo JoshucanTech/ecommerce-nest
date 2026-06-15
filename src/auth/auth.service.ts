@@ -64,7 +64,7 @@ export class AuthService {
     });
 
     // Emit event to merge carts
-    const sessionId = this.request.headers['x-session-id'] as string;
+    const sessionId = (this.request.headers['x-anonymous-id'] || this.request.headers['x-session-id']) as string;
     if (sessionId) {
       this.eventEmitter.emit('user.login', {
         userId: user.id,
@@ -126,7 +126,7 @@ export class AuthService {
     }
 
     // Emit event to merge carts
-    const sessionId = this.request.headers['x-session-id'] as string;
+    const sessionId = (this.request.headers['x-anonymous-id'] || this.request.headers['x-session-id']) as string;
     if (sessionId) {
       this.eventEmitter.emit('user.login', {
         userId: user.id,
@@ -308,7 +308,7 @@ export class AuthService {
     }
 
     // Emit event to merge carts
-    const sessionId = this.request.headers['x-session-id'] as string;
+    const sessionId = (this.request.headers['x-anonymous-id'] || this.request.headers['x-session-id']) as string;
     if (sessionId) {
       this.eventEmitter.emit('user.login', {
         userId: user.id,

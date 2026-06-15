@@ -35,8 +35,8 @@ async function bootstrap() {
     },
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type, Accept, Authorization, x-anonymous-id, x-storefront-vendor',
-    exposedHeaders: 'Authorization, x-anonymous-id, x-storefront-vendor',
+    allowedHeaders: 'Content-Type, Accept, Authorization, x-anonymous-id, x-session-id, x-storefront-vendor',
+    exposedHeaders: 'Authorization, x-anonymous-id, x-session-id, x-storefront-vendor',
   });
 
   // Global validation pipe
