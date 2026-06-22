@@ -56,7 +56,6 @@ async function main() {
   await prisma.faq.deleteMany();
   await prisma.recentlyViewedProduct.deleteMany();
   await prisma.shippingZone.deleteMany();
-  await prisma.shippingOption.deleteMany();
   await prisma.shippingPolicy.deleteMany();
   await prisma.vendorShipping.deleteMany();
   await prisma.shipping.deleteMany();
@@ -723,27 +722,9 @@ async function main() {
     }),
   ]);
 
-  // Seed Shipping Options for a few Products (e.g., first 3)
+  // Update the featured products with a shipping policy
   await Promise.all(
     featuredProducts.map(async (product) => {
-      await prisma.shippingOption.createMany({
-        data: [
-          {
-            name: 'Standard Delivery',
-            price: 9.99,
-            deliveryTime: '3-5 business days',
-            productId: product.id,
-          },
-          {
-            name: 'Express Delivery',
-            price: 19.99,
-            deliveryTime: '1-2 business days',
-            productId: product.id,
-          },
-        ],
-      });
-
-      // Update the product with a shipping policy
       await prisma.product.update({
         where: { id: product.id },
         data: {

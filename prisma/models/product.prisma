@@ -38,7 +38,6 @@ model Product {
   vendor                Vendor                  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   RecentlyViewedProduct RecentlyViewedProduct[]
   reviews               Review[]
-  shippingOptions       ShippingOption[]
   wishlistItems         WishlistItem[]
   categories            Category[]              @relation("ProductCategories")
 
@@ -97,18 +96,6 @@ model ProductCategory {
 
   @@unique([productId, categoryId])
   @@map("product_categories")
-}
-
-model ShippingOption {
-  id           String  @id @default(uuid())
-  name         String
-  price        Float
-  productId    String
-  isActive     Boolean @default(true)
-  deliveryTime String
-  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@map("shipping_options")
 }
 
 model ProductFeature {

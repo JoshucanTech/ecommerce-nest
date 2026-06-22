@@ -314,7 +314,6 @@ export class ProductsService {
             },
           },
         },
-        shippingOptions: true,
         shippingPolicy: true,
         flashSaleItems: {
           include: {
