@@ -194,6 +194,18 @@ export class ShippingService {
       },
     });
 
+    if (vendorShippings.length === 0) {
+      // Fallback: Return all active global shipping methods
+      const globalShippings = await this.prisma.shipping.findMany({
+        where: { isActive: true },
+        include: { shippingZones: true },
+      });
+      return globalShippings.map((shipping) => ({
+        ...shipping,
+        vendorId,
+      }));
+    }
+
     // Return enriched shipping methods with effective prices
     return vendorShippings.map((vs) => ({
       ...vs.shipping,

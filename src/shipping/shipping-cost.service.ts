@@ -23,8 +23,17 @@ export class ShippingCostService {
       where: { shippingId: shippingOptionId, vendorId: vendorId },
     });
 
-    if (vendorShippingMethod) {
+    if (vendorShippingMethod && vendorShippingMethod.priceOverride !== null && vendorShippingMethod.priceOverride !== undefined) {
       return vendorShippingMethod.priceOverride;
+    }
+
+    // Fallback: Check if it is a global shipping method
+    const globalShippingMethod = await this.prisma.shipping.findUnique({
+      where: { id: shippingOptionId, isActive: true },
+    });
+
+    if (globalShippingMethod) {
+      return globalShippingMethod.price;
     }
 
     // If no shipping method found, return 0
