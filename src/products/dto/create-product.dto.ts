@@ -64,6 +64,64 @@ export class CreateProductDto {
   @IsBoolean()
   isPublished?: boolean;
 
+  @ApiPropertyOptional({
+    description: 'Short description of the product',
+    example: 'High-quality headphones',
+  })
+  @IsOptional()
+  @IsString()
+  shortDescription?: string;
+
+  @ApiPropertyOptional({
+    description: 'Warranty information',
+    example: '1 year warranty',
+  })
+  @IsOptional()
+  @IsString()
+  warrantyInfo?: string;
+
+  @ApiPropertyOptional({
+    description: 'Return policy details',
+    example: '30-day return policy',
+  })
+  @IsOptional()
+  @IsString()
+  returnPolicy?: string;
+
+  @ApiPropertyOptional({
+    description: 'SEO Meta Title',
+    example: 'Premium Wireless Headphones',
+  })
+  @IsOptional()
+  @IsString()
+  metaTitle?: string;
+
+  @ApiPropertyOptional({
+    description: 'SEO Meta Description',
+    example: 'Buy premium wireless headphones at the best price.',
+  })
+  @IsOptional()
+  @IsString()
+  metaDescription?: string;
+
+  @ApiPropertyOptional({
+    description: 'Product tags',
+    type: [String],
+    example: ['electronics', 'audio'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Shipping Policy ID',
+    example: '50dae785-a67e-451b-a4f3-d60a8f652e3d',
+  })
+  @IsOptional()
+  @IsUUID()
+  shippingPolicyId?: string;
+
   @ApiProperty({
     description: 'Array of Category IDs',
     type: [String],
