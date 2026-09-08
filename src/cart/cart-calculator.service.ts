@@ -32,8 +32,12 @@ export class CartCalculatorService {
           name: item.product.name,
           slug: item.product.slug,
           images: item.product.images,
+          price: item.product.price,
+          discountPrice: item.product.discountPrice ?? null,
+          vendorId: item.product.vendorId,
           vendor: item.product.vendor,
         },
+        originalPrice: item.productVariant?.price ?? item.product.price,
         variant: item.productVariant
           ? {
               id: item.productVariant.id,

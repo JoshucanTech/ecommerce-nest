@@ -3,15 +3,106 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, UserRole } from '@prisma/client';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
+import { CouponsGateway } from './coupons.gateway';
+import { Interval } from '@nestjs/schedule';
 
 @Injectable()
 export class CouponsService {
-  constructor(private prisma: PrismaService) { }
+  private readonly logger = new Logger(CouponsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private couponsGateway: CouponsGateway,
+  ) {}
+
+  /**
+   * Background task: checks for expired coupons every 10 seconds.
+   * Ensures expired coupons automatically transition to expired in real time
+   * and broadcasts the event to all frontends on all devices immediately.
+   */
+  @Interval(10000)
+  async handlePeriodicCouponExpiration() {
+    try {
+      await this.checkAndExpireCoupons();
+    } catch (err) {
+      this.logger.error(`Error in scheduled coupon expiration: ${err.message}`);
+    }
+  }
+
+  /**
+   * Check database for active coupons whose endDate has passed.
+   * Atomically updates them to isActive: false and broadcasts to all connected devices.
+   */
+  async checkAndExpireCoupons(): Promise<any[]> {
+    const now = new Date();
+
+    const expiredCoupons = await this.prisma.coupon.findMany({
+      where: {
+        isActive: true,
+        endDate: { lte: now },
+      },
+    });
+
+    if (expiredCoupons.length === 0) {
+      return [];
+    }
+
+    const ids = expiredCoupons.map((c) => c.id);
+
+    // Update database: mark isActive: false for expired coupons
+    await this.prisma.coupon.updateMany({
+      where: { id: { in: ids } },
+      data: { isActive: false },
+    });
+
+    this.logger.log(
+      `Expired ${expiredCoupons.length} coupon(s): ${expiredCoupons.map((c) => c.code).join(', ')}`,
+    );
+
+    // Broadcast expiration event to all devices via WebSockets
+    for (const coupon of expiredCoupons) {
+      this.couponsGateway.broadcastCouponExpired({
+        id: coupon.id,
+        code: coupon.code,
+        vendorId: coupon.vendorId,
+        status: 'expired',
+        endDate: coupon.endDate,
+      });
+    }
+
+    return expiredCoupons;
+  }
+
+  /**
+   * Helper to accurately compute real-time coupon status:
+   * 'expired' | 'scheduled' | 'inactive' | 'active'
+   */
+  computeCouponStatus(coupon: {
+    startDate: Date | string;
+    endDate: Date | string;
+    isActive: boolean;
+  }): 'expired' | 'scheduled' | 'inactive' | 'active' {
+    const now = new Date();
+    const start = new Date(coupon.startDate);
+    const end = new Date(coupon.endDate);
+
+    if (now >= end) {
+      return 'expired';
+    }
+    if (!coupon.isActive) {
+      return 'inactive';
+    }
+    if (now < start) {
+      return 'scheduled';
+    }
+    return 'active';
+  }
 
   async processCoupons(couponCode: string, itemsByVendor: any) {
     const coupon = await this.prisma.coupon.findUnique({
@@ -22,12 +113,31 @@ export class CouponsService {
       return null;
     }
 
-    // Check if coupon is active
     const now = new Date();
+
+    // Check if expired
+    if (coupon.endDate && new Date(coupon.endDate) <= now) {
+      if (coupon.isActive) {
+        // Automatically expire in database
+        await this.prisma.coupon.update({
+          where: { id: coupon.id },
+          data: { isActive: false },
+        });
+        this.couponsGateway.broadcastCouponExpired({
+          id: coupon.id,
+          code: coupon.code,
+          vendorId: coupon.vendorId,
+          status: 'expired',
+          endDate: coupon.endDate,
+        });
+      }
+      return null;
+    }
+
+    // Check if coupon is active and scheduled
     if (
       !coupon.isActive ||
-      (coupon.startDate && coupon.startDate > now) ||
-      (coupon.endDate && coupon.endDate < now)
+      (coupon.startDate && new Date(coupon.startDate) > now)
     ) {
       return null;
     }
@@ -85,7 +195,10 @@ export class CouponsService {
     }
 
     return {
-      coupon,
+      coupon: {
+        ...coupon,
+        status: this.computeCouponStatus(coupon),
+      },
       vendorCoupons,
       vendorOrderValues,
       totalOrderValueAcrossVendors,
@@ -108,8 +221,6 @@ export class CouponsService {
     } else {
       // Fixed amount discount
       discountAmount = coupon.discountValue;
-      // For fixed amount coupons used across multiple vendors,
-      // we should distribute the discount proportionally
       if (!coupon.vendorId) {
         discountAmount =
           coupon.discountValue *
@@ -125,16 +236,22 @@ export class CouponsService {
     return discountAmount;
   }
 
-  async findAll(user: any, params: {
-    page: number;
-    limit: number;
-    search?: string;
-    status?: string;
-  }) {
+  async findAll(
+    user: any,
+    params: {
+      page: number;
+      limit: number;
+      search?: string;
+      status?: string;
+    },
+  ) {
     const { page, limit, search, status } = params;
     const skip = (page - 1) * limit;
 
-    await this.hydrateUser(user); // Ensure vendor/roles are present
+    await this.hydrateUser(user);
+
+    // Run expiration check on read to ensure fresh state
+    await this.checkAndExpireCoupons();
 
     const where: Prisma.CouponWhereInput = {};
 
@@ -143,21 +260,22 @@ export class CouponsService {
       where.vendorId = user.vendor.id;
     } else if (user.role === UserRole.SUB_ADMIN) {
       if (!user.positions) {
-        // Should have been populated by guard/decorator, effectively no permissions if missing
         throw new ForbiddenException('No permissions found');
       }
-      const permissions = user.positions.flatMap(p => p.positionPermissions.map(pp => pp.permission));
-      // Look for permissions related to PROMOTIONS or COUPONS resource
-      const couponPermissions = permissions.filter(p =>
-        (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS') &&
-        (p.action === 'READ' || p.action === 'MANAGE')
+      const permissions = user.positions.flatMap((p) =>
+        p.positionPermissions.map((pp) => pp.permission),
+      );
+      const couponPermissions = permissions.filter(
+        (p) =>
+          (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS') &&
+          (p.action === 'READ' || p.action === 'MANAGE'),
       );
 
       if (couponPermissions.length === 0) {
         throw new ForbiddenException('No permission to access coupons');
       }
 
-      const hasGlobal = couponPermissions.some(p => !p.scope);
+      const hasGlobal = couponPermissions.some((p) => !p.scope);
       if (!hasGlobal) {
         const vendorIds = [];
         for (const p of couponPermissions) {
@@ -168,12 +286,10 @@ export class CouponsService {
         if (vendorIds.length > 0) {
           where.vendorId = { in: vendorIds };
         } else {
-          // If scoped restriction exists but no specific vendors listed, deny access
           return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
         }
       }
     }
-    // ADMIN sees all
 
     if (search) {
       where.OR = [
@@ -182,18 +298,20 @@ export class CouponsService {
       ];
     }
 
+    const now = new Date();
     if (status && status !== 'all') {
-      const now = new Date();
       if (status === 'active') {
         where.isActive = true;
         where.startDate = { lte: now };
-        where.endDate = { gte: now };
+        where.endDate = { gt: now };
       } else if (status === 'expired') {
-        where.endDate = { lt: now };
+        where.endDate = { lte: now };
       } else if (status === 'scheduled') {
         where.startDate = { gt: now };
+        where.endDate = { gt: now };
       } else if (status === 'inactive') {
         where.isActive = false;
+        where.endDate = { gt: now };
       }
     }
 
@@ -207,8 +325,13 @@ export class CouponsService {
       this.prisma.coupon.count({ where }),
     ]);
 
+    const enrichedCoupons = coupons.map((c) => ({
+      ...c,
+      status: this.computeCouponStatus(c),
+    }));
+
     return {
-      data: coupons,
+      data: enrichedCoupons,
       meta: {
         total,
         page,
@@ -228,36 +351,62 @@ export class CouponsService {
     if (user.role === UserRole.VENDOR && coupon.vendorId !== user.vendor?.id) {
       throw new ForbiddenException('Access denied');
     }
-    // Sub-admin permission checks... simplifying for now: if they have READ permission they can see it
-    // ideally check scope against coupon.vendorId
+
     if (user.role === UserRole.SUB_ADMIN) {
-      // ... reuse scope check logic or trust findAll filter usually. 
-      // For direct IDs, strict check:
-      const permissions = user.positions.flatMap(p => p.positionPermissions.map(pp => pp.permission));
-      const canManage = permissions.some(p =>
-        (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS') && p.action === 'MANAGE'
+      const permissions = user.positions.flatMap((p) =>
+        p.positionPermissions.map((pp) => pp.permission),
       );
-      const canRead = permissions.some(p =>
-        (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS') && p.action === 'READ'
+      const canManage = permissions.some(
+        (p) =>
+          (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS') &&
+          p.action === 'MANAGE',
+      );
+      const canRead = permissions.some(
+        (p) =>
+          (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS') &&
+          p.action === 'READ',
       );
 
       if (!canManage && !canRead) throw new ForbiddenException('Access denied');
 
-      // Scope check
-      const hasGlobal = permissions.some(p => !p.scope && ((p.resource === 'PROMOTIONS' || p.resource === 'COUPONS')));
+      const hasGlobal = permissions.some(
+        (p) =>
+          !p.scope && (p.resource === 'PROMOTIONS' || p.resource === 'COUPONS'),
+      );
       if (!hasGlobal) {
-        const allowedVendorIds = permissions.flatMap(p => (p.scope as any)?.vendors || []);
+        const allowedVendorIds = permissions.flatMap(
+          (p) => (p.scope as any)?.vendors || [],
+        );
         if (coupon.vendorId && !allowedVendorIds.includes(coupon.vendorId)) {
           throw new ForbiddenException('Access denied to this vendor coupon');
         }
         if (!coupon.vendorId && allowedVendorIds.length > 0) {
-          // Global coupon, but user is scoped. Deny? 
           throw new ForbiddenException('Access denied to global coupon');
         }
       }
     }
 
-    return coupon;
+    const now = new Date();
+    // Check if expired and update DB if needed
+    if (coupon.isActive && new Date(coupon.endDate) <= now) {
+      await this.prisma.coupon.update({
+        where: { id },
+        data: { isActive: false },
+      });
+      coupon.isActive = false;
+      this.couponsGateway.broadcastCouponExpired({
+        id: coupon.id,
+        code: coupon.code,
+        vendorId: coupon.vendorId,
+        status: 'expired',
+        endDate: coupon.endDate,
+      });
+    }
+
+    return {
+      ...coupon,
+      status: this.computeCouponStatus(coupon),
+    };
   }
 
   async create(user: any, data: CreateCouponDto) {
@@ -266,35 +415,91 @@ export class CouponsService {
       data.vendorId = user.vendor.id;
     }
     // Validate uniqueness
-    const existing = await this.prisma.coupon.findUnique({ where: { code: data.code } });
+    const existing = await this.prisma.coupon.findUnique({
+      where: { code: data.code },
+    });
     if (existing) throw new BadRequestException('Coupon code already exists');
 
-    return this.prisma.coupon.create({
+    const startDate = new Date(data.startDate);
+    const endDate = new Date(data.endDate);
+
+    const now = new Date();
+    const isActive =
+      data.isActive !== undefined ? data.isActive && endDate > now : endDate > now;
+
+    const created = await this.prisma.coupon.create({
       data: {
         ...data,
-        // Ensure dates are Date objects if DTO passes strings
-        startDate: new Date(data.startDate),
-        endDate: new Date(data.endDate),
-      }
+        startDate,
+        endDate,
+        isActive,
+      },
     });
+
+    const enriched = {
+      ...created,
+      status: this.computeCouponStatus(created),
+    };
+
+    this.couponsGateway.broadcastCouponCreated(enriched);
+    return enriched;
   }
 
   async update(id: string, user: any, data: UpdateCouponDto) {
-    const coupon = await this.findOne(id, user); // verifies access
+    const coupon = await this.findOne(id, user);
 
-    return this.prisma.coupon.update({
+    const startDate = data.startDate ? new Date(data.startDate) : new Date(coupon.startDate);
+    const endDate = data.endDate ? new Date(data.endDate) : new Date(coupon.endDate);
+
+    const now = new Date();
+
+    // Prevent activating an expired coupon without extending end date
+    if (data.isActive === true && endDate <= now) {
+      throw new BadRequestException(
+        'Cannot activate an expired coupon. Please extend the expiration date first.',
+      );
+    }
+
+    const updated = await this.prisma.coupon.update({
       where: { id },
       data: {
         ...data,
-        startDate: data.startDate ? new Date(data.startDate) : undefined,
-        endDate: data.endDate ? new Date(data.endDate) : undefined,
-      }
+        startDate: data.startDate ? startDate : undefined,
+        endDate: data.endDate ? endDate : undefined,
+        isActive: data.isActive !== undefined ? data.isActive : (endDate <= now ? false : undefined),
+      },
     });
+
+    const enriched = {
+      ...updated,
+      status: this.computeCouponStatus(updated),
+    };
+
+    if (enriched.status === 'expired') {
+      this.couponsGateway.broadcastCouponExpired({
+        id: updated.id,
+        code: updated.code,
+        vendorId: updated.vendorId,
+        status: 'expired',
+        endDate: updated.endDate,
+      });
+    } else {
+      this.couponsGateway.broadcastCouponUpdated(enriched);
+    }
+
+    return enriched;
   }
 
   async remove(id: string, user: any) {
-    await this.findOne(id, user); // verifies access checks
-    return this.prisma.coupon.delete({ where: { id } });
+    const coupon = await this.findOne(id, user);
+    await this.prisma.coupon.delete({ where: { id } });
+
+    this.couponsGateway.broadcastCouponDeleted({
+      id: coupon.id,
+      vendorId: coupon.vendorId,
+    });
+
+    return { success: true };
   }
 
   private async hydrateUser(user: any) {

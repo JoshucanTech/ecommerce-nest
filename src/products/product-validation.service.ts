@@ -52,8 +52,11 @@ export class ProductValidationService {
           );
         }
       } else {
-        // Check base product inventory
-        if (!product.inventory || product.inventory.quantity < item.quantity) {
+        // Check inventory: prefer the Inventory record, fall back to product.quantity
+        const availableQty = product.inventory
+          ? product.inventory.quantity
+          : product.quantity;
+        if (availableQty < item.quantity) {
           validationErrors.push(
             `Product ${product.name} has insufficient inventory`,
           );

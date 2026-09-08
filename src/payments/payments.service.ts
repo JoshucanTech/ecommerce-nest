@@ -71,12 +71,14 @@ export class PaymentsService {
       });
 
       if (coupon) {
-        // Check if coupon is active
+        // Check if coupon is active and not expired
         const now = new Date();
+        const isNotExpired = !coupon.endDate || new Date(coupon.endDate) > now;
+
         if (
           coupon.isActive &&
           coupon.startDate <= now &&
-          coupon.endDate >= now
+          isNotExpired
         ) {
           // Check if coupon has reached usage limit
           if (!coupon.usageLimit || coupon.usageCount < coupon.usageLimit) {

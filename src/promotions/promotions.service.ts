@@ -18,17 +18,18 @@ export class PromotionsService {
       throw new NotFoundException('Invalid coupon code');
     }
 
-    // Check if coupon is active
     const now = new Date();
-    if (
-      !coupon.isActive ||
-      (coupon.startDate && coupon.startDate > now) ||
-      (coupon.endDate && coupon.endDate < now)
-    ) {
+
+    if (!coupon.isActive) {
       throw new BadRequestException('Coupon is not active or has expired');
     }
+    if (coupon.startDate && coupon.startDate > now) {
+      throw new BadRequestException('Coupon is not active or has expired');
+    }
+    if (coupon.endDate && coupon.endDate < now) {
+      throw new BadRequestException('This coupon has expired');
+    }
 
-    // Check if coupon has reached usage limit
     if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
       throw new BadRequestException('Coupon usage limit reached');
     }
