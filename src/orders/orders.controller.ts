@@ -77,6 +77,7 @@ export class OrdersController {
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status. Defaults to COMPLETED for customers' })
   @ApiResponse({
     status: 200,
     description: 'Return all orders for the authenticated user.',
@@ -86,11 +87,13 @@ export class OrdersController {
     @Query('page') page = 1,
     @Query('limit') limit = 10,
     @Query('status') status?: string,
+    @Query('paymentStatus') paymentStatus?: string,
   ) {
     return this.ordersService.findAll(user.id, {
       page: Number(page),
       limit: Number(limit),
       status,
+      paymentStatus,
     });
   }
 
@@ -111,10 +114,12 @@ export class OrdersController {
     @CurrentUser() user,
     @Query('page') page = 1,
     @Query('limit') limit = 10,
+    @Query('paymentStatus') paymentStatus?: string,
   ) {
     return this.ordersService.findGroupedByTransactionRef(user.id, {
       page: Number(page),
       limit: Number(limit),
+      paymentStatus,
     });
   }
 

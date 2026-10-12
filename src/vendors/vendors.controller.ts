@@ -123,6 +123,7 @@ export class VendorsController {
         @Query('page') page = 1,
         @Query('limit') limit = 10,
         @Query('status') status?: string,
+        @Query('paymentStatus') paymentStatus?: string,
         @Query('userId') userId?: string,
     ) {
         const targetUserId = (user.role === UserRole.ADMIN || user.role === UserRole.SUB_ADMIN) && userId ? userId : user.id;
@@ -130,6 +131,7 @@ export class VendorsController {
             page: +page,
             limit: +limit,
             status,
+            paymentStatus,
         });
     }
 

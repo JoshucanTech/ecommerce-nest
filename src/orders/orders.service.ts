@@ -364,9 +364,10 @@ export class OrdersService {
       page: number;
       limit: number;
       status?: string;
+      paymentStatus?: string;
     },
   ) {
-    const { page, limit, status } = params;
+    const { page, limit, status, paymentStatus } = params;
     const skip = (page - 1) * limit;
 
     // Build where conditions
@@ -376,6 +377,15 @@ export class OrdersService {
 
     if (status) {
       where.status = status;
+    }
+
+    // IMPORTANT: By default, only show orders with COMPLETED payment status for customers
+    // This ensures customers only see successful orders
+    if (paymentStatus) {
+      where.paymentStatus = paymentStatus;
+    } else {
+      // Default filter: only show orders with completed payments
+      where.paymentStatus = 'COMPLETED';
     }
 
     // Get orders with pagination
@@ -426,16 +436,23 @@ export class OrdersService {
     page: number;
     limit: number;
     status?: string;
+    paymentStatus?: string;
     userId?: string;
   }) {
-    const { page, limit, status, userId } = params;
+    const { page, limit, status, paymentStatus, userId } = params;
     const skip = (page - 1) * limit;
 
     // Build where conditions
     const where: any = {};
 
-    if (status) {
+    if (status && status !== 'all') {
       where.status = status;
+    }
+
+    // For admin dashboard, show all payment statuses by default
+    // but allow filtering by specific payment status
+    if (paymentStatus && paymentStatus !== 'all') {
+      where.paymentStatus = paymentStatus;
     }
 
     if (userId) {
@@ -500,9 +517,10 @@ export class OrdersService {
       page: number;
       limit: number;
       status?: string;
+      paymentStatus?: string;
     },
   ) {
-    const { page, limit, status } = params;
+    const { page, limit, status, paymentStatus } = params;
     const skip = (page - 1) * limit;
 
     // Get vendor ID
@@ -519,8 +537,14 @@ export class OrdersService {
       vendorId: vendor.id,
     };
 
-    if (status) {
+    if (status && status !== 'all') {
       where.status = status;
+    }
+
+    // For vendor dashboard, show all payment statuses by default
+    // but allow filtering by specific payment status
+    if (paymentStatus && paymentStatus !== 'all') {
+      where.paymentStatus = paymentStatus;
     }
 
     // Get orders with pagination
@@ -770,10 +794,15 @@ export class OrdersService {
 
   @Cacheable(300, 'transaction-orders')
   async findByTransactionRef(transactionRef: string, userId: string) {
+    // Orders may be looked up by either the TXN- transactionRef or the FLW- paymentIntentId.
+    // Use an OR clause to handle both cases robustly.
     const orders = await this.prisma.order.findMany({
       where: {
-        transactionRef,
-        userId: userId,
+        userId,
+        OR: [
+          { transactionRef },
+          { paymentIntentId: transactionRef },
+        ],
       },
       include: {
         items: {
@@ -814,16 +843,23 @@ export class OrdersService {
     params: {
       page: number;
       limit: number;
+      paymentStatus?: string;
     },
   ) {
-    const { page, limit } = params;
+    const { page, limit, paymentStatus } = params;
     const skip = (page - 1) * limit;
+
+    const where: any = {
+      userId,
+    };
+
+    if (paymentStatus && paymentStatus !== 'all') {
+      where.paymentStatus = paymentStatus;
+    }
 
     // Get all the order data in a single query with proper ordering
     const orders = await this.prisma.order.findMany({
-      where: {
-        userId,
-      },
+      where,
       orderBy: [
         // Order by max createdAt per transactionRef in descending order (newest first)
         // This is a simplification - true group-wise ordering would require a more complex query
@@ -1231,6 +1267,7 @@ export class OrdersService {
       page: number;
       limit: number;
       status?: string;
+      paymentStatus?: string;
     },
   ) {
     const user = await this.prisma.user.findUnique({
@@ -1307,7 +1344,8 @@ export class OrdersService {
       } : null;
 
       const where: any = {};
-      if (params.status) where.status = params.status;
+      if (params.status && params.status !== 'all') where.status = params.status;
+      if (params.paymentStatus && params.paymentStatus !== 'all') where.paymentStatus = params.paymentStatus;
 
       if (profileFilter || (permissionFilter && !hasGlobalPermission)) {
         const combinedLocationFilter = {
