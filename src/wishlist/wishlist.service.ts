@@ -18,6 +18,7 @@ export class WishlistService {
             id: true,
             name: true,
             slug: true,
+            shortDescription: true,
             quantity: true,
             price: true,
             discountPrice: true,
@@ -29,15 +30,13 @@ export class WishlistService {
                 slug: true,
               },
             },
-            reviews: {
-              select: {
-                rating: true,
-              },
-            },
             flashSaleItems: {
-              include: {
+              select: {
+                discountPercentage: true,
+                flashSaleId: true,
                 flashSale: {
                   select: {
+                    id: true,
                     isActive: true,
                     startDate: true,
                     endDate: true,
@@ -53,34 +52,27 @@ export class WishlistService {
       },
     });
 
-    // Process items to include average rating and flash sale info
+    // Process items into a compact product summary with active sale pricing.
     const items = wishlistItems.map((item) => {
-      const avgRating =
-        item.product.reviews.length > 0
-          ? item.product.reviews.reduce(
-              (sum, review) => sum + review.rating,
-              0,
-            ) / item.product.reviews.length
-          : 0;
-
-      // Ensure flashSaleItems array exists before calling find
-      const _flashSaleItems = item.product.flashSaleItems || [];
-      const activeFlashSale = _flashSaleItems.find(
-        (fsi) => fsi.flashSale !== null,
+      const now = new Date();
+      const activeFlashSale = item.product.flashSaleItems.find(
+        ({ flashSale }) =>
+          flashSale?.isActive &&
+          flashSale.startDate <= now &&
+          flashSale.endDate >= now,
       );
       const price = item.product.discountPrice || item.product.price;
       const flashSalePrice = activeFlashSale
         ? price * (1 - activeFlashSale.discountPercentage / 100)
         : null;
 
-      const { reviews, flashSaleItems, ...productRest } = item.product;
+      const { flashSaleItems, images, ...productRest } = item.product;
 
       return {
         id: item.id,
         product: {
           ...productRest,
-          avgRating,
-          reviewCount: item.product.reviews.length,
+          images: images?.slice(0, 1) ?? [],
           flashSalePrice,
           activeFlashSale: activeFlashSale
             ? {

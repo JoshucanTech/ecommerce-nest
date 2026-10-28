@@ -270,11 +270,10 @@ export class ProductsController {
                     example: '123e4567-e89b-12d3-a456-426614174000',
                   },
                   name: { type: 'string', example: 'Wireless Headphones' },
-                  slug: { type: 'string', example: 'wireless-headphones' },
-                  description: {
+                  shortDescription: {
                     type: 'string',
-                    example:
-                      'High-quality wireless headphones with noise cancellation',
+                    nullable: true,
+                    example: 'Noise-cancelling wireless headphones',
                   },
                   price: { type: 'number', example: 99.99 },
                   discountPrice: {
@@ -282,55 +281,10 @@ export class ProductsController {
                     example: null,
                     nullable: true,
                   },
-                  sku: { type: 'string', example: 'WH-NC100-BLK' },
                   images: {
                     type: 'array',
                     items: { type: 'string' },
-                    example: [
-                      'https://example.com/image1.jpg',
-                      'https://example.com/image2.jpg',
-                    ],
-                  },
-                  isPublished: { type: 'boolean', example: true },
-                  categoryId: {
-                    type: 'string',
-                    example: '123e4567-e89b-12d3-a456-426614174001',
-                  },
-                  vendorId: {
-                    type: 'string',
-                    example: '123e4567-e89b-12d3-a456-426614174002',
-                  },
-                  createdAt: {
-                    type: 'string',
-                    format: 'date-time',
-                    example: '2023-01-01T00:00:00Z',
-                  },
-                  updatedAt: {
-                    type: 'string',
-                    format: 'date-time',
-                    example: '2023-01-01T00:00:00Z',
-                  },
-                  category: {
-                    type: 'object',
-                    properties: {
-                      id: {
-                        type: 'string',
-                        example: '123e4567-e89b-12d3-a456-426614174001',
-                      },
-                      name: { type: 'string', example: 'Electronics' },
-                      slug: { type: 'string', example: 'electronics' },
-                    },
-                  },
-                  vendor: {
-                    type: 'object',
-                    properties: {
-                      id: {
-                        type: 'string',
-                        example: '123e4567-e89b-12d3-a456-426614174002',
-                      },
-                      businessName: { type: 'string', example: 'Tech Store' },
-                      slug: { type: 'string', example: 'tech-store' },
-                    },
+                    example: ['https://example.com/image1.jpg'],
                   },
                 },
               },
@@ -398,77 +352,8 @@ export class ProductsController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Returns new products',
-    content: {
-      'application/json': {
-        schema: {
-          type: 'object',
-          properties: {
-            data: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: {
-                    type: 'string',
-                    example: '123e4567-e89b-12d3-a456-426614174000',
-                  },
-                  name: { type: 'string', example: 'Wireless Headphones' },
-                  slug: { type: 'string', example: 'wireless-headphones' },
-                  description: {
-                    type: 'string',
-                    example:
-                      'High-quality wireless headphones with noise cancellation',
-                  },
-                  price: { type: 'number', example: 99.99 },
-                  discountPrice: {
-                    type: 'number',
-                    example: null,
-                    nullable: true,
-                  },
-                  sku: { type: 'string', example: 'WH-NC100-BLK' },
-                  images: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    example: [
-                      'https://example.com/image1.jpg',
-                      'https://example.com/image2.jpg',
-                    ],
-                  },
-                  isPublished: { type: 'boolean', example: true },
-                  categoryId: {
-                    type: 'string',
-                    example: '123e4567-e89b-12d3-a456-426614174001',
-                  },
-                  vendorId: {
-                    type: 'string',
-                    example: '123e4567-e89b-12d3-a456-426614174002',
-                  },
-                  createdAt: {
-                    type: 'string',
-                    format: 'date-time',
-                    example: '2023-01-01T00:00:00Z',
-                  },
-                  updatedAt: {
-                    type: 'string',
-                    format: 'date-time',
-                    example: '2023-01-01T00:00:00Z',
-                  },
-                },
-              },
-            },
-            meta: {
-              type: 'object',
-              properties: {
-                page: { type: 'number', example: 1 },
-                limit: { type: 'number', example: 10 },
-                total: { type: 'number', example: 50 },
-              },
-            },
-          },
-        },
-      },
-    },
+    description:
+      'Returns compact product-card data (id, name, slug, price, discount, first image, vendor, category and rating) with pagination metadata.',
   })
   getNewProducts(@Query('limit') limit = 10, @Query('page') page = 1) {
     return this.productsService.getNewProducts(limit, page);
@@ -477,6 +362,11 @@ export class ProductsController {
   @Get('recently-viewed')
   @Public()
   @ApiOperation({ summary: 'Get recently viewed products' })
+  @ApiQuery({
+    name: 'vendorSlug',
+    required: false,
+    description: 'Optionally restrict results to a vendor storefront',
+  })
   @ApiCookieAuth() // Indicates use of cookies like `session_id`
   @ApiResponse({
     status: 200,
@@ -484,11 +374,11 @@ export class ProductsController {
     // type: [ProductDto], // Replace with the actual DTO type returned
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  getViewed(@Req() req) {
+  getViewed(@Req() req, @Query('vendorSlug') vendorSlug?: string) {
     const userId = req.user?.id;
     // const sessionId = req.cookies['session_id']; // or generate if missing
     const sessionId = req?.headers['x-anonymous-id']?.toString() || 'sessionId-12345';
-    return this.productsService.getRecentlyViewed(userId, sessionId);
+    return this.productsService.getRecentlyViewed(userId, sessionId, vendorSlug);
   }
 
   @Post('recently-viewed')

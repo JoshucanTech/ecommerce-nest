@@ -146,7 +146,16 @@ export class FlashSalesService {
         skip,
         take: limit,
         orderBy: [{ startDate: 'asc' }, { createdAt: 'desc' }],
-        include: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          startDate: true,
+          endDate: true,
+          isActive: true,
+          vendorId: true,
+          slug: true,
+          createdAt: true,
           vendor: {
             select: {
               id: true,
@@ -155,28 +164,24 @@ export class FlashSalesService {
             },
           },
           items: {
-            include: {
+            select: {
+              id: true,
+              flashSaleId: true,
+              productId: true,
+              discountPercentage: true,
+              quantity: true,
+              soldCount: true,
+              createdAt: true,
               product: {
-                include: {
-                  vendor: {
-                    select: {
-                      id: true,
-                      businessName: true,
-                      slug: true,
-                    },
-                  },
-                  reviews: {
-                    select: {
-                      rating: true,
-                    },
-                  },
+                select: {
+                  id: true,
+                  name: true,
+                  shortDescription: true,
+                  price: true,
+                  discountPrice: true,
+                  images: true,
                 },
               }, // Include product data here
-            },
-          },
-          _count: {
-            select: {
-              items: true,
             },
           },
         },
@@ -194,13 +199,18 @@ export class FlashSalesService {
 
       return {
         ...flashSale,
-        itemCount: flashSale._count.items,
+        items: flashSale.items.map((item) => {
+          return {
+            ...item,
+            product: item.product,
+          };
+        }),
+        itemCount: flashSale.items.length,
         status: isActive
           ? 'ACTIVE'
           : flashSale.startDate > now
             ? 'UPCOMING'
             : 'EXPIRED',
-        _count: undefined,
       };
     });
 
@@ -213,19 +223,13 @@ export class FlashSalesService {
         },
         take: 12, // Limit fallback items
         orderBy: { createdAt: 'desc' },
-        include: {
-          vendor: {
-            select: {
-              id: true,
-              businessName: true,
-              slug: true,
-            },
-          },
-          reviews: {
-            select: {
-              rating: true,
-            },
-          },
+        select: {
+          id: true,
+          name: true,
+          shortDescription: true,
+          price: true,
+          discountPrice: true,
+          images: true,
         },
       });
 
@@ -251,7 +255,14 @@ export class FlashSalesService {
             ),
             quantity: 100,
             soldCount: 0,
-            product: product,
+            product: {
+              id: product.id,
+              name: product.name,
+              shortDescription: product.shortDescription,
+              price: product.price,
+              discountPrice: product.discountPrice,
+              images: product.images,
+            },
           })),
         };
 

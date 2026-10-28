@@ -36,12 +36,21 @@ export class CartService {
         items: {
           include: {
             product: {
-              include: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                shortDescription: true,
+                price: true,
+                discountPrice: true,
+                images: true,
+                vendorId: true,
                 vendor: {
                   select: { id: true, businessName: true, slug: true },
                 },
                 flashSaleItems: {
-                  include: {
+                  select: {
+                    discountPercentage: true,
                     flashSale: {
                       select: {
                         isActive: true,
@@ -53,7 +62,15 @@ export class CartService {
                 },
               },
             },
-            productVariant: true,
+            productVariant: {
+              select: {
+                id: true,
+                color: true,
+                size: true,
+                price: true,
+                discountPrice: true,
+              },
+            },
           },
         },
       },

@@ -11,6 +11,17 @@ import { ProductValidationService } from './product-validation.service';
 import { ProductCalculatorService } from './product-calculator.service';
 import { RbacService } from '../common/rbac';
 
+const productListSelect = {
+  id: true,
+  slug: true,
+  name: true,
+  shortDescription: true,
+  price: true,
+  discountPrice: true,
+  images: true,
+  vendorId: true,
+} as const;
+
 @Injectable()
 export class ProductsService {
   constructor(
@@ -130,56 +141,30 @@ export class ProductsService {
         skip,
         take: limit,
         orderBy,
-        include: {
-          categories: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-          vendor: {
-            select: {
-              id: true,
-              businessName: true,
-              slug: true,
-            },
-          },
-          reviews: {
-            select: {
-              rating: true,
-            },
-          },
-        },
+        select: productListSelect,
       }),
       this.prisma.product.count({ where }),
     ]);
 
-    const productsWithRating = products.map((product) => {
-      const { avgRating, reviewCount } =
-        this.productCalculatorService.calculateProductRatings(product.reviews);
-      const { reviews, ...rest } = product;
-
-      return {
-        ...rest,
-        category: product.categories,
-        avgRating,
-        reviewCount,
-      };
-    });
-
     // storefrontVendorId prioritization logic
-    let processedProducts = productsWithRating;
+    let processedProducts = products;
     if (storefrontVendorId) {
-      processedProducts = productsWithRating.sort((a, b) => {
+      processedProducts = products.sort((a, b) => {
         if (a.vendorId === storefrontVendorId && b.vendorId !== storefrontVendorId) return -1;
         if (a.vendorId !== storefrontVendorId && b.vendorId === storefrontVendorId) return 1;
         return 0;
       });
     }
 
+    const productSummaries = processedProducts.map(
+      ({ vendorId, images, ...product }) => ({
+        ...product,
+        images: images?.slice(0, 1) ?? [],
+      }),
+    );
+
     return {
-      data: processedProducts,
+      data: productSummaries,
       meta: {
         total,
         page,
@@ -247,26 +232,31 @@ export class ProductsService {
     const products = await this.prisma.product.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: {
-        categories: true,
-        reviews: {
-          select: {
-            rating: true,
-          },
-        },
+      select: {
+        id: true,
+        name: true,
+        shortDescription: true,
+        price: true,
+        discountPrice: true,
+        quantity: true,
+        sku: true,
+        images: true,
+        isPublished: true,
+        vendorId: true,
+        slug: true,
+        createdAt: true,
+        updatedAt: true,
+        warrantyInfo: true,
+        returnPolicy: true,
+        metaTitle: true,
+        metaDescription: true,
+        tags: true,
       },
     });
 
     return products.map((product) => {
-      const { avgRating, reviewCount } =
-        this.productCalculatorService.calculateProductRatings(product.reviews);
-      const { reviews, ...rest } = product;
-      return {
-        ...rest,
-        category: product.categories,
-        avgRating,
-        reviewCount,
-      };
+      const { images, ...productData } = product;
+      return { ...productData, images: images?.slice(0, 1) ?? [] };
     });
   }
 
@@ -297,9 +287,19 @@ export class ProductsService {
             rating: true,
             isVerified: true,
             totalRatings: true,
-            OrderShipping: true,
-            Shipping: true,
-            ShippingPolicy: true,
+            Shipping: {
+              select: {
+                id: true,
+                name: true,
+                deliveryTime: true,
+                price: true,
+                isActive: true,
+                shippingType: true,
+              },
+            },
+            ShippingPolicy: {
+              select: { processingTime: true },
+            },
           },
         },
         reviews: {
@@ -446,67 +446,32 @@ export class ProductsService {
   async getNewProducts(limit = 10, page = 1) {
     const daysAgo = new Date();
     daysAgo.setDate(daysAgo.getDate() - 14);
-
     const skip = (page - 1) * limit;
+    const where = {
+      isPublished: true,
+      createdAt: { gte: daysAgo },
+    };
 
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({
-        where: {
-          isPublished: true,
-        },
+        where,
         skip,
         take: limit,
         orderBy: {
           createdAt: 'desc',
         },
-        include: {
-          categories: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-          vendor: {
-            select: {
-              id: true,
-              businessName: true,
-              slug: true,
-            },
-          },
-          reviews: {
-            select: {
-              rating: true,
-            },
-          },
-        },
+        select: productListSelect,
       }),
-      this.prisma.product.count({
-        where: {
-          isPublished: true,
-        },
-      }),
+      this.prisma.product.count({ where }),
     ]);
 
-    const productsWithRating = products.map((product) => {
-      const avgRating =
-        product.reviews.length > 0
-          ? product.reviews.reduce((sum, r) => sum + r.rating, 0) /
-          product.reviews.length
-          : 0;
-
-      const { reviews, ...rest } = product;
-
-      return {
-        ...rest,
-        category: product.categories,
-        avgRating,
-        reviewCount: product.reviews.length,
-      };
+    const productSummaries = products.map((product) => {
+      const { vendorId, images, ...productData } = product;
+      return { ...productData, images: images?.slice(0, 1) ?? [] };
     });
 
     return {
-      data: productsWithRating,
+      data: productSummaries,
       meta: {
         total,
         page,
@@ -575,11 +540,9 @@ export class ProductsService {
           },
         },
       },
-      include: {
+      select: {
         items: {
-          include: {
-            product: true,
-          },
+          select: { productId: true },
         },
       },
     });
@@ -588,57 +551,69 @@ export class ProductsService {
       return [];
     }
 
-    const productFrequency = new Map<string, { product: any; count: number }>();
+    const productFrequency = new Map<string, number>();
 
     for (const order of ordersWithProduct) {
       for (const item of order.items) {
         if (item.productId !== productId) {
-          if (productFrequency.has(item.productId)) {
-            productFrequency.get(item.productId).count++;
-          } else {
-            productFrequency.set(item.productId, {
-              product: item.product,
-              count: 1,
-            });
-          }
+          productFrequency.set(
+            item.productId,
+            (productFrequency.get(item.productId) ?? 0) + 1,
+          );
         }
       }
     }
 
-    const sortedProducts = Array.from(productFrequency.values())
-      .sort((a, b) => b.count - a.count)
+    const recommendedIds = Array.from(productFrequency.entries())
+      .sort((a, b) => b[1] - a[1])
       .slice(0, limit)
-      .map((item) => item.product);
+      .map(([recommendedProductId]) => recommendedProductId);
 
-    return sortedProducts;
+    const recommendedProducts = await this.prisma.product.findMany({
+      where: {
+        id: { in: recommendedIds },
+      },
+      select: productListSelect,
+    });
+    const productsById = new Map(
+      recommendedProducts.map((product) => [product.id, product]),
+    );
+
+    return recommendedIds
+      .map((id) => productsById.get(id))
+      .filter((product) => product !== undefined)
+      .map(({ vendorId, images, ...product }) => ({
+        ...product,
+        images: images?.slice(0, 1) ?? [],
+      }));
   }
 
-  async getRecentlyViewed(userId?: string, sessionId?: string) {
+  async getRecentlyViewed(
+    userId?: string,
+    sessionId?: string,
+    vendorSlug?: string,
+  ) {
     if (!userId && !sessionId) {
       throw new Error('Either userId or sessionId must be provided');
     }
 
     const views = await this.prisma.recentlyViewedProduct.findMany({
-      where: userId ? { userId } : { sessionId },
+      where: {
+        ...(userId ? { userId } : { sessionId }),
+        ...(vendorSlug ? { product: { vendor: { slug: vendorSlug } } } : {}),
+      },
       orderBy: { viewedAt: 'desc' },
       take: 10,
       include: {
         product: {
-          include: {
-            categories: true,
-            vendor: true,
-          },
+          select: productListSelect,
         },
       },
     });
 
-    return views.map((view) => {
-      const { categories, ...rest } = view.product;
-      return {
-        ...rest,
-        categories,
-        category: categories,
-      };
+    return views.map(({ product }) => {
+      const { vendorId, images, ...productData } = product;
+      return { ...productData, images: images?.slice(0, 1) ?? [] };
     });
   }
 }

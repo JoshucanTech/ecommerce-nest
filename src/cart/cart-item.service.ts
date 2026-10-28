@@ -107,7 +107,11 @@ export class CartItemService {
         id: itemId,
         cartId,
       },
-      include: { product: true, productVariant: true },
+      select: {
+        id: true,
+        product: { select: { quantity: true } },
+        productVariant: { select: { quantity: true } },
+      },
     });
 
     if (!cartItem) {

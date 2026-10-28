@@ -15,11 +15,9 @@ export class ProductRecommendationService {
           },
         },
       },
-      include: {
+      select: {
         items: {
-          include: {
-            product: true,
-          },
+          select: { productId: true },
         },
       },
     });
@@ -29,30 +27,45 @@ export class ProductRecommendationService {
     }
 
     // Aggregate all other products from these orders
-    const productFrequency = new Map<string, { product: any; count: number }>();
+    const productFrequency = new Map<string, number>();
 
     for (const order of ordersWithProduct) {
       for (const item of order.items) {
         if (item.productId !== productId) {
-          if (productFrequency.has(item.productId)) {
-            productFrequency.get(item.productId).count++;
-          } else {
-            productFrequency.set(item.productId, {
-              product: item.product,
-              count: 1,
-            });
-          }
+          productFrequency.set(
+            item.productId,
+            (productFrequency.get(item.productId) ?? 0) + 1,
+          );
         }
       }
     }
 
     // Sort by frequency and take the top 'limit'
-    const sortedProducts = Array.from(productFrequency.values())
-      .sort((a, b) => b.count - a.count)
+    const recommendedIds = Array.from(productFrequency.entries())
+      .sort((a, b) => b[1] - a[1])
       .slice(0, limit)
-      .map((item) => item.product);
+      .map(([recommendedProductId]) => recommendedProductId);
 
-    return sortedProducts;
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: recommendedIds } },
+      select: {
+        id: true,
+        name: true,
+        shortDescription: true,
+        price: true,
+        discountPrice: true,
+        images: true,
+      },
+    });
+    const productsById = new Map(products.map((product) => [product.id, product]));
+
+    return recommendedIds
+      .map((id) => productsById.get(id))
+      .filter((product) => product !== undefined)
+      .map((product) => ({
+        ...product,
+        images: product.images?.slice(0, 1) ?? [],
+      }));
   }
 
   async getNewProducts(limit = 10, page = 1) {
@@ -74,26 +87,13 @@ export class ProductRecommendationService {
         orderBy: {
           createdAt: 'desc',
         },
-        include: {
-          categories: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-          vendor: {
-            select: {
-              id: true,
-              businessName: true,
-              slug: true,
-            },
-          },
-          reviews: {
-            select: {
-              rating: true,
-            },
-          },
+        select: {
+          id: true,
+          name: true,
+          shortDescription: true,
+          price: true,
+          discountPrice: true,
+          images: true,
         },
       }),
       this.prisma.product.count({
@@ -106,22 +106,10 @@ export class ProductRecommendationService {
       }),
     ]);
 
-    const productsWithRating = products.map((product) => {
-      const avgRating =
-        product.reviews.length > 0
-          ? product.reviews.reduce((sum, r) => sum + r.rating, 0) /
-            product.reviews.length
-          : 0;
-
-      const { reviews, ...rest } = product;
-
-      return {
-        ...rest,
-        category: product.categories,
-        avgRating,
-        reviewCount: product.reviews.length,
-      };
-    });
+    const productsWithRating = products.map((product) => ({
+      ...product,
+      images: product.images?.slice(0, 1) ?? [],
+    }));
 
     return {
       data: productsWithRating,
