@@ -131,7 +131,7 @@ export class CategoriesController {
   @ApiOperation({
     summary: 'Get all categories',
     description:
-      'Retrieve all product categories in a hierarchical structure with subcategories and product counts.',
+      'Retrieve compact category summaries containing id, name, slug, image, and published productCount; optionally scoped to a vendor.',
   })
   @ApiResponse({
     status: 200,
@@ -149,54 +149,10 @@ export class CategoriesController {
               },
               name: { type: 'string', example: 'Electronics' },
               slug: { type: 'string', example: 'electronics' },
-              description: {
-                type: 'string',
-                example: 'Electronic devices and accessories',
-              },
               image: {
                 type: 'string',
-                example: 'https://example.com/electronics.jpg',
-              },
-              parentId: { type: 'string', example: null, nullable: true },
-              createdAt: {
-                type: 'string',
-                format: 'date-time',
-                example: '2023-01-01T00:00:00Z',
-              },
-              updatedAt: {
-                type: 'string',
-                format: 'date-time',
-                example: '2023-01-01T00:00:00Z',
-              },
-              parent: {
-                type: 'object',
                 nullable: true,
-                properties: {
-                  id: {
-                    type: 'string',
-                    example: '123e4567-e89b-12d3-a456-426614174001',
-                  },
-                  name: { type: 'string', example: 'Products' },
-                  slug: { type: 'string', example: 'products' },
-                },
-              },
-              subCategories: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    id: {
-                      type: 'string',
-                      example: '123e4567-e89b-12d3-a456-426614174002',
-                    },
-                    name: { type: 'string', example: 'Smartphones' },
-                    slug: { type: 'string', example: 'smartphones' },
-                    image: {
-                      type: 'string',
-                      example: 'https://example.com/smartphones.jpg',
-                    },
-                  },
-                },
+                example: 'https://example.com/electronics.jpg',
               },
               productCount: { type: 'number', example: 42 },
             },

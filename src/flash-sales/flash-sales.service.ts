@@ -149,29 +149,14 @@ export class FlashSalesService {
         select: {
           id: true,
           name: true,
-          description: true,
           startDate: true,
           endDate: true,
           isActive: true,
-          vendorId: true,
-          slug: true,
-          createdAt: true,
-          vendor: {
-            select: {
-              id: true,
-              businessName: true,
-              slug: true,
-            },
-          },
           items: {
             select: {
               id: true,
-              flashSaleId: true,
               productId: true,
               discountPercentage: true,
-              quantity: true,
-              soldCount: true,
-              createdAt: true,
               product: {
                 select: {
                   id: true,
@@ -181,7 +166,7 @@ export class FlashSalesService {
                   discountPrice: true,
                   images: true,
                 },
-              }, // Include product data here
+              },
             },
           },
         },
@@ -198,19 +183,23 @@ export class FlashSalesService {
         flashSale.endDate >= now;
 
       return {
-        ...flashSale,
-        items: flashSale.items.map((item) => {
-          return {
-            ...item,
-            product: item.product,
-          };
-        }),
-        itemCount: flashSale.items.length,
+        id: flashSale.id,
+        name: flashSale.name,
+        endDate: flashSale.endDate,
         status: isActive
           ? 'ACTIVE'
           : flashSale.startDate > now
             ? 'UPCOMING'
             : 'EXPIRED',
+        items: flashSale.items.map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          discountPercentage: item.discountPercentage,
+          product: {
+            ...item.product,
+            images: item.product.images?.slice(0, 1) ?? [],
+          },
+        })),
       };
     });
 
@@ -238,12 +227,7 @@ export class FlashSalesService {
         const virtualFlashSale = {
           id: 'virtual-hot-deals',
           name: 'Hot Deals',
-          description: 'Top discounted products for you',
-          startDate: new Date(),
           endDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-          isActive: true,
-          slug: 'hot-deals',
-          itemCount: discountedProducts.length,
           status: 'ACTIVE',
           items: discountedProducts.map((product) => ({
             id: `virtual-item-${product.id}`,
@@ -253,15 +237,13 @@ export class FlashSalesService {
                 product.price) *
                 100,
             ),
-            quantity: 100,
-            soldCount: 0,
             product: {
               id: product.id,
               name: product.name,
               shortDescription: product.shortDescription,
               price: product.price,
               discountPrice: product.discountPrice,
-              images: product.images,
+              images: product.images?.slice(0, 1) ?? [],
             },
           })),
         };

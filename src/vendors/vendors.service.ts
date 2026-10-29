@@ -406,7 +406,7 @@ export class VendorsService {
         include: {
           _count: {
             select: {
-              products: true,
+              products: { where: { isPublished: true } },
             },
           },
         },
@@ -689,15 +689,18 @@ export class VendorsService {
         },
         skip,
         take: limit,
-        include: {
+        select: {
+          id: true,
+          businessName: true,
+          businessLogo: true,
+          coverImage: true,
+          description: true,
+          isVerified: true,
+          rating: true,
+          slug: true,
           advertisements: {
             select: {
               id: true,
-              title: true,
-              description: true,
-              imageUrl: true,
-              startDate: true,
-              endDate: true,
             },
           },
           _count: {
@@ -733,9 +736,17 @@ export class VendorsService {
           skip,
           take: limit,
           orderBy: { rating: 'desc' },
-          include: {
+          select: {
+            id: true,
+            businessName: true,
+            businessLogo: true,
+            coverImage: true,
+            description: true,
+            isVerified: true,
+            rating: true,
+            slug: true,
             _count: {
-              select: { products: true },
+              select: { products: { where: { isPublished: true } } },
             },
           },
         }),
@@ -748,7 +759,18 @@ export class VendorsService {
       ]);
 
       return {
-        data: fallbackVendors.map(v => ({ ...v, productCount: v._count.products })),
+        data: fallbackVendors.map(({ _count, ...vendor }) => ({
+          id: vendor.id,
+          businessName: vendor.businessName,
+          businessLogo: vendor.businessLogo,
+          coverImage: vendor.coverImage,
+          description: vendor.description,
+          isVerified: vendor.isVerified,
+          rating: vendor.rating,
+          slug: vendor.slug,
+          productCount: _count.products,
+          isFeatured: false,
+        })),
         meta: {
           total: fallbackTotal,
           page,
@@ -759,7 +781,18 @@ export class VendorsService {
     }
 
     return {
-      data: featuredVendors.map(v => ({ ...v, productCount: v._count.products })),
+      data: featuredVendors.map(({ advertisements, _count, ...vendor }) => ({
+        id: vendor.id,
+        businessName: vendor.businessName,
+        businessLogo: vendor.businessLogo,
+        coverImage: vendor.coverImage,
+        description: vendor.description,
+        isVerified: vendor.isVerified,
+        rating: vendor.rating,
+        slug: vendor.slug,
+        productCount: _count.products,
+        isFeatured: advertisements.length > 0,
+      })),
       meta: {
         total,
         page,

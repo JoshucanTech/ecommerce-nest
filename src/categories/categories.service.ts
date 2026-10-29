@@ -61,40 +61,28 @@ export class CategoriesService {
 
     const categories = await this.prisma.category.findMany({
       where,
-      include: {
-        parent: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        subCategories: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            image: true,
-          },
-        },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        image: true,
         _count: {
           select: {
             products: vendorId || vendorSlug
               ? {
                   where: vendorId
-                    ? { vendorId }
-                    : { vendor: { slug: vendorSlug } },
+                    ? { vendorId, isPublished: true }
+                    : { vendor: { slug: vendorSlug }, isPublished: true },
                 }
-              : true,
+              : { where: { isPublished: true } },
           },
         },
       },
     });
 
-    return categories.map((category) => ({
+    return categories.map(({ _count, ...category }) => ({
       ...category,
-      productCount: category._count.products,
-      _count: undefined,
+      productCount: _count.products,
     }));
   }
 

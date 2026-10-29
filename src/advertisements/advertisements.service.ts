@@ -776,11 +776,11 @@ export class AdvertisementsService {
     };
 
     // Build where conditions for products if categoryId is provided
-    const productWhere: any = {};
+    const productWhere: any = {
+      product: { isPublished: true },
+    };
     if (categoryId) {
-      productWhere.product = {
-        categoryId,
-      };
+      productWhere.product.categories = { some: { id: categoryId } };
     }
 
     // Get featured products with pagination
@@ -793,44 +793,24 @@ export class AdvertisementsService {
         skip,
         take: limit,
         orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
-        include: {
+        select: {
+          customTitle: true,
+          customDescription: true,
+          customImageUrl: true,
+          customPrice: true,
           advertisement: {
             select: {
               id: true,
-              title: true,
-              description: true,
-              imageUrl: true,
-              startDate: true,
-              endDate: true,
             },
           },
           product: {
             select: {
               id: true,
               name: true,
-              slug: true,
-              description: true,
+              shortDescription: true,
               price: true,
               discountPrice: true,
               images: true,
-              categories: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-              reviews: {
-                select: {
-                  rating: true,
-                },
-              },
-              vendor: {
-                select: {
-                  id: true,
-                  businessName: true,
-                  businessLogo: true,
-                },
-              },
             },
           },
         },
@@ -849,53 +829,35 @@ export class AdvertisementsService {
         this.prisma.product.findMany({
           where: {
             isPublished: true,
-            ...(categoryId ? { categoryId } : {}),
+            ...(categoryId ? { categories: { some: { id: categoryId } } } : {}),
           },
           skip,
           take: limit,
           orderBy: { createdAt: 'desc' },
-          include: {
-            categories: {
-              select: { id: true, name: true },
-            },
-            reviews: {
-              select: { rating: true },
-            },
-            vendor: {
-              select: {
-                id: true,
-                businessName: true,
-                businessLogo: true,
-              },
-            },
+          select: {
+            id: true,
+            name: true,
+            shortDescription: true,
+            price: true,
+            discountPrice: true,
+            images: true,
           },
         }),
         this.prisma.product.count({
           where: {
             isPublished: true,
-            ...(categoryId ? { categoryId } : {}),
+            ...(categoryId ? { categories: { some: { id: categoryId } } } : {}),
           },
         }),
       ]);
 
       const processedFallback = fallbackProducts.map((product) => ({
         id: product.id,
-        slug: product.slug,
         name: product.name,
-        description: product.description,
+        shortDescription: product.shortDescription,
         price: product.price,
         discountPrice: product.discountPrice,
-        images: product.images,
-        category: product.categories[0] || null,
-        categories: product.categories,
-        vendor: product.vendor,
-        reviewCount: product.reviews.length,
-        avgRating:
-          product.reviews.length > 0
-            ? product.reviews.reduce((sum, r) => sum + r.rating, 0) /
-              product.reviews.length
-            : 0,
-        isFeatured: false,
+        images: product.images?.slice(0, 1) ?? [],
       }));
 
       return {
@@ -912,33 +874,14 @@ export class AdvertisementsService {
     // Transform the data to make it more client-friendly
     const transformedProducts = featuredProducts.map((item) => ({
       id: item.product.id,
-      slug: item.product.slug,
       name: item.customTitle || item.product.name,
-      description: item.customDescription || item.product.description,
-      price: item.customPrice || item.product.price,
+      shortDescription: item.customDescription || item.product.shortDescription,
+      price: item.customPrice ?? item.product.price,
       discountPrice: item.product.discountPrice,
-      images: item.customImageUrl
+      images: (item.customImageUrl
         ? [item.customImageUrl, ...item.product.images]
-        : item.product.images,
-      category: item.product.categories[0] || null,
-      categories: item.product.categories,
-      vendor: item.product.vendor,
-      reviewCount: item.product.reviews.length,
-      avgRating:
-        item.product.reviews.length > 0
-          ? item.product.reviews.reduce(
-              (sum, review) => sum + review.rating,
-              0,
-            ) / item.product.reviews.length
-          : 0,
-      advertisement: {
-        id: item.advertisement.id,
-        title: item.advertisement.title,
-        description: item.advertisement.description,
-        imageUrl: item.advertisement.imageUrl,
-      },
-      isFeatured: true,
-      displayOrder: item.displayOrder,
+        : item.product.images
+      ).slice(0, 1),
     }));
 
     return {
