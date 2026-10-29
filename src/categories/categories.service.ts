@@ -66,23 +66,12 @@ export class CategoriesService {
         name: true,
         slug: true,
         image: true,
-        _count: {
-          select: {
-            products: vendorId || vendorSlug
-              ? {
-                  where: vendorId
-                    ? { vendorId, isPublished: true }
-                    : { vendor: { slug: vendorSlug }, isPublished: true },
-                }
-              : { where: { isPublished: true } },
-          },
-        },
+       
       },
     });
 
-    return categories.map(({ _count, ...category }) => ({
+    return categories.map(({ ...category }) => ({
       ...category,
-      productCount: _count.products,
     }));
   }
 
