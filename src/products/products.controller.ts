@@ -400,6 +400,16 @@ export class ProductsController {
     return this.productsService.recordView({ productId, userId, sessionId });
   }
 
+  @Delete('recently-viewed')
+  @Session()
+  @ApiOperation({ summary: 'Clear recently viewed products for this shopper' })
+  @ApiResponse({ status: 200, description: 'Recently viewed products cleared' })
+  async clearRecentlyViewed(@CurrentUser() user, @Req() req) {
+    const userId = user?.id;
+    const sessionId = req?.headers['x-anonymous-id']?.toString();
+    return this.productsService.clearRecentlyViewed(userId, sessionId);
+  }
+
   // For viewer count
   @Get(':id/viewers')
   @Public()

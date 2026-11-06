@@ -616,4 +616,16 @@ export class ProductsService {
       return { ...productData, images: images?.slice(0, 1) ?? [] };
     });
   }
+
+  async clearRecentlyViewed(userId?: string, sessionId?: string) {
+    if (!userId && !sessionId) {
+      throw new ForbiddenException(
+        'Either userId or sessionId must be provided',
+      );
+    }
+
+    return this.prisma.recentlyViewedProduct.deleteMany({
+      where: userId ? { userId } : { sessionId },
+    });
+  }
 }
