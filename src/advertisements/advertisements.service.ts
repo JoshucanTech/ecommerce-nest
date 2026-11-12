@@ -824,7 +824,7 @@ export class AdvertisementsService {
     ]);
 
     // Fallback: If no featured products by advertisement, get highly rated products
-    if (featuredProducts.length === 0) {
+    if (total === 0) {
       const [fallbackProducts, fallbackTotal] = await Promise.all([
         this.prisma.product.findMany({
           where: {

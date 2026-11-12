@@ -132,7 +132,10 @@ export class FlashSalesService {
     const where: any = {};
 
     if (!includeExpired) {
-      where.endDate = { gte: new Date() };
+      const now = new Date();
+      where.isActive = true;
+      where.startDate = { lte: now };
+      where.endDate = { gte: now };
     }
 
     if (vendorId) {
@@ -204,13 +207,18 @@ export class FlashSalesService {
     });
 
     // Fallback: If no active flash sales, return products with discountPrice as "Hot Deals"
-    if (processedFlashSales.filter(fs => fs.status === 'ACTIVE').length === 0 && !includeExpired) {
-      const discountedProducts = await this.prisma.product.findMany({
+    if (total === 0 && !includeExpired) {
+      const discountedWhere = {
+        isPublished: true,
+        discountPrice: { not: null },
+      };
+      const [discountedProducts, discountedTotal] = await Promise.all([
+        this.prisma.product.findMany({
         where: {
-          isPublished: true,
-          discountPrice: { not: null },
+          ...discountedWhere,
         },
-        take: 12, // Limit fallback items
+        skip,
+        take: limit,
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
@@ -220,7 +228,9 @@ export class FlashSalesService {
           discountPrice: true,
           images: true,
         },
-      });
+        }),
+        this.prisma.product.count({ where: discountedWhere }),
+      ]);
 
       if (discountedProducts.length > 0) {
         // Create a virtual flash sale
@@ -251,10 +261,10 @@ export class FlashSalesService {
         return {
           data: [virtualFlashSale as any],
           meta: {
-            total: 1,
-            page: 1,
-            limit: 1,
-            totalPages: 1,
+            total: discountedTotal,
+            page,
+            limit,
+            totalPages: Math.ceil(discountedTotal / limit),
           },
         };
       }
