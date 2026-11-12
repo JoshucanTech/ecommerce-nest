@@ -19,7 +19,16 @@ const productListSelect = {
   price: true,
   discountPrice: true,
   images: true,
+  soldCount: true,
+  quantity: true,
   vendorId: true,
+  vendor: {
+    select: {
+      businessName: true,
+      slug: true,
+      isVerified: true,
+    },
+  },
 } as const;
 
 @Injectable()

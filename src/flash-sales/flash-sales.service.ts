@@ -168,6 +168,15 @@ export class FlashSalesService {
                   price: true,
                   discountPrice: true,
                   images: true,
+                  soldCount: true,
+                  quantity: true,
+                  vendor: {
+                    select: {
+                      businessName: true,
+                      slug: true,
+                      isVerified: true,
+                    },
+                  },
                 },
               },
             },
@@ -227,6 +236,15 @@ export class FlashSalesService {
           price: true,
           discountPrice: true,
           images: true,
+          soldCount: true,
+          quantity: true,
+          vendor: {
+            select: {
+              businessName: true,
+              slug: true,
+              isVerified: true,
+            },
+          },
         },
         }),
         this.prisma.product.count({ where: discountedWhere }),
@@ -254,6 +272,9 @@ export class FlashSalesService {
               price: product.price,
               discountPrice: product.discountPrice,
               images: product.images?.slice(0, 1) ?? [],
+              soldCount: product.soldCount,
+              quantity: product.quantity,
+              vendor: product.vendor,
             },
           })),
         };

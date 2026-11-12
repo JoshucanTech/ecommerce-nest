@@ -811,6 +811,15 @@ export class AdvertisementsService {
               price: true,
               discountPrice: true,
               images: true,
+              soldCount: true,
+              quantity: true,
+              vendor: {
+                select: {
+                  businessName: true,
+                  slug: true,
+                  isVerified: true,
+                },
+              },
             },
           },
         },
@@ -841,6 +850,15 @@ export class AdvertisementsService {
             price: true,
             discountPrice: true,
             images: true,
+            soldCount: true,
+            quantity: true,
+            vendor: {
+              select: {
+                businessName: true,
+                slug: true,
+                isVerified: true,
+              },
+            },
           },
         }),
         this.prisma.product.count({
@@ -858,6 +876,9 @@ export class AdvertisementsService {
         price: product.price,
         discountPrice: product.discountPrice,
         images: product.images?.slice(0, 1) ?? [],
+        soldCount: product.soldCount,
+        quantity: product.quantity,
+        vendor: product.vendor,
       }));
 
       return {
@@ -882,6 +903,9 @@ export class AdvertisementsService {
         ? [item.customImageUrl, ...item.product.images]
         : item.product.images
       ).slice(0, 1),
+      soldCount: item.product.soldCount,
+      quantity: item.product.quantity,
+      vendor: item.product.vendor,
     }));
 
     return {
