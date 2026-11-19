@@ -21,6 +21,7 @@ const productListSelect = {
   images: true,
   soldCount: true,
   quantity: true,
+  tags: true,
   vendorId: true,
   vendor: {
     select: {
@@ -84,6 +85,8 @@ export class ProductsService {
     maxPrice?: number;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
+    tags?: string[];
+    inStock?: boolean;
     storefrontVendorId?: string;
   }) {
     const {
@@ -96,6 +99,8 @@ export class ProductsService {
       maxPrice,
       sortBy,
       sortOrder,
+      tags,
+      inStock,
       storefrontVendorId,
     } = params;
     const skip = (page - 1) * limit;
@@ -116,6 +121,14 @@ export class ProductsService {
       where.categories = {
         some: isUuid ? { id: category } : { slug: category },
       };
+    }
+
+    if (tags?.length) {
+      where.tags = { hasSome: tags };
+    }
+
+    if (inStock) {
+      where.quantity = { gt: 0 };
     }
 
     if (vendor) {

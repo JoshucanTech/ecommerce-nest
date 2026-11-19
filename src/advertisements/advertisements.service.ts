@@ -21,6 +21,52 @@ export class AdvertisementsService {
     private rbacService: RbacService,
   ) { }
 
+  async getPublicHeroSlides() {
+    const now = new Date();
+    const advertisements = await this.prisma.advertisement.findMany({
+      where: {
+        status: AdStatus.ACTIVE,
+        type: {
+          in: [AdType.CAROUSEL, AdType.IN_APP_BANNER],
+        },
+        AND: [
+          { OR: [{ startDate: null }, { startDate: { lte: now } }] },
+          { OR: [{ endDate: null }, { endDate: { gte: now } }] },
+          {
+            OR: [
+              { imageUrl: { not: null } },
+              { mediaUrls: { isEmpty: false } },
+            ],
+          },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        adText: true,
+        imageUrl: true,
+        mediaUrls: true,
+        targetUrl: true,
+        landingPageUrl: true,
+        callToAction: true,
+      },
+    });
+
+    return advertisements
+      .map((advertisement) => ({
+        id: advertisement.id,
+        title: advertisement.title,
+        description: advertisement.description ?? advertisement.adText,
+        imageUrl: advertisement.imageUrl ?? advertisement.mediaUrls[0] ?? null,
+        href: advertisement.targetUrl ?? advertisement.landingPageUrl ?? '/shop',
+        callToAction: advertisement.callToAction ?? 'Shop now',
+      }))
+      .filter((advertisement) => advertisement.imageUrl);
+  }
+
   async create(
     createAdvertisementDto: CreateAdvertisementDto,
     user: any,

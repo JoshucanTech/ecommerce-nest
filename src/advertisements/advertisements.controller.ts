@@ -26,6 +26,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AdStatus } from '@prisma/client';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('advertisements')
 @Controller('advertisements')
@@ -33,6 +34,14 @@ import { AdStatus } from '@prisma/client';
 @ApiBearerAuth()
 export class AdvertisementsController {
   constructor(private readonly advertisementsService: AdvertisementsService) {}
+
+  @Get('public/hero-slides')
+  @Public()
+  @ApiOperation({ summary: 'Get active public homepage hero slides' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Active hero slides.' })
+  getPublicHeroSlides() {
+    return this.advertisementsService.getPublicHeroSlides();
+  }
 
   @Post()
   @Roles('VENDOR', 'ADMIN')

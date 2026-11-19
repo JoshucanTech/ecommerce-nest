@@ -66,12 +66,19 @@ export class CategoriesService {
         name: true,
         slug: true,
         image: true,
-       
+        _count: {
+          select: {
+            products: {
+              where: { isPublished: true },
+            },
+          },
+        },
       },
     });
 
-    return categories.map(({ ...category }) => ({
+    return categories.map(({ _count, ...category }) => ({
       ...category,
+      productCount: _count.products,
     }));
   }
 

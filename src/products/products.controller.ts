@@ -239,6 +239,18 @@ export class ProductsController {
     example: 200,
   })
   @ApiQuery({
+    name: 'tags',
+    required: false,
+    type: String,
+    description: 'Comma-separated product tags; a match on any tag is included',
+  })
+  @ApiQuery({
+    name: 'inStock',
+    required: false,
+    type: Boolean,
+    description: 'When true, only products with available quantity are returned',
+  })
+  @ApiQuery({
     name: 'sortBy',
     required: false,
     type: String,
@@ -312,19 +324,32 @@ export class ProductsController {
     @Query('maxPrice') maxPrice?: number,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Query('tags') tags?: string,
+    @Query('inStock') inStock?: string,
     @Req() req?: any,
   ) {
     const storefrontVendorId = req.headers['x-storefront-vendor'];
+    const parsedMinPrice = minPrice === undefined ? undefined : Number(minPrice);
+    const parsedMaxPrice = maxPrice === undefined ? undefined : Number(maxPrice);
+    if (
+      (parsedMinPrice !== undefined && !Number.isFinite(parsedMinPrice)) ||
+      (parsedMaxPrice !== undefined && !Number.isFinite(parsedMaxPrice))
+    ) {
+      throw new BadRequestException('Price filters must be valid numbers');
+    }
+
     return this.productsService.findAll({
       page: page || 1,
       limit: limit || 10,
       search,
       category,
       vendor,
-      minPrice,
-      maxPrice,
+      minPrice: parsedMinPrice,
+      maxPrice: parsedMaxPrice,
       sortBy,
       sortOrder,
+      tags: tags?.split(',').map((tag) => tag.trim()).filter(Boolean),
+      inStock: inStock === 'true',
       storefrontVendorId,
     });
   }
