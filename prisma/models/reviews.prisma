@@ -1,15 +1,26 @@
-model Review {
-  id        String   @id @default(uuid())
-  rating    Int?
-  comment   String?
-  productId String
-  userId    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  helpful   Int?
-  title     String?
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id])
+enum TestimonialStatus {
+  NOT_REQUESTED
+  PENDING
+  APPROVED
+  REJECTED
+}
 
+model Review {
+  id                   String            @id @default(uuid())
+  rating               Int?
+  comment              String?
+  productId            String
+  userId               String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  helpful              Int?
+  title                String?
+  testimonialConsent   Boolean           @default(false)
+  testimonialConsentAt DateTime?
+  testimonialStatus    TestimonialStatus @default(NOT_REQUESTED)
+  product              Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user                 User?             @relation(fields: [userId], references: [id])
+
+  @@index([testimonialStatus, testimonialConsent, createdAt])
   @@map("reviews")
 }

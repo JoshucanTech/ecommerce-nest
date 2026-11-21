@@ -10,7 +10,7 @@ import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
 import { VendorBranchDto } from './dto/vendor-branch.dto';
 import { generateSlug } from '../utils/slug-generator';
-import { AdStatus, AdType, ApplicationStatus } from '@prisma/client';
+import { AdStatus, AdType, ApplicationStatus, Prisma } from '@prisma/client';
 
 import { OrdersService } from '../orders/orders.service';
 import { ProductsService } from '../products/products.service';
@@ -379,8 +379,9 @@ export class VendorsService {
     const { page, limit, search, sortBy, sortOrder } = params;
     const skip = (page - 1) * limit;
 
-    const where: any = {
-      isVerified: true,
+    const where: Prisma.VendorWhereInput = {
+      status: ApplicationStatus.APPROVED,
+      isActive: true,
     };
 
     if (search) {
@@ -390,12 +391,91 @@ export class VendorsService {
       ];
     }
 
-    const orderBy: any = {};
-    if (sortBy) {
-      orderBy[sortBy] = sortOrder || 'asc';
-    } else {
-      orderBy.rating = 'desc';
+    const select = {
+      id: true,
+      businessName: true,
+      slug: true,
+      description: true,
+      businessLogo: true,
+      coverImage: true,
+      rating: true,
+      isVerified: true,
+      _count: {
+        select: {
+          products: { where: { isPublished: true } },
+        },
+      },
+    } satisfies Prisma.VendorSelect;
+
+    if (sortBy === 'featured') {
+      const now = new Date();
+      const featuredAdvertisement: Prisma.AdvertisementWhereInput = {
+        status: AdStatus.ACTIVE,
+        type: AdType.FEATURED_VENDOR,
+        endDate: { gte: now },
+        budget: { gt: 0 },
+      };
+      const featuredWhere: Prisma.VendorWhereInput = {
+        ...where,
+        advertisements: { some: featuredAdvertisement },
+      };
+      const otherWhere: Prisma.VendorWhereInput = {
+        ...where,
+        NOT: { advertisements: { some: featuredAdvertisement } },
+      };
+      const [total, featuredTotal] = await Promise.all([
+        this.prisma.vendor.count({ where }),
+        this.prisma.vendor.count({ where: featuredWhere }),
+      ]);
+      const featuredPageSize = Math.max(
+        0,
+        Math.min(limit, featuredTotal - skip),
+      );
+      const otherPageSize = limit - featuredPageSize;
+      const [featuredVendors, otherVendors] = await Promise.all([
+        featuredPageSize
+          ? this.prisma.vendor.findMany({
+              where: featuredWhere,
+              skip,
+              take: featuredPageSize,
+              orderBy: [{ rating: 'desc' }, { id: 'asc' }],
+              select,
+            })
+          : Promise.resolve([]),
+        otherPageSize
+          ? this.prisma.vendor.findMany({
+              where: otherWhere,
+              skip: Math.max(0, skip - featuredTotal),
+              take: otherPageSize,
+              orderBy: [{ rating: 'desc' }, { id: 'asc' }],
+              select,
+            })
+          : Promise.resolve([]),
+      ]);
+      const vendors = [...featuredVendors, ...otherVendors];
+
+      return {
+        data: vendors.map(({ _count, ...vendor }) => ({
+          ...vendor,
+          productCount: _count.products,
+        })),
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
     }
+
+    const orderBy: Prisma.VendorOrderByWithRelationInput[] =
+      sortBy === 'verified'
+        ? [{ isVerified: 'desc' }, { rating: 'desc' }, { id: 'asc' }]
+        : sortBy === 'businessName'
+          ? [{ businessName: 'asc' }, { id: 'asc' }]
+          : sortBy === 'createdAt'
+            ? [{ createdAt: sortOrder || 'desc' }, { id: 'asc' }]
+            : [{ rating: sortOrder || 'desc' }, { id: 'asc' }];
 
     const [vendors, total] = await Promise.all([
       this.prisma.vendor.findMany({
@@ -403,25 +483,16 @@ export class VendorsService {
         skip,
         take: limit,
         orderBy,
-        include: {
-          _count: {
-            select: {
-              products: { where: { isPublished: true } },
-            },
-          },
-        },
+        select,
       }),
       this.prisma.vendor.count({ where }),
     ]);
 
-    const processedVendors = vendors.map((vendor) => ({
-      ...vendor,
-      productCount: vendor._count.products,
-      _count: undefined,
-    }));
-
     return {
-      data: processedVendors,
+      data: vendors.map(({ _count, ...vendor }) => ({
+        ...vendor,
+        productCount: _count.products,
+      })),
       meta: {
         total,
         page,

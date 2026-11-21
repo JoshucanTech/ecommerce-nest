@@ -17,7 +17,13 @@ export class ReviewsService {
   ) { }
 
   async create(createReviewDto: CreateReviewDto, userId: string) {
-    const { productId, rating, comment } = createReviewDto;
+    const {
+      productId,
+      rating,
+      comment,
+      title,
+      testimonialConsent = false,
+    } = createReviewDto;
 
     // Check if product exists
     const product = await this.prisma.product.findUnique({
@@ -48,8 +54,12 @@ export class ReviewsService {
       data: {
         rating,
         comment,
+        title,
         productId,
         userId,
+        testimonialConsent,
+        testimonialConsentAt: testimonialConsent ? new Date() : null,
+        testimonialStatus: testimonialConsent ? 'PENDING' : 'NOT_REQUESTED',
       },
       include: {
         user: {
@@ -171,6 +181,90 @@ export class ReviewsService {
     };
   }
 
+  async findPublicTestimonials(limit: number) {
+    const reviews = await this.prisma.review.findMany({
+      where: {
+        testimonialConsent: true,
+        testimonialStatus: 'APPROVED',
+        comment: { not: null },
+        rating: { not: null },
+      },
+      take: limit,
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        rating: true,
+        title: true,
+        comment: true,
+        createdAt: true,
+        user: { select: { firstName: true, lastName: true } },
+        product: { select: { name: true } },
+      },
+    });
+
+    return {
+      data: reviews.map(({ user, product, ...review }) => ({
+        ...review,
+        name: user?.firstName
+          ? `${user.firstName}${user.lastName ? ` ${user.lastName.charAt(0)}.` : ''}`
+          : 'Customer',
+        productName: product.name,
+      })),
+    };
+  }
+
+  async findPendingTestimonials() {
+    return this.prisma.review.findMany({
+      where: {
+        testimonialConsent: true,
+        testimonialStatus: 'PENDING',
+        comment: { not: null },
+        rating: { not: null },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 50,
+      select: {
+        id: true,
+        rating: true,
+        title: true,
+        comment: true,
+        createdAt: true,
+        testimonialConsentAt: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        product: { select: { id: true, name: true } },
+      },
+    });
+  }
+
+  async moderateTestimonial(id: string, approved: boolean) {
+    const review = await this.prisma.review.findUnique({
+      where: { id },
+      select: { id: true, testimonialConsent: true },
+    });
+
+    if (!review) {
+      throw new NotFoundException(`Review with ID ${id} not found`);
+    }
+
+    if (!review.testimonialConsent) {
+      throw new BadRequestException(
+        'The customer has not consented to feature this review',
+      );
+    }
+
+    return this.prisma.review.update({
+      where: { id },
+      data: { testimonialStatus: approved ? 'APPROVED' : 'REJECTED' },
+      select: { id: true, testimonialConsent: true, testimonialStatus: true },
+    });
+  }
+
   async findOne(id: string) {
     const review = await this.prisma.review.findUnique({
       where: { id },
@@ -219,9 +313,30 @@ export class ReviewsService {
     }
 
     // Update review
+    const consentChanged =
+      updateReviewDto.testimonialConsent !== undefined &&
+      updateReviewDto.testimonialConsent !== review.testimonialConsent;
+    const testimonialContentChanged =
+      updateReviewDto.title !== undefined ||
+      updateReviewDto.comment !== undefined ||
+      updateReviewDto.rating !== undefined;
     const updatedReview = await this.prisma.review.update({
       where: { id },
-      data: updateReviewDto,
+      data: {
+        ...updateReviewDto,
+        ...(consentChanged
+          ? {
+              testimonialConsentAt: updateReviewDto.testimonialConsent
+                ? new Date()
+                : null,
+              testimonialStatus: updateReviewDto.testimonialConsent
+                ? 'PENDING'
+                : 'NOT_REQUESTED',
+            }
+          : testimonialContentChanged && review.testimonialConsent
+            ? { testimonialStatus: 'PENDING' }
+            : {}),
+      },
       include: {
         user: {
           select: {

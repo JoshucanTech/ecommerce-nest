@@ -23,6 +23,9 @@ import { UpdateReviewDto } from './dto/update-review.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { ModerateTestimonialDto } from './dto/moderate-testimonial.dto';
 
 @ApiTags('reviews')
 @Controller('reviews')
@@ -39,6 +42,38 @@ export class ReviewsController {
   @ApiResponse({ status: 404, description: 'Product not found' })
   create(@Body() createReviewDto: CreateReviewDto, @CurrentUser() user) {
     return this.reviewsService.create(createReviewDto, user.id);
+  }
+
+  @Get('testimonials/public')
+  @Public()
+  @ApiOperation({ summary: 'Get approved, consented homepage testimonials' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  findPublicTestimonials(@Query('limit') limit?: string) {
+    const parsedLimit = Number.parseInt(limit ?? '6', 10);
+    return this.reviewsService.findPublicTestimonials(
+      Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 12) : 6,
+    );
+  }
+
+  @Get('testimonials/pending')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List customer-consented testimonials awaiting moderation' })
+  findPendingTestimonials() {
+    return this.reviewsService.findPendingTestimonials();
+  }
+
+  @Patch(':id/testimonial')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Approve or reject a consented testimonial' })
+  moderateTestimonial(
+    @Param('id') id: string,
+    @Body() dto: ModerateTestimonialDto,
+  ) {
+    return this.reviewsService.moderateTestimonial(id, dto.approved);
   }
 
   @Get('product/:productId')

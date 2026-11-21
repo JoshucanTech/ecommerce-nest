@@ -57,8 +57,8 @@ model VendorApplication {
   reviewedAt      DateTime?
   reviewedBy      String?
   website         String?
-  themeColor      String?             @default("#000000")
-  accentColor     String?             @default("#ffffff")
+  themeColor      String?           @default("#000000")
+  accentColor     String?           @default("#ffffff")
   tagline         String?
   documents       Json?
   User            User[]

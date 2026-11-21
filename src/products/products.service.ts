@@ -150,11 +150,11 @@ export class ProductsService {
       };
     }
 
-    const orderBy: any = {};
+    const orderBy: any[] = [];
     if (sortBy) {
-      orderBy[sortBy] = sortOrder || 'asc';
+      orderBy.push({ [sortBy]: sortOrder || 'asc' }, { id: 'asc' });
     } else {
-      orderBy.createdAt = 'desc';
+      orderBy.push({ createdAt: 'desc' }, { id: 'asc' });
     }
 
     const [products, total] = await Promise.all([

@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsString, IsOptional, Min, Max } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsString,
+  IsOptional,
+  Min,
+  Max,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 
 export class CreateReviewDto {
   @ApiProperty({
@@ -21,5 +30,22 @@ export class CreateReviewDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
+  @Matches(/\S/)
   comment?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Consent to display this review as a public homepage testimonial, using the customer first name and last initial. Requires admin approval.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  testimonialConsent?: boolean;
+
+  @ApiPropertyOptional({ description: 'Optional review title' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  title?: string;
 }

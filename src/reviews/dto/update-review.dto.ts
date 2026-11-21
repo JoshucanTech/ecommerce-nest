@@ -1,5 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsString, IsOptional, Min, Max } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsString,
+  IsOptional,
+  Min,
+  Max,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 
 export class UpdateReviewDto {
   @ApiPropertyOptional({ description: 'Rating (1-5)', example: 5 })
@@ -15,5 +24,20 @@ export class UpdateReviewDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
+  @Matches(/\S/)
   comment?: string;
+
+  @ApiPropertyOptional({
+    description: 'Update or revoke consent to feature this review as a testimonial',
+  })
+  @IsOptional()
+  @IsBoolean()
+  testimonialConsent?: boolean;
+
+  @ApiPropertyOptional({ description: 'Optional review title' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  title?: string;
 }
